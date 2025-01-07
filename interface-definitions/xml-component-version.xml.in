@@ -1,0 +1,4 @@
+<?xml version="1.0"?>
+<interfaceDefinition>
+  #include <include/version/vpp-version.xml.i>
+</interfaceDefinition>
