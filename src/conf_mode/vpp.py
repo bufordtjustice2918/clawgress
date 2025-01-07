@@ -1,0 +1,553 @@
+#!/usr/bin/env python3
+#
+# Copyright (C) 2023-2024 VyOS Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+from pathlib import Path
+
+from psutil import virtual_memory
+from pyroute2 import IPRoute
+
+from vyos import ConfigError
+from vyos import airbag
+from vyos.base import Warning
+from vyos.config import Config
+from vyos.configdep import set_dependents, call_dependents
+from vyos.configdict import node_changed, leaf_node_changed
+from vyos.utils.cpu import get_core_count
+from vyos.ifconfig import Section
+from vyos.template import render
+from vyos.utils.boot import boot_configuration_complete
+from vyos.utils.process import call
+from vyos.utils.system import sysctl_read, sysctl_apply
+
+from vyos.vpp import VPPControl
+from vyos.vpp import control_host
+from vyos.vpp.config_deps import deps_xconnect_dict
+from vyos.vpp.config_verify import verify_dev_driver
+from vyos.vpp.config_filter import iface_filter_eth
+from vyos.vpp.utils import EthtoolGDrvinfo
+from vyos.vpp.configdb import JSONStorage
+
+airbag.enable()
+
+service_name = 'vpp'
+service_conf = Path(f'/run/vpp/{service_name}.conf')
+systemd_override = '/run/systemd/system/vpp.service.d/10-override.conf'
+
+dependency_interface_type_map = {
+    'vpp_interfaces_bonding': 'bonding',
+    'vpp_interfaces_bridge': 'bridge',
+    'vpp_interfaces_ethernet': 'ethernet',
+    'vpp_interfaces_geneve': 'geneve',
+    'vpp_interfaces_gre': 'gre',
+    'vpp_interfaces_ipip': 'ipip',
+    'vpp_interfaces_loopback': 'loopback',
+    'vpp_interfaces_vxlan': 'vxlan',
+    'vpp_interfaces_xconnect': 'xconnect',
+}
+
+# dict of drivers that needs to be overrided
+override_drivers: dict[str, str] = {
+    'hv_netvsc': 'uio_hv_generic',
+    'ena': 'vfio-pci',
+}
+
+# drivers that does not use PCIe addresses
+not_pci_drv: list[str] = ['hv_netvsc']
+
+
+def get_config(config=None):
+    # use persistent config to store interfaces data between executions
+    # this is required because some interfaces after they are connected
+    # to VPP is really hard or impossible to restore without knowing
+    # their original parameters (like IDs)
+    persist_config = JSONStorage('vpp_conf')
+    eth_ifaces_persist: dict[str, dict[str, str]] = persist_config.read(
+        'eth_ifaces', {}
+    )
+
+    if config:
+        conf = config
+    else:
+        conf = Config()
+
+    base = ['vpp']
+    base_settings = ['vpp', 'settings']
+
+    # find interfaces removed from VPP
+    effective_config = conf.get_config_dict(
+        base,
+        key_mangling=('-', '_'),
+        effective=True,
+        get_first_key=True,
+        no_tag_node_value_mangle=True,
+    )
+
+    xconn_members = deps_xconnect_dict(conf)
+
+    removed_ifaces = []
+    tmp = node_changed(conf, base_settings + ['interface'])
+    if tmp:
+        for removed_iface in tmp:
+            to_append = {
+                'iface_name': removed_iface,
+                'driver': effective_config['settings']['interface'][removed_iface][
+                    'driver'
+                ],
+            }
+            removed_ifaces.append(to_append)
+            # add an interface to a list of interfaces that need
+            # to be reinitialized after the commit
+            set_dependents('ethernet', conf, removed_iface)
+
+    if not conf.exists(base):
+        return {
+            'removed_ifaces': removed_ifaces,
+            'xconn_members': xconn_members,
+            'persist_config': eth_ifaces_persist,
+        }
+
+    config = conf.get_config_dict(
+        base,
+        get_first_key=True,
+        key_mangling=('-', '_'),
+        no_tag_node_value_mangle=True,
+        with_recursive_defaults=True,
+    )
+
+    # add running config
+    if effective_config:
+        config['effective'] = effective_config
+
+    if 'settings' in config:
+        if 'interface' in config['settings']:
+            for iface, iface_config in config['settings']['interface'].items():
+                # Driver must be configured to continue
+                if 'driver' not in iface_config:
+                    raise ConfigError(
+                        f'"driver" must be configured for {iface} interface!'
+                    )
+
+                old_driver = leaf_node_changed(
+                    conf, base_settings + ['interface', iface, 'driver']
+                )
+
+                # Get current kernel module, required for extra verification and
+                # logic for VMBus interfaces
+                config['settings']['interface'][iface]['kernel_module'] = (
+                    EthtoolGDrvinfo(iface).driver
+                )
+
+                # filter unsupported config nodes
+                iface_filter_eth(conf, iface)
+                set_dependents('ethernet', conf, iface)
+                # Interfaces with changed driver should be removed/readded
+                if old_driver and old_driver[0] == 'dpdk':
+                    removed_ifaces.append(
+                        {
+                            'iface_name': iface,
+                            'driver': 'dpdk',
+                        }
+                    )
+
+                # Get PCI address or device ID
+                if iface_config['driver'] == 'dpdk':
+                    if 'dpdk_options' not in iface_config:
+                        iface_config['dpdk_options'] = {}
+                    # Check in a persistent config first
+                    id_from_persisten_conf = eth_ifaces_persist.get(iface, {}).get(
+                        'dev_id'
+                    )
+                    if id_from_persisten_conf:
+                        iface_config['dpdk_options']['dev_id'] = id_from_persisten_conf
+                    else:
+                        try:
+                            iface_to_search = iface
+                            if old_driver and old_driver[0] == 'xdp':
+                                iface_to_search = f'defunct_{iface}'
+                            iface_config['dpdk_options']['dev_id'] = (
+                                control_host.get_dev_id(iface_to_search)
+                            )
+                        except Exception:
+                            # Return empty address if all attempts failed
+                            # We will catch this in verify()
+                            iface_config['dpdk_options']['dev_id'] = ''
+                # prepare XDP interface parameters
+                if iface_config['driver'] == 'xdp':
+                    xdp_api_params = {
+                        'rxq_size': int(iface_config['xdp_options']['rx_queue_size']),
+                        'txq_size': int(iface_config['xdp_options']['tx_queue_size']),
+                    }
+                    if iface_config['xdp_options']['num_rx_queues'] == 'all':
+                        xdp_api_params['rxq_num'] = 0
+                    else:
+                        xdp_api_params['rxq_num'] = int(
+                            iface_config['xdp_options']['num_rx_queues']
+                        )
+                    if 'zero-copy' in iface_config['xdp_options']:
+                        xdp_api_params['mode'] = 'zero-copy'
+                    if 'zero-copy' in iface_config['xdp_options']:
+                        xdp_api_params['flags'] = 'no_syscall_lock'
+                    iface_config['xdp_api_params'] = xdp_api_params
+
+    if removed_ifaces:
+        config['removed_ifaces'] = removed_ifaces
+        config['xconn_members'] = xconn_members
+
+    # Dependencies
+    for dependency, interface_type in dependency_interface_type_map.items():
+        # if conf.exists(base + ['interfaces', interface_type]):
+        if effective_config.get('interfaces', {}).get(interface_type):
+            for iface, iface_config in (
+                config.get('interfaces', {}).get(interface_type, {}).items()
+            ):
+                # filter unsupported config nodes
+                if interface_type == 'ethernet':
+                    iface_filter_eth(conf, iface)
+                set_dependents(dependency, conf, iface)
+
+    # Save important info about all interfaces that cannot be retrieved later
+    # Add new interfaces (only if they are first time seen in a config)
+    for iface, iface_config in config.get('settings', {}).get('interface', {}).items():
+        if iface not in effective_config.get('settings', {}).get('interface', {}):
+            eth_ifaces_persist[iface] = {
+                'original_driver': config['settings']['interface'][iface][
+                    'kernel_module'
+                ],
+            }
+            eth_ifaces_persist[iface]['bus_id'] = control_host.get_bus_name(iface)
+            eth_ifaces_persist[iface]['dev_id'] = control_host.get_dev_id(iface)
+
+    # Return to config dictionary
+    config['persist_config'] = eth_ifaces_persist
+
+    return config
+
+
+def convert_to_int(val):
+    rates = {
+        'K': 1024,
+        'M': 1024**2,
+        'G': 1024**3,
+    }
+    try:
+        return int(val)
+    except ValueError:
+        return int(val[:-1]) * rates[val[-1]]
+
+
+def verify_memory(settings):
+    memory_available: int = virtual_memory().available
+    cpus: int = get_core_count()
+
+    nr_hugepages = int(settings['host_resources']['nr_hugepages'])
+    hugepages_memory = nr_hugepages * 2 * 1024**2
+    memory_required = hugepages_memory
+
+    buffers_per_numa = int(settings.get('buffers', {}).get('buffers_per_numa', 16384))
+    data_size = int(settings.get('buffers', {}).get('data_size', 2048))
+    buffers_memory = buffers_per_numa * data_size * cpus
+
+    memory_required += buffers_memory
+
+    netlink_buffer_size = int(
+        settings.get('lcp', {}).get('netlink', {}).get('rx_buffer_size', 212992)
+    )
+    memory_required += netlink_buffer_size
+
+    memory_main_heap = convert_to_int(
+        settings.get('memory', {}).get('main_heap_size', '1G')
+    )
+    memory_required += memory_main_heap
+
+    statseg_size = convert_to_int(settings.get('statseg', {}).get('size', '96M'))
+    memory_required += statseg_size
+
+    if memory_available < memory_required:
+        raise ConfigError(
+            'Not enough free memory to start VPP:\n'
+            f'available: {round(memory_available / 1024 ** 3, 1)}GB\n'
+            f'required: {round(memory_required / 1024 ** 3, 1)}GB'
+        )
+
+
+def verify(config):
+    # bail out early - looks like removal from running config
+    if not config or ('removed_ifaces' in config and 'settings' not in config):
+        return None
+
+    if 'settings' not in config:
+        raise ConfigError('"settings interface" is required but not set!')
+
+    # CPU main-core must be not included to corelist-workers
+    if config.get('settings').get('cpu', {}).get('main_core') and config.get(
+        'settings'
+    ).get('cpu', {}).get('corelist_workers'):
+        corelist_workers = config['settings']['cpu']['corelist_workers']
+        main_core = int(config['settings']['cpu']['main_core'])
+
+        all_core_numbers = []
+        for worker_range in corelist_workers:
+            core_numbers = worker_range.split('-')
+            all_core_numbers.extend(
+                range(int(core_numbers[0]), int(core_numbers[-1]) + 1)
+            )
+
+        if main_core in all_core_numbers:
+            raise ConfigError(
+                f'"cpu main-core {main_core}" must not be included in the corelist-workers!'
+            )
+
+    if 'interface' not in config['settings']:
+        raise ConfigError('"settings interface" is required but not set!')
+
+    # check if Ethernet interfaces exist
+    ethernet_ifaces = Section.interfaces('ethernet')
+    for iface in config['settings']['interface'].keys():
+        if iface not in ethernet_ifaces:
+            raise ConfigError(f'Interface {iface} does not exist or is not Ethernet!')
+
+    # ensure DPDK/XDP settings are properly configured
+    for iface, iface_config in config['settings']['interface'].items():
+        # check if selected driver is supported, but only for new interfaces
+        if iface not in config.get('effective', {}).get('settings', {}).get(
+            'interface', {}
+        ):
+            if not verify_dev_driver(iface, iface_config['driver']):
+                raise ConfigError(
+                    f'Driver {iface_config["driver"]} is not compatible with interface {iface}!'
+                )
+        if iface_config['driver'] == 'xdp' and 'xdp_options' in iface_config:
+            if iface_config['xdp_options']['num_rx_queues'] != 'all':
+                Warning(f'Not all RX queues will be connected to VPP for {iface}!')
+
+    if 'cpu' in config['settings']:
+        if (
+            'corelist_workers' in config['settings']['cpu']
+            and 'main_core' not in config['settings']['cpu']
+        ):
+            raise ConfigError('"cpu main-core" is required but not set!')
+
+    verify_memory(config['settings'])
+
+    # Check if deleted interfaces are not xconnect memebrs
+    for iface_config in config.get('removed_ifaces', []):
+        if iface_config['iface_name'] in config.get('xconn_members', {}):
+            raise ConfigError(
+                f'Interface {iface_config["iface_name"]} is an xconnect member and cannot be removed'
+            )
+
+
+def generate(config):
+    if not config or ('removed_ifaces' in config and 'settings' not in config):
+        # Remove old config and return
+        service_conf.unlink(missing_ok=True)
+        return None
+
+    render(service_conf, 'vpp/startup.conf.j2', config['settings'])
+    render(systemd_override, 'vpp/override.conf.j2', config)
+
+    # apply sysctl values
+    # default: https://github.com/FDio/vpp/blob/v23.10/src/vpp/conf/80-vpp.conf
+    sysctl_config: dict[str, str] = {
+        'vm.nr_hugepages': config['settings']['host_resources']['nr_hugepages'],
+        'vm.max_map_count': config['settings']['host_resources']['max_map_count'],
+        'vm.hugetlb_shm_group': '0',
+        'kernel.shmmax': config['settings']['host_resources']['shmmax'],
+    }
+    # we do not want to lower current values
+    for sysctl_key, sysctl_value in sysctl_config.items():
+        # perform check only for quantitative params
+        if sysctl_key == 'vm.hugetlb_shm_group':
+            pass
+        current_value = sysctl_read(sysctl_key)
+        if int(current_value) > int(sysctl_value):
+            sysctl_config[sysctl_key] = current_value
+
+    if not sysctl_apply(sysctl_config):
+        raise ConfigError('Cannot configure sysctl parameters for VPP')
+
+    return None
+
+
+def apply(config):
+    # Open persistent config
+    # It is required for operations with interfaces
+    persist_config = JSONStorage('vpp_conf')
+    if not config or ('removed_ifaces' in config and 'settings' not in config):
+        # Cleanup persistent config
+        persist_config.delete()
+        # And stop the service
+        call(f'systemctl stop {service_name}.service')
+    else:
+        # Some interfaces required extra preparation before VPP can be started
+        if 'settings' in config and 'interface' in config.get('settings'):
+            for iface, iface_config in config['settings']['interface'].items():
+                if iface_config['driver'] == 'dpdk':
+                    # ena interfaces require noiommu mode
+                    if iface_config['kernel_module'] == 'ena':
+                        control_host.unsafe_noiommu_mode(True)
+
+                    if iface_config['kernel_module'] in override_drivers:
+                        control_host.override_driver(
+                            config['persist_config'][iface]['bus_id'],
+                            config['persist_config'][iface]['dev_id'],
+                            override_drivers[iface_config['kernel_module']],
+                        )
+
+        call('systemctl daemon-reload')
+        call(f'systemctl restart {service_name}.service')
+
+    # Initialize interfaces removed from VPP
+    for iface in config.get('removed_ifaces', []):
+        # DPDK - rescan PCI to use a proper driver
+        if (
+            iface['driver'] == 'dpdk'
+            and config['persist_config'][iface['iface_name']]['original_driver']
+            not in not_pci_drv
+        ):
+            control_host.pci_rescan(
+                config['persist_config'][iface['iface_name']]['dev_id']
+            )
+            # rename to the proper name
+            iface_new_name: str = control_host.get_eth_name(
+                config['persist_config'][iface['iface_name']]['dev_id']
+            )
+            control_host.rename_iface(iface_new_name, iface['iface_name'])
+        # XDP - rename an interface , disable promisc and XDP
+        if iface['driver'] == 'xdp':
+            control_host.set_promisc(f'defunct_{iface["iface_name"]}', 'off')
+            control_host.rename_iface(
+                f'defunct_{iface["iface_name"]}', iface['iface_name']
+            )
+            control_host.xdp_remove(iface['iface_name'])
+        # Rename Mellanox NIC to a normal name
+        try:
+            if (
+                control_host.get_eth_driver(f'defunct_{iface["iface_name"]}')
+                == 'mlx5_core'
+            ):
+                control_host.rename_iface(
+                    f'defunct_{iface["iface_name"]}', iface['iface_name']
+                )
+        except FileNotFoundError:
+            pass
+        # Replace a driver with original for VMBus interfaces and rename it
+        if (
+            iface['driver'] == 'dpdk'
+            and config['persist_config'][iface['iface_name']]['original_driver']
+            in override_drivers
+        ):
+            control_host.override_driver(
+                config['persist_config'][iface['iface_name']]['bus_id'],
+                config['persist_config'][iface['iface_name']]['dev_id'],
+            )
+            iface_new_name: str = control_host.get_eth_name(
+                config['persist_config'][iface['iface_name']]['dev_id']
+            )
+            control_host.rename_iface(iface_new_name, iface['iface_name'])
+
+        # Remove what is not in the config anymore
+        if iface['iface_name'] not in config.get('settings', {}).get('interface', {}):
+            del config['persist_config'][iface['iface_name']]
+
+    if 'settings' in config and 'interface' in config.get('settings'):
+        # connect to VPP
+        # must be performed multiple attempts because API is not available
+        # immediately after the service restart
+        vpp_control = VPPControl(attempts=20, interval=500)
+        # preconfigure LCP plugin
+        if 'route_no_paths' in config.get('settings', {}).get('lcp', {}):
+            vpp_control.cli_cmd('lcp param route-no-paths on')
+        else:
+            vpp_control.cli_cmd('lcp param route-no-paths off')
+        # add interfaces
+        iproute = IPRoute()
+        for iface, iface_config in config['settings']['interface'].items():
+            # promisc option for DPDK interfaces
+            if iface_config['driver'] == 'dpdk':
+                if 'promisc' in iface_config['dpdk_options']:
+                    if_index = vpp_control.get_sw_if_index(iface)
+                    vpp_control.api.sw_interface_set_promisc(
+                        sw_if_index=if_index, promisc_on=True
+                    )
+            # add XDP interfaces
+            if iface_config['driver'] == 'xdp':
+                control_host.rename_iface(iface, f'defunct_{iface}')
+                vpp_control.xdp_iface_create(
+                    host_if=f'defunct_{iface}',
+                    name=iface,
+                    **iface_config['xdp_api_params'],
+                )
+                # replicate MAC address of a real interface
+                real_mac = control_host.get_eth_mac(f'defunct_{iface}')
+                vpp_control.set_iface_mac(iface, real_mac)
+                if 'promisc' in iface_config['xdp_options']:
+                    control_host.set_promisc(f'defunct_{iface}', 'on')
+                control_host.set_status(f'defunct_{iface}', 'up')
+            # Rename Mellanox interfaces to hide them and create LCP properly
+            if (
+                iface in Section.interfaces()
+                and control_host.get_eth_driver(iface) == 'mlx5_core'
+            ):
+                control_host.rename_iface(iface, f'defunct_{iface}')
+                control_host.set_status(f'defunct_{iface}', 'up')
+            # Create lcp
+            if iface not in Section.interfaces():
+                vpp_control.lcp_pair_add(iface, iface)
+
+            # Set rx-mode
+            rx_mode = iface_config.get('rx_mode')
+            if rx_mode:
+                # to hardware side
+                vpp_control.iface_rxmode(iface, rx_mode)
+                # to kernel side
+                lcp_name = vpp_control.lcp_pair_find(vpp_name_hw=iface).get(
+                    'vpp_name_kernel'
+                )
+                vpp_control.iface_rxmode(lcp_name, rx_mode)
+
+            # For unknown reasons, if multiple interfaces later try to be
+            # initialized by configuration scripts, some of them may stuck
+            # in an endless UP/DOWN loop
+            # We found two workarounds - pause initialization (requires
+            # main code modifications).
+            # And this one
+            dev_index = iproute.link_lookup(ifname=iface)[0]
+            iproute.link('set', index=dev_index, state='up')
+
+        # Syncronize routes via LCP
+        vpp_control.lcp_resync()
+
+    # Save persistent config
+    if 'persist_config' in config and config['persist_config']:
+        persist_config.write('eth_ifaces', config['persist_config'])
+
+    # reinitialize interfaces, but not during the first boot
+    if boot_configuration_complete():
+        call_dependents()
+
+
+if __name__ == '__main__':
+    try:
+        c = get_config()
+        verify(c)
+        generate(c)
+        apply(c)
+    except ConfigError as e:
+        print(e)
+        exit(1)
