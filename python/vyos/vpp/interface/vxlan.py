@@ -25,6 +25,7 @@ def show():
       from vyos.vpp.interface import vxlan
       vxlan.show()
     """
+    vpp = VPPControl()
     return vpp.api.vxlan_tunnel_dump()
 
 

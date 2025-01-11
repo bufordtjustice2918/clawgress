@@ -25,6 +25,7 @@ def show():
       from vyos.vpp.interface import geneve
       geneve.show()
     """
+    vpp = VPPControl()
     return vpp.api.geneve_tunnel_dump()
 
 

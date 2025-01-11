@@ -25,6 +25,7 @@ def show():
       from vyos.vpp.interface import ipip
       ipip.show()
     """
+    vpp = VPPControl()
     return vpp.api.ipip_tunnel_dump()
 
 

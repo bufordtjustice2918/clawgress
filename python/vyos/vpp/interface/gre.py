@@ -25,6 +25,7 @@ def show():
       from vyos.vpp.interface import gre
       gre.show()
     """
+    vpp = VPPControl()
     return vpp.api.gre_tunnel_dump()
 
 
