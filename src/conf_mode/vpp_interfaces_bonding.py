@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2023 VyOS Inc.
+# Copyright (C) 2023-2025 VyOS Inc.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -58,12 +58,11 @@ def _get_bond_lb(lb_name: str) -> int:
     return lb_mapping.get(lb_name, 5)
 
 
-def get_config(config=None, recursive_defaults=True) -> dict:
+def get_config(config=None) -> dict:
     """Get Bonding interface configuration
 
     Args:
         config (vyos.config.Config, optional): The VyOS configuration dictionary
-        recursive_defaults (bool, optional): Include recursive defaults
     Returns:
         dict: Bonding interface configuration
     """
@@ -84,7 +83,7 @@ def get_config(config=None, recursive_defaults=True) -> dict:
         get_first_key=True,
         no_tag_node_value_mangle=True,
         with_defaults=True,
-        with_recursive_defaults=recursive_defaults,
+        with_recursive_defaults=True,
     )
 
     # Get effective config as we need full dicitonary per interface delete
