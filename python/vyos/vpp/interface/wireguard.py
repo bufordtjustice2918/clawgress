@@ -1,6 +1,6 @@
 # VyOS implementation of VPP Wireguard interface
 #
-# Copyright (C) 2023 VyOS Inc.
+# Copyright (C) 2023-2025 VyOS Inc.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,8 +18,6 @@
 
 from vyos.vpp import VPPControl
 
-vpp = VPPControl()
-
 
 class WireguardInterface:
     """Interface Wireguard"""
@@ -29,6 +27,7 @@ class WireguardInterface:
         self.ifname = ifname
         self.listen_port = listen_port
         self.kernel_interface = kernel_interface
+        self.vpp = VPPControl()
 
     def add(self):
         """Create Wireguard interface
@@ -38,12 +37,12 @@ class WireguardInterface:
             a = WireguardInterface(ifname='wg5', listen_port=51820, generate_key=True)
             a.add()
         """
-        vpp.api.wireguard_interface_create(
+        self.vpp.api.wireguard_interface_create(
             generate_key=True,
             interface={'user_instance': self.instance, 'listen_port': self.listen_port},
         )
         if self.kernel_interface:
-            vpp.lcp_pair_add(self.ifname, self.kernel_interface, 'tun')
+            self.vpp.lcp_pair_add(self.ifname, self.kernel_interface, 'tun')
 
     def delete(self):
         """Delete Wireguard interface
@@ -52,5 +51,5 @@ class WireguardInterface:
             a = WireguardInterface(ifname='wg5')
             a.delete()
         """
-        wg_if_index = vpp.get_sw_if_index(f'wg{self.instance}')
-        return vpp.api.wireguard_interface_delete(sw_if_index=wg_if_index)
+        wg_if_index = self.vpp.get_sw_if_index(f'wg{self.instance}')
+        return self.vpp.api.wireguard_interface_delete(sw_if_index=wg_if_index)

@@ -1,6 +1,6 @@
 # VyOS implementation of VPP Ethernet interface
 #
-# Copyright (C) 2023 VyOS Inc.
+# Copyright (C) 2023-2025 VyOS Inc.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,8 +18,6 @@
 
 from vyos.vpp import VPPControl
 
-vpp = VPPControl()
-
 
 class EthernetInterface:
     """Interface Ethernet"""
@@ -28,6 +26,7 @@ class EthernetInterface:
         self.instance = int(ifname.removeprefix('eth'))
         self.ifname = ifname
         self.kernel_interface = kernel_interface
+        self.vpp = VPPControl()
 
     def add(self):
         pass
@@ -42,7 +41,7 @@ class EthernetInterface:
             a = EthernetInterface(ifname='eth0')
             a.kernel_add()
         """
-        vpp.lcp_pair_add(self.ifname, self.kernel_interface)
+        self.vpp.lcp_pair_add(self.ifname, self.kernel_interface)
 
     def kernel_delete(self):
         """Delete LCP pair
@@ -51,4 +50,4 @@ class EthernetInterface:
             a = EthernetInterface(ifname='eth0')
             a.kernel_delete()
         """
-        vpp.lcp_pair_del(self.ifname, self.kernel_interface)
+        self.vpp.lcp_pair_del(self.ifname, self.kernel_interface)

@@ -1,6 +1,6 @@
 # VyOS implementation of VPP GRE interface
 #
-# Copyright (C) 2023 VyOS Inc.
+# Copyright (C) 2023-2025 VyOS Inc.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,8 +17,6 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 from vyos.vpp import VPPControl
-
-vpp = VPPControl()
 
 
 def show():
@@ -37,6 +35,7 @@ class GREInterface:
         self.src_address = source_address
         self.dst_address = remote
         self.kernel_interface = kernel_interface
+        self.vpp = VPPControl()
 
     def add(self):
         """Create GRE interface
@@ -46,7 +45,7 @@ class GREInterface:
             a = GREInterface(ifname='gre0', source_address='192.0.2.1', remote='203.0.113.25')
             a.add()
         """
-        vpp.api.gre_tunnel_add_del(
+        self.vpp.api.gre_tunnel_add_del(
             is_add=True,
             tunnel={
                 'src': self.src_address,
@@ -62,7 +61,7 @@ class GREInterface:
             a = GREInterface(ifname='gre0', source_address='192.0.2.1', remote='203.0.113.25')
             a.delete()
         """
-        return vpp.api.gre_tunnel_add_del(
+        return self.vpp.api.gre_tunnel_add_del(
             is_add=False, tunnel={'src': self.src_address, 'dst': self.dst_address}
         )
 
@@ -73,7 +72,7 @@ class GREInterface:
             a = GREInterface(ifname='gre0', source_address='192.0.2.1', remote='203.0.113.25')
             a.kernel_add()
         """
-        vpp.lcp_pair_add(self.ifname, self.kernel_interface, 'tun')
+        self.vpp.lcp_pair_add(self.ifname, self.kernel_interface, 'tun')
 
     def kernel_delete(self):
         """Delete LCP pair
@@ -82,4 +81,4 @@ class GREInterface:
             a = GREInterface(ifname='gre0', source_address='192.0.2.1', remote='203.0.113.25')
             a.kernel_delete()
         """
-        vpp.lcp_pair_del(self.ifname, self.kernel_interface)
+        self.vpp.lcp_pair_del(self.ifname, self.kernel_interface)

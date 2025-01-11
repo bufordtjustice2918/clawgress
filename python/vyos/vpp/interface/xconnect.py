@@ -1,6 +1,6 @@
 # VyOS implementation of VPP bridge interface
 #
-# Copyright (C) 2023 VyOS Inc.
+# Copyright (C) 2023-2025 VyOS Inc.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,8 +19,6 @@
 from vyos.vpp import VPPControl
 from vyos.vpp.utils import iftunnel_transform
 
-vpp = VPPControl()
-
 
 class XconnectInterface:
     def __init__(
@@ -30,6 +28,7 @@ class XconnectInterface:
     ):
         self.ifname = ifname
         self.members = members
+        self.vpp = VPPControl()
 
     def add_l2_xconnect(self):
         """Add l2 cross connect
@@ -49,14 +48,14 @@ class XconnectInterface:
         if second_member.startswith(interface_transform_filter):
             second_member = iftunnel_transform(second_member)
 
-        member_first_if_index = vpp.get_sw_if_index(first_member)
-        member_second_if_index = vpp.get_sw_if_index(second_member)
-        vpp.api.sw_interface_set_l2_xconnect(
+        member_first_if_index = self.vpp.get_sw_if_index(first_member)
+        member_second_if_index = self.vpp.get_sw_if_index(second_member)
+        self.vpp.api.sw_interface_set_l2_xconnect(
             rx_sw_if_index=member_first_if_index,
             tx_sw_if_index=member_second_if_index,
             enable=True,
         )
-        vpp.api.sw_interface_set_l2_xconnect(
+        self.vpp.api.sw_interface_set_l2_xconnect(
             rx_sw_if_index=member_second_if_index,
             tx_sw_if_index=member_first_if_index,
             enable=True,
@@ -80,14 +79,14 @@ class XconnectInterface:
         if second_member.startswith(interface_transform_filter):
             second_member = iftunnel_transform(second_member)
 
-        member_first_if_index = vpp.get_sw_if_index(first_member)
-        member_second_if_index = vpp.get_sw_if_index(second_member)
-        vpp.api.sw_interface_set_l2_xconnect(
+        member_first_if_index = self.vpp.get_sw_if_index(first_member)
+        member_second_if_index = self.vpp.get_sw_if_index(second_member)
+        self.vpp.api.sw_interface_set_l2_xconnect(
             rx_sw_if_index=member_first_if_index,
             tx_sw_if_index=member_second_if_index,
             enable=False,
         )
-        vpp.api.sw_interface_set_l2_xconnect(
+        self.vpp.api.sw_interface_set_l2_xconnect(
             rx_sw_if_index=member_second_if_index,
             tx_sw_if_index=member_first_if_index,
             enable=False,
