@@ -79,7 +79,7 @@ class VXLANInterface:
         """Add LCP pair
         Example:
             from vyos.vpp.interface import VXLANInterface
-            a = VXLANInterface(ifname='vxlan23', source_address='192.0.2.1', remote='203.0.113.23', vni=23)
+            a = VXLANInterface(ifname='vxlan23', source_address='192.0.2.1', remote='203.0.113.23', vni=23, kernel_interface='vpptap10')
             a.kernel_add()
         """
         self.vpp.lcp_pair_add(self.ifname, self.kernel_interface)
