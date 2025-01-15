@@ -88,19 +88,18 @@ def get_config(config=None) -> dict:
     )
 
     # Get effective config as we need full dicitonary per interface delete
-    if __name__ == '__main__':
-        effective_config = conf.get_config_dict(
-            base + [ifname],
-            key_mangling=('-', '_'),
-            effective=True,
-            get_first_key=True,
-            no_tag_node_value_mangle=True,
-        )
-    # if a file was started as dependency, we are starting from empty config
-    else:
-        effective_config = {}
+    effective_config = conf.get_config_dict(
+        base + [ifname],
+        key_mangling=('-', '_'),
+        effective=True,
+        get_first_key=True,
+        no_tag_node_value_mangle=True,
+    )
 
-    if not config:
+    if effective_config:
+        config.update({'effective': effective_config})
+
+    if not conf.exists(base + [ifname]):
         config['remove'] = True
 
     if effective_config:
