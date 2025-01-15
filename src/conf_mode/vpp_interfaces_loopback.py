@@ -17,6 +17,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 import os
+import time
 
 from vyos import ConfigError
 
@@ -134,6 +135,9 @@ def apply(config):
 
     # Add kernel-interface (LCP) if interface is not exist
     if 'kernel_interface' in config and not is_interface(kernel_interface):
+        # Introduce a delay to address instability in the VPP API, which may fail to create the LCP
+        # or establish a connection. This should be reviewed and resolved in future releases.
+        time.sleep(2)
         i.kernel_add()
 
     call_dependents()

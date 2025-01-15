@@ -17,6 +17,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 import os
+import time
 
 from vyos.config import Config
 from vyos.configdict import leaf_node_changed
@@ -192,6 +193,10 @@ def apply(config):
     kernel_interface = config.get('kernel_interface', '')
 
     i = BondInterface(ifname, mode, lb, mac, kernel_interface)
+    # Introduce a delay to address instability in the VPP API, which may fail to create the LCP
+    # or establish a connection. This should be reviewed and resolved in future releases.
+    time.sleep(2)
+
     i.add()
     # Add members to bond
     if members:
