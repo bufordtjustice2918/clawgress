@@ -145,7 +145,8 @@
               </node>
             </children>
           </tagNode>
-          <tagNode name="geneve" owner="${vyos_conf_scripts_dir}/vpp_interfaces_geneve.py">
+          <!-- Disable as geneve interface index in the VPP always 0 and not configured -->
+          <!-- <tagNode name="geneve" owner="${vyos_conf_scripts_dir}/vpp_interfaces_geneve.py">
             <properties>
               <priority>305</priority>
               <help>Generic Network Virtualization Encapsulation (GENEVE) Interface</help>
@@ -158,13 +159,13 @@
                 <description>GENEVE interface name</description>
               </valueHelp>
             </properties>
-            <children>
-              #include <include/source-address-ipv4-ipv6.xml.i>
-              #include <include/interface/tunnel-remote.xml.i>
-              #include <include/vni.xml.i>
-              #include <include/kernel-interface-tun.xml.i>
-            </children>
-          </tagNode>
+            <children> -->
+              <!-- #include <include/source-address-ipv4-ipv6.xml.i> -->
+              <!-- #include <include/interface/tunnel-remote.xml.i> -->
+              <!-- #include <include/vni.xml.i> -->
+              <!-- #include <include/kernel-interface-tun.xml.i> -->
+            <!-- </children> -->
+          <!-- </tagNode> -->
           <tagNode name="gre" owner="${vyos_conf_scripts_dir}/vpp_interfaces_gre.py">
             <properties>
               <priority>305</priority>
