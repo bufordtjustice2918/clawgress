@@ -643,9 +643,9 @@
                 </leafNode>
               </children>
             </node>
-            <leafNode name="route-no-paths">
+            <leafNode name="ignore-kernel-routes">
               <properties>
-                <help>Route no paths</help>
+                <help>Ignore kernel routes</help>
                 <valueless/>
               </properties>
             </leafNode>
@@ -653,7 +653,7 @@
         </node>
         <node name="logging">
           <properties>
-            <help>Loggint settings</help>
+            <help>Logging settings</help>
           </properties>
           <children>
             <leafNode name="default-log-level">
