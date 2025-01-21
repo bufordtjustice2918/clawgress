@@ -202,6 +202,8 @@ def apply(config):
         for member in members:
             i.add_member(interface=member)
 
+    i.set_state_up()
+
     call_dependents()
 
     return None

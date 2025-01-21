@@ -112,3 +112,23 @@ class BondInterface:
             a.kernel_delete()
         """
         self.vpp.lcp_pair_del(self.ifname, self.kernel_interface)
+
+    def set_state_up(self):
+        """Set Bond interface state to UP
+        Example:
+            from vyos.vpp.interface import BondInterface
+            a = BondInterface(ifname='bond0')
+            a.set_state_up()
+        """
+        bond_if_index = self.vpp.get_sw_if_index(self.ifname)
+        self.vpp.api.sw_interface_set_flags(sw_if_index=bond_if_index, flags=1)
+
+    def set_state_down(self):
+        """Set Bond interface state to DOWN
+        Example:
+            from vyos.vpp.interface import BondInterface
+            a = BondInterface(ifname='bond0')
+            a.set_state_down()
+        """
+        bond_if_index = self.vpp.get_sw_if_index(self.ifname)
+        self.vpp.api.sw_interface_set_flags(sw_if_index=bond_if_index, flags=0)
