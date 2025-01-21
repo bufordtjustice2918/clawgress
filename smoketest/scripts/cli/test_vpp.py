@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2023-2024 VyOS Inc.
+# Copyright (C) 2023-2025 VyOS Inc.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -541,6 +541,21 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         self.cli_set(
             base_path + ['interfaces', 'bonding', interface_bond, 'mode', mode]
         )
+
+        # commit changes
+        self.cli_commit()
+
+        # Check for interface state "BondEthernet23 up"
+        _, out = rc_cmd('sudo vppctl show interface')
+        # Normalize the output for consistent whitespace
+        normalized_out = re.sub(r'\s+', ' ', out)
+        self.assertRegex(
+            normalized_out,
+            r'BondEthernet23\s+\d+\s+up',
+            "Interface BondEthernet23 is not in the expected state 'up'."
+        )
+
+        # set kernel interface
         self.cli_set(
             base_path
             + [
@@ -594,6 +609,17 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         for entry in required_enries:
             self.assertIn(entry, out)
 
+        # check interface state
+        _, out = rc_cmd('sudo vppctl show interface')
+        # Normalize the output for consistent whitespace
+        normalized_out = re.sub(r'\s+', ' ', out)
+        # Check for interface state "BondEthernet23 up"
+        self.assertRegex(
+            normalized_out,
+            r'BondEthernet23\s+\d+\s+up',
+            "Interface BondEthernet23 is not in the expected state 'up'."
+        )
+
         # delete vpp kernel-interface vlan
         self.cli_delete(base_path + ['kernel-interfaces', interface_kernel, 'vif'])
         self.cli_commit()
@@ -613,6 +639,10 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         # delete bonding interface
         self.cli_set(base_path + ['interfaces', 'bonding', interface_bond])
         self.cli_commit()
+
+        # check deleting bonding interface
+        _, out = rc_cmd('sudo vppctl show interface')
+        self.assertNotIn('BondEthernet23', out)
 
     def test_07_vpp_bridge(self):
         fake_member = 'eth2'
