@@ -124,7 +124,7 @@ def verify(config):
         return None
 
     # source-address and remote are mandatory options
-    required_keys = {'source_address', 'remote'}
+    required_keys = {'source_address', 'remote', 'tunnel_type'}
     if not all(key in config for key in required_keys):
         missing_keys = required_keys - set(config.keys())
         raise ConfigError(
@@ -159,7 +159,8 @@ def apply(config):
     src_addr = config.get('source_address')
     dst_addr = config.get('remote')
     kernel_interface = config.get('kernel_interface', '')
-    i = GREInterface(ifname, src_addr, dst_addr, kernel_interface)
+    tunnel_type = config.get('tunnel_type')
+    i = GREInterface(ifname, src_addr, dst_addr, tunnel_type, kernel_interface)
     i.add()
 
     # Add kernel-interface (LCP) if interface is not exist

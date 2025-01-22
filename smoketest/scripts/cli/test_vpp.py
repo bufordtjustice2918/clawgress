@@ -552,7 +552,7 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         self.assertRegex(
             normalized_out,
             r'BondEthernet23\s+\d+\s+up',
-            "Interface BondEthernet23 is not in the expected state 'up'."
+            "Interface BondEthernet23 is not in the expected state 'up'.",
         )
 
         # set kernel interface
@@ -617,7 +617,7 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         self.assertRegex(
             normalized_out,
             r'BondEthernet23\s+\d+\s+up',
-            "Interface BondEthernet23 is not in the expected state 'up'."
+            "Interface BondEthernet23 is not in the expected state 'up'.",
         )
 
         # delete vpp kernel-interface vlan
