@@ -124,12 +124,26 @@ def verify(config):
         return None
 
     # source-address and remote are mandatory options
-    required_keys = {'source_address', 'remote', 'tunnel_type'}
+    required_keys = {'source_address', 'remote', 'mode', 'tunnel_type'}
     if not all(key in config for key in required_keys):
         missing_keys = required_keys - set(config.keys())
         raise ConfigError(
             f"Required options are missing: {', '.join(missing_keys).replace('_', '-')}"
         )
+
+    # check multipoint mode
+    if config.get('mode') == 'point-to-multipoint':
+        # For multipoint mode, remote IP must be 0.0.0.0
+        if config.get('remote') != '0.0.0.0':
+            raise ConfigError('For point-to-multipoint mode, remote must be 0.0.0.0')
+        # Only one multipoint GRE tunnel is allowed from the same source address
+        for ifname, iface in config.get('vpp_interfaces', {}).items():
+            if iface.get('mode') == 'point-to-multipoint' and iface.get(
+                'source_address'
+            ) == config.get('source_address'):
+                raise ConfigError(
+                    'Only one multipoint GRE tunnel is allowed from the same source address'
+                )
 
     # Change 'vpp interfaces gre greX kernel-interface vpp-tunX'
     #     => 'vpp interfaces gre greX kernel-interface vpp-tunY'
@@ -159,8 +173,9 @@ def apply(config):
     src_addr = config.get('source_address')
     dst_addr = config.get('remote')
     kernel_interface = config.get('kernel_interface', '')
+    mode = config.get('mode')
     tunnel_type = config.get('tunnel_type')
-    i = GREInterface(ifname, src_addr, dst_addr, tunnel_type, kernel_interface)
+    i = GREInterface(ifname, src_addr, dst_addr, tunnel_type, mode, kernel_interface)
     i.add()
 
     # Add kernel-interface (LCP) if interface is not exist

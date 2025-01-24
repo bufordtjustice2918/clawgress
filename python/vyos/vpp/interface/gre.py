@@ -38,6 +38,7 @@ class GREInterface:
         source_address (str): The source IP address for the GRE tunnel.
         remote (str): The remote IP address for the GRE tunnel.
         tunnel_type (str): The type of GRE tunnel. Defaults to 'l3'.
+        mode (str): The mode of the GRE tunnel. Options are 'point-to-point' and 'point-to-multipoint'. Defaults to 'point-to-point'.
         kernel_interface (str): The associated kernel interface. Defaults to an empty string.
         instance (int): The instance number derived from the interface name.
         vpp (VPPControl): An instance of the VPPControl class for interacting with the VPP API.
@@ -45,9 +46,14 @@ class GREInterface:
 
     # Mapping of tunnel types https://github.com/FDio/vpp/blob/stable/2406/src/plugins/gre/gre.api#L25-L35
     TUNNEL_TYPE_MAP = {
-        "l3": 0,
-        "teb": 1,
-        "erspan": 2,
+        'l3': 0,
+        'teb': 1,
+        'erspan': 2,
+    }
+
+    MODE_MAP = {
+        'point-to-point': 0,
+        'point-to-multipoint': 1,
     }
 
     def __init__(
@@ -56,6 +62,7 @@ class GREInterface:
         source_address,
         remote,
         tunnel_type: str = 'l3',
+        mode: str = 'point-to-point',
         kernel_interface: str = '',
     ):
         """
@@ -65,6 +72,7 @@ class GREInterface:
             ifname (str): The interface name.
             source_address (str): The source IP address for the GRE tunnel.
             remote (str): The remote IP address for the GRE tunnel.
+            mode (str): The mode of the GRE tunnel. Options are 'point-to-point' and 'point-to-multipoint'. Defaults to 'point-to-point'.
             tunnel_type (str): The type of GRE tunnel. Defaults to 'l3'.
             kernel_interface (str): The associated kernel interface. Defaults to an empty string.
         """
@@ -73,6 +81,7 @@ class GREInterface:
         self.src_address = source_address
         self.dst_address = remote
         self.tunnel_type = self.TUNNEL_TYPE_MAP[tunnel_type]
+        self.mode = self.MODE_MAP[mode]
         self.kernel_interface = kernel_interface
         self.vpp = VPPControl()
 
@@ -90,6 +99,7 @@ class GREInterface:
                 'src': self.src_address,
                 'dst': self.dst_address,
                 'instance': self.instance,
+                'mode': self.mode,
                 'type': self.tunnel_type,
             },
         )

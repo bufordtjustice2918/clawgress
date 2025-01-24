@@ -180,6 +180,27 @@
               </valueHelp>
             </properties>
             <children>
+              <leafNode name="mode">
+                <properties>
+                  <help>GRE tunnel mode</help>
+                  <completionHelp>
+                    <list>point-to-point point-to-multipoint</list>
+                  </completionHelp>
+                  <valueHelp>
+                    <format>point-to-point</format>
+                    <description>Point to point mode</description>
+                  </valueHelp>
+                  <valueHelp>
+                    <format>point-to-multipoint</format>
+                    <description>Point to multipoint mode</description>
+                  </valueHelp>
+                  <constraint>
+                    <regex>(point-to-point|point-to-multipoint)</regex>
+                  </constraint>
+                  <constraintErrorMessage>Invalid mode, must be one of: point-to-point or point-to-multipoint</constraintErrorMessage>
+                </properties>
+                <defaultValue>point-to-point</defaultValue>
+              </leafNode>
               <leafNode name="tunnel-type">
                 <properties>
                   <help>GRE tunnel type</help>
