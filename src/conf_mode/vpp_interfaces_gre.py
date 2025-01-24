@@ -136,14 +136,6 @@ def verify(config):
         # For multipoint mode, remote IP must be 0.0.0.0
         if config.get('remote') != '0.0.0.0':
             raise ConfigError('For point-to-multipoint mode, remote must be 0.0.0.0')
-        # Only one multipoint GRE tunnel is allowed from the same source address
-        for ifname, iface in config.get('vpp_interfaces', {}).items():
-            if iface.get('mode') == 'point-to-multipoint' and iface.get(
-                'source_address'
-            ) == config.get('source_address'):
-                raise ConfigError(
-                    'Only one multipoint GRE tunnel is allowed from the same source address'
-                )
 
     # Change 'vpp interfaces gre greX kernel-interface vpp-tunX'
     #     => 'vpp interfaces gre greX kernel-interface vpp-tunY'
