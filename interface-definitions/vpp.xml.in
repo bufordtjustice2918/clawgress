@@ -26,6 +26,8 @@
               </valueHelp>
             </properties>
             <children>
+              #include <include/generic-description.xml.i>
+              #include <include/interface/disable.xml.i>
               <leafNode name="hash-policy">
                 <properties>
                   <help>Bonding transmit hash policy</help>
@@ -123,6 +125,8 @@
               </valueHelp>
             </properties>
             <children>
+              #include <include/generic-description.xml.i>
+              #include <include/interface/disable.xml.i>
               <node name="member">
                 <properties>
                   <help>Bridge member interfaces</help>
@@ -180,6 +184,8 @@
               </valueHelp>
             </properties>
             <children>
+              #include <include/generic-description.xml.i>
+              #include <include/interface/disable.xml.i>
               <leafNode name="mode">
                 <properties>
                   <help>GRE tunnel mode</help>
@@ -245,6 +251,8 @@
               </valueHelp>
             </properties>
             <children>
+              #include <include/generic-description.xml.i>
+              #include <include/interface/disable.xml.i>
               #include <include/source-address-ipv4-ipv6.xml.i>
               #include <include/interface/tunnel-remote.xml.i>
               #include <include/kernel-interface-tun.xml.i>
@@ -264,6 +272,8 @@
               </valueHelp>
             </properties>
             <children>
+              #include <include/generic-description.xml.i>
+              #include <include/interface/disable.xml.i>
               #include <include/kernel-interface-tun.xml.i>
             </children>
           </tagNode>
@@ -281,6 +291,8 @@
               </valueHelp>
             </properties>
             <children>
+              #include <include/generic-description.xml.i>
+              #include <include/interface/disable.xml.i>
               #include <include/source-address-ipv4-ipv6.xml.i>
               #include <include/interface/tunnel-remote.xml.i>
               #include <include/vni.xml.i>
@@ -301,6 +313,8 @@
               </valueHelp>
             </properties>
             <children>
+              #include <include/generic-description.xml.i>
+              #include <include/interface/disable.xml.i>
               <node name="member">
                 <properties>
                   <help>Cross connect pair mamber interfaces</help>
