@@ -15,11 +15,11 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-from vyos.vpp import VPPControl
 from vyos.vpp.control_host import set_promisc
+from vyos.vpp.interface.interface import Interface
 
 
-class BondInterface:
+class BondInterface(Interface):
     def __init__(
         self,
         ifname,
@@ -27,14 +27,16 @@ class BondInterface:
         load_balance: int = 0,
         mac: str = '',
         kernel_interface: str = '',
+        state: str = 'up',
     ):
+        super().__init__(ifname)
         self.instance = int(ifname.removeprefix('bond'))
         self.ifname = f'BondEthernet{self.instance}'
         self.mode = mode
         self.load_balance = load_balance
         self.mac = mac
         self.kernel_interface = kernel_interface
-        self.vpp = VPPControl()
+        self.state = state
 
     def add(self):
         """Create Bond interface
@@ -55,6 +57,8 @@ class BondInterface:
         self.vpp.api.bond_create2(**create_args)
         if self.kernel_interface:
             self.vpp.lcp_pair_add(self.ifname, self.kernel_interface)
+        # Set interface state
+        self.set_state(self.state)
 
     def delete(self):
         """Delete Bond interface
@@ -112,23 +116,3 @@ class BondInterface:
             a.kernel_delete()
         """
         self.vpp.lcp_pair_del(self.ifname, self.kernel_interface)
-
-    def set_state_up(self):
-        """Set Bond interface state to UP
-        Example:
-            from vyos.vpp.interface import BondInterface
-            a = BondInterface(ifname='bond0')
-            a.set_state_up()
-        """
-        bond_if_index = self.vpp.get_sw_if_index(self.ifname)
-        self.vpp.api.sw_interface_set_flags(sw_if_index=bond_if_index, flags=1)
-
-    def set_state_down(self):
-        """Set Bond interface state to DOWN
-        Example:
-            from vyos.vpp.interface import BondInterface
-            a = BondInterface(ifname='bond0')
-            a.set_state_down()
-        """
-        bond_if_index = self.vpp.get_sw_if_index(self.ifname)
-        self.vpp.api.sw_interface_set_flags(sw_if_index=bond_if_index, flags=0)
