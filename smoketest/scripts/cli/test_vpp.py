@@ -75,7 +75,6 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         poll_sleep = '0'
 
         self.cli_set(base_path + ['settings', 'cpu', 'main-core', main_core])
-        self.cli_set(base_path + ['settings', 'lcp', 'route-no-paths'])
         self.cli_set(base_path + ['settings', 'unix', 'poll-sleep-usec', poll_sleep])
 
         # commit changes
@@ -99,7 +98,15 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         # route-no-paths is not present in the output
         # looks like vpp bug
         _, out = rc_cmd('sudo vppctl show lcp')
-        required_str = 'route-no-paths'
+        required_str = 'lcp route-no-paths on'
+        self.assertIn(required_str, out)
+
+        self.cli_set(base_path + ['settings', 'lcp', 'ignore-kernel-routes'])
+        self.cli_commit()
+
+        # check disabled 'route no path'
+        _, out = rc_cmd('sudo vppctl show lcp')
+        required_str = 'lcp route-no-paths off'
         self.assertIn(required_str, out)
 
     def test_02_vpp_vxlan(self):

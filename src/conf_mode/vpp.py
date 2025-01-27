@@ -514,10 +514,10 @@ def apply(config):
         # immediately after the service restart
         vpp_control = VPPControl(attempts=20, interval=500)
         # preconfigure LCP plugin
-        if 'route_no_paths' in config.get('settings', {}).get('lcp', {}):
-            vpp_control.cli_cmd('lcp param route-no-paths on')
-        else:
+        if 'ignore_kernel_routes' in config.get('settings', {}).get('lcp', {}):
             vpp_control.cli_cmd('lcp param route-no-paths off')
+        else:
+            vpp_control.cli_cmd('lcp param route-no-paths on')
         # add interfaces
         iproute = IPRoute()
         for iface, iface_config in config['settings']['interface'].items():
