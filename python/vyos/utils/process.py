@@ -21,20 +21,17 @@ from subprocess import STDOUT
 from subprocess import DEVNULL
 
 
-def get_wrapper(vrf, netns, auth):
+def get_wrapper(vrf, netns):
     wrapper = ''
     if vrf:
         wrapper = f'ip vrf exec {vrf} '
     elif netns:
         wrapper = f'ip netns exec {netns} '
-    if auth:
-        wrapper = f'{auth} {wrapper}'
     return wrapper
 
 
 def popen(command, flag='', shell=None, input=None, timeout=None, env=None,
-          stdout=PIPE, stderr=PIPE, decode='utf-8', auth='', vrf=None,
-          netns=None):
+          stdout=PIPE, stderr=PIPE, decode='utf-8', vrf=None, netns=None):
     """
     popen is a wrapper helper around subprocess.Popen
     with it default setting it will return a tuple (out, err)
@@ -82,7 +79,7 @@ def popen(command, flag='', shell=None, input=None, timeout=None, env=None,
                 'Permission denied: cannot execute commands in VRF and netns contexts as an unprivileged user'
             )
 
-    wrapper = get_wrapper(vrf, netns, auth)
+    wrapper = get_wrapper(vrf, netns)
     command = f'{wrapper} {command}'
 
     cmd_msg = f"cmd '{command}'"
@@ -155,7 +152,7 @@ def run(command, flag='', shell=None, input=None, timeout=None, env=None,
 
 def cmd(command, flag='', shell=None, input=None, timeout=None, env=None,
         stdout=PIPE, stderr=PIPE, decode='utf-8', raising=None, message='',
-        expect=[0], auth='', vrf=None, netns=None):
+        expect=[0], vrf=None, netns=None):
     """
     A wrapper around popen, which returns the stdout and
     will raise the error code of a command
@@ -171,12 +168,11 @@ def cmd(command, flag='', shell=None, input=None, timeout=None, env=None,
         input=input, timeout=timeout,
         env=env, shell=shell,
         decode=decode,
-        auth=auth,
         vrf=vrf,
         netns=netns,
     )
     if code not in expect:
-        wrapper = get_wrapper(vrf, netns, auth='')
+        wrapper = get_wrapper(vrf, netns)
         command = f'{wrapper} {command}'
         feedback = message + '\n' if message else ''
         feedback += f'failed to run command: {command}\n'
