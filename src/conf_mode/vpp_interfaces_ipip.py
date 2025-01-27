@@ -159,7 +159,8 @@ def apply(config):
     src_addr = config.get('source_address')
     dst_addr = config.get('remote')
     kernel_interface = config.get('kernel_interface', '')
-    i = IPIPInterface(ifname, src_addr, dst_addr, kernel_interface)
+    state = 'up' if 'disable' not in config else 'down'
+    i = IPIPInterface(ifname, src_addr, dst_addr, kernel_interface, state)
     i.add()
 
     if 'kernel_interface' in config:

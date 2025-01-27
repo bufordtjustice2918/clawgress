@@ -25,10 +25,12 @@ class XconnectInterface:
         self,
         ifname: str,
         members: list = [],
+        state: str = 'up',
     ):
         self.ifname = ifname
         self.members = members
         self.vpp = VPPControl()
+        self.initial_state = state
 
     def add_l2_xconnect(self):
         """Add l2 cross connect

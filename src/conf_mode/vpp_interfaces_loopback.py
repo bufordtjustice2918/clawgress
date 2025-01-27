@@ -130,7 +130,8 @@ def apply(config):
 
     # Add interface
     kernel_interface = config.get('kernel_interface', '')
-    i = LoopbackInterface(ifname, kernel_interface)
+    state = 'up' if 'disable' not in config else 'down'
+    i = LoopbackInterface(ifname, kernel_interface, state)
     i.add()
 
     # Add kernel-interface (LCP) if interface is not exist

@@ -16,17 +16,18 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-from vyos.vpp import VPPControl
+from vyos.vpp.interface.interface import Interface
 
 
-class LoopbackInterface:
+class LoopbackInterface(Interface):
     """Interface Loopback"""
 
-    def __init__(self, ifname, kernel_interface: str = ''):
+    def __init__(self, ifname, kernel_interface: str = '', state: str = 'up'):
+        super().__init__(ifname)
         self.instance = int(ifname.removeprefix('lo'))
         self.ifname = f'loop{self.instance}'
         self.kernel_interface = kernel_interface
-        self.vpp = VPPControl()
+        self.initial_state = state
 
     def add(self):
         """Create Loopback interface
@@ -39,6 +40,8 @@ class LoopbackInterface:
         self.vpp.api.create_loopback_instance(
             is_specified=True, user_instance=self.instance
         )
+        # Set interface state
+        self.set_state(self.initial_state)
 
     def delete(self):
         """Delete Loopback interface

@@ -167,7 +167,10 @@ def apply(config):
     kernel_interface = config.get('kernel_interface', '')
     mode = config.get('mode')
     tunnel_type = config.get('tunnel_type')
-    i = GREInterface(ifname, src_addr, dst_addr, tunnel_type, mode, kernel_interface)
+    state = 'up' if 'disable' not in config else 'down'
+    i = GREInterface(
+        ifname, src_addr, dst_addr, tunnel_type, mode, kernel_interface, state
+    )
     i.add()
 
     # Add kernel-interface (LCP) if interface is not exist

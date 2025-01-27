@@ -165,7 +165,8 @@ def apply(config):
     dst_addr = config.get('remote')
     vni = int(config.get('vni'))
     kernel_interface = config.get('kernel_interface', '')
-    i = VXLANInterface(ifname, src_addr, dst_addr, vni, kernel_interface)
+    state = 'up' if 'disable' not in config else 'down'
+    i = VXLANInterface(ifname, src_addr, dst_addr, vni, kernel_interface, state)
     i.add()
 
     # Add kernel-interface (LCP) if interface is not exist

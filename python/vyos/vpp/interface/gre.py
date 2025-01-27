@@ -17,6 +17,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 from vyos.vpp import VPPControl
+from vyos.vpp.interface.interface import Interface
 
 
 def show():
@@ -29,7 +30,7 @@ def show():
     return vpp.api.gre_tunnel_dump()
 
 
-class GREInterface:
+class GREInterface(Interface):
     """
     Class representing a GRE (Generic Routing Encapsulation) interface.
 
@@ -64,6 +65,7 @@ class GREInterface:
         tunnel_type: str = 'l3',
         mode: str = 'point-to-point',
         kernel_interface: str = '',
+        state: str = 'up',
     ):
         """
         Initialize a GREInterface instance.
@@ -75,7 +77,9 @@ class GREInterface:
             mode (str): The mode of the GRE tunnel. Options are 'point-to-point' and 'point-to-multipoint'. Defaults to 'point-to-point'.
             tunnel_type (str): The type of GRE tunnel. Defaults to 'l3'.
             kernel_interface (str): The associated kernel interface. Defaults to an empty string.
+            state (str): The state of the interface. Defaults to 'up'.
         """
+        super().__init__(ifname)
         self.instance = int(ifname.removeprefix('gre'))
         self.ifname = ifname
         self.src_address = source_address
@@ -83,7 +87,7 @@ class GREInterface:
         self.tunnel_type = self.TUNNEL_TYPE_MAP[tunnel_type]
         self.mode = self.MODE_MAP[mode]
         self.kernel_interface = kernel_interface
-        self.vpp = VPPControl()
+        self.initial_state = state
 
     def add(self):
         """Create GRE interface
@@ -103,6 +107,8 @@ class GREInterface:
                 'type': self.tunnel_type,
             },
         )
+        # Set interface state
+        self.set_state(self.initial_state)
 
     def delete(self):
         """Delete GRE interface

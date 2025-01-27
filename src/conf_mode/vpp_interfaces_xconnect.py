@@ -124,7 +124,8 @@ def apply(config):
 
     # Add xconnect
     members = config.get('member', {}).get('interface')
-    i = XconnectInterface(ifname, members=members)
+    state = 'up' if 'disable' not in config else 'down'
+    i = XconnectInterface(ifname, members=members, state=state)
     i.add_l2_xconnect()
 
     return None

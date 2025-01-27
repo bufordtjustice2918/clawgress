@@ -17,6 +17,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 from vyos.vpp import VPPControl
+from vyos.vpp.interface.interface import Interface
 
 
 def show():
@@ -29,14 +30,22 @@ def show():
     return vpp.api.ipip_tunnel_dump()
 
 
-class IPIPInterface:
-    def __init__(self, ifname, source_address, remote, kernel_interface: str = ''):
+class IPIPInterface(Interface):
+    def __init__(
+        self,
+        ifname,
+        source_address,
+        remote,
+        kernel_interface: str = '',
+        state: str = 'up',
+    ):
+        super().__init__(ifname)
         self.instance = int(ifname.removeprefix('ipip'))
         self.ifname = ifname
         self.src_address = source_address
         self.dst_address = remote
         self.kernel_interface = kernel_interface
-        self.vpp = VPPControl()
+        self.initial_state = state
 
     def add(self):
         """Create IPIP interface
@@ -53,6 +62,8 @@ class IPIPInterface:
                 'instance': self.instance,
             },
         )
+        # Set interface state
+        self.set_state(self.initial_state)
 
     def delete(self):
         """Delete IPIP interface

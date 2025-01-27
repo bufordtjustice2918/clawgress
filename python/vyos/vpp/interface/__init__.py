@@ -20,6 +20,7 @@ from .bridge import BridgeInterface
 from .ethernet import EthernetInterface
 from .geneve import GeneveInterface
 from .gre import GREInterface
+from .interface import Interface
 from .ipip import IPIPInterface
 from .loopback import LoopbackInterface
 from .vxlan import VXLANInterface
@@ -32,6 +33,7 @@ __all__ = [
     'EthernetInterface',
     'GeneveInterface',
     'GREInterface',
+    'Interface',
     'IPIPInterface',
     'LoopbackInterface',
     'VXLANInterface',

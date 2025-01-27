@@ -17,6 +17,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 from vyos.vpp import VPPControl
+from vyos.vpp.interface.interface import Interface
 
 
 def show():
@@ -29,17 +30,26 @@ def show():
     return vpp.api.vxlan_tunnel_dump()
 
 
-class VXLANInterface:
+class VXLANInterface(Interface):
     """Interface VXLAN"""
 
-    def __init__(self, ifname, source_address, remote, vni, kernel_interface: str = ''):
+    def __init__(
+        self,
+        ifname,
+        source_address,
+        remote,
+        vni,
+        kernel_interface: str = '',
+        state: str = 'up',
+    ):
+        super().__init__(ifname)
         self.instance = int(ifname.removeprefix('vxlan'))
         self.ifname = f'vxlan_tunnel{self.instance}'
         self.src_address = source_address
         self.dst_address = remote
         self.vni = vni
         self.kernel_interface = kernel_interface
-        self.vpp = VPPControl()
+        self.initial_state = state
 
     def add(self):
         """Create VXLAN interface
@@ -59,6 +69,8 @@ class VXLANInterface:
             decap_next_index=1,
             is_l3=False,
         )
+        # Set interface state
+        self.set_state(self.initial_state)
 
     def delete(self):
         """Delete VXLAN interface
