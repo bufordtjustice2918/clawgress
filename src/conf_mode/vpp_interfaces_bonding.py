@@ -190,8 +190,9 @@ def apply(config):
     members = config.get('member', {}).get('interface', [])
     mac = config.get('mac', '')
     kernel_interface = config.get('kernel_interface', '')
+    state = 'up' if 'disable' not in config else 'down'
 
-    i = BondInterface(ifname, mode, lb, mac, kernel_interface)
+    i = BondInterface(ifname, mode, lb, mac, kernel_interface, state)
     # Introduce a delay to address instability in the VPP API, which may fail to create the LCP
     # or establish a connection. This should be reviewed and resolved in future releases.
     time.sleep(2)
@@ -201,8 +202,6 @@ def apply(config):
     if members:
         for member in members:
             i.add_member(interface=member)
-
-    i.set_state_up()
 
     call_dependents()
 
