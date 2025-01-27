@@ -14,6 +14,7 @@
 # License along with this library.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
+import shlex
 
 from subprocess import Popen
 from subprocess import PIPE
@@ -22,11 +23,11 @@ from subprocess import DEVNULL
 
 
 def get_wrapper(vrf, netns):
-    wrapper = ''
+    wrapper = None
     if vrf:
-        wrapper = f'ip vrf exec {vrf} '
+        wrapper = ['ip', 'vrf', 'exec', vrf]
     elif netns:
-        wrapper = f'ip netns exec {netns} '
+        wrapper = ['ip', 'netns', 'exec', netns]
     return wrapper
 
 
@@ -72,19 +73,6 @@ def popen(command, flag='', shell=None, input=None, timeout=None, env=None,
     if not debug.enabled(flag):
         flag = 'command'
 
-    # Must be run as root to execute command in VRF or network namespace
-    if vrf or netns:
-        if os.getuid() != 0:
-            raise OSError(
-                'Permission denied: cannot execute commands in VRF and netns contexts as an unprivileged user'
-            )
-
-    wrapper = get_wrapper(vrf, netns)
-    command = f'{wrapper} {command}'
-
-    cmd_msg = f"cmd '{command}'"
-    debug.message(cmd_msg, flag)
-
     use_shell = shell
     stdin = None
     if shell is None:
@@ -93,6 +81,24 @@ def popen(command, flag='', shell=None, input=None, timeout=None, env=None,
             use_shell = True
         if env:
             use_shell = True
+
+    # Must be run as root to execute command in VRF or network namespace
+    if vrf or netns:
+        if os.getuid() != 0:
+            raise OSError(
+                'Permission denied: cannot execute commands in VRF and netns contexts as an unprivileged user'
+            )
+
+        wrapper = get_wrapper(vrf, netns)
+        if use_shell:
+            command = f'{shlex.join(wrapper)} {command}'
+        else:
+            if type(command) is not list:
+                command = [command]
+            command = wrapper + command
+
+    cmd_msg = f"cmd '{command}'" if use_shell else f"cmd '{shlex.join(command)}'"
+    debug.message(cmd_msg, flag)
 
     if input:
         stdin = PIPE
