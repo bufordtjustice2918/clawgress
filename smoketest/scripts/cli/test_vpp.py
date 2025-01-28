@@ -940,6 +940,32 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         for required_string in required_str_list:
             self.assertNotIn(required_string, out)
 
+    def test_11_vpp_cpu_settings(self):
+        main_core = '0'
+        workers = '2'
+
+        self.cli_set(base_path + ['settings', 'cpu', 'workers', workers])
+
+        # "cpu workers" reqiures main-core to be set
+        # expect raise ConfigError
+        with self.assertRaises(ConfigSessionError):
+            self.cli_commit()
+
+        self.cli_set(base_path + ['settings', 'cpu', 'main-core', main_core])
+
+        self.cli_commit()
+
+        config_entries = (
+            f'main-core {main_core}',
+            f'workers {workers}',
+            'dev 0000:00:00.0',
+        )
+
+        # Check configured options
+        config = read_file(VPP_CONF)
+        for config_entry in config_entries:
+            self.assertIn(config_entry, config)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
