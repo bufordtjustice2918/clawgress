@@ -283,7 +283,7 @@ class VPPControl:
         This clears all routes in VPP configured by LCP and re-creates them
         based on the current state of the kernel.
         """
-        return self.__vpp_api_client.api.lcp_resync()
+        return self.__vpp_api_client.api.lcp_nl_resync()
 
     @_Decorators.check_retval
     @_Decorators.api_call
