@@ -24,7 +24,7 @@ from pyroute2 import IPRoute
 from vyos import ConfigError
 from vyos import airbag
 from vyos.base import Warning
-from vyos.config import Config
+from vyos.config import Config, config_dict_merge
 from vyos.configdep import set_dependents, call_dependents
 from vyos.configdict import node_changed, leaf_node_changed
 from vyos.utils.cpu import get_core_count
@@ -126,8 +126,18 @@ def get_config(config=None):
         get_first_key=True,
         key_mangling=('-', '_'),
         no_tag_node_value_mangle=True,
-        with_recursive_defaults=True,
     )
+
+    # Get default values which we need to conditionally update into the
+    # dictionary retrieved.
+    default_values = conf.get_config_defaults(**config.kwargs, recursive=True)
+
+    # delete "xdp-options" from defaults if driver is DPDK
+    for iface, iface_config in config.get('settings', {}).get('interface', {}).items():
+        if iface_config.get('driver') == 'dpdk':
+            del default_values['settings']['interface'][iface]['xdp_options']
+
+    config = config_dict_merge(default_values, config)
 
     # add running config
     if effective_config:
@@ -334,6 +344,12 @@ def verify(config):
         if iface_config['driver'] == 'xdp' and 'xdp_options' in iface_config:
             if iface_config['xdp_options']['num_rx_queues'] != 'all':
                 Warning(f'Not all RX queues will be connected to VPP for {iface}!')
+
+        if iface_config['driver'] == 'xdp' and 'dpdk_options' in iface_config:
+            raise ConfigError('DPDK options are not applicable for XDP driver!')
+
+        if iface_config['driver'] == 'dpdk' and 'xdp_options' in iface_config:
+            raise ConfigError('XDP options are not applicable for DPDK driver!')
 
     # check GRE tunnels as part of the bridge, only tunnel-type teb is allowed
     #   set vpp interfaces bridge br1 member interface gre1

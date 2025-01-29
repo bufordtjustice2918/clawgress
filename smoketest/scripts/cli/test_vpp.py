@@ -947,6 +947,36 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         for required_string in required_str_list:
             self.assertNotIn(required_string, out)
 
+    def test_10_vpp_driver_options(self):
+        dpdk_options = {
+            'num-rx-desc': '512',
+            'num-tx-desc': '512',
+            'num-rx-queues': '3',
+            'num-tx-queues': '3',
+        }
+
+        base_interface_path = base_path + ['settings', 'interface', interface]
+
+        for option, value in dpdk_options.items():
+            self.cli_set(base_interface_path + ['dpdk-options', option, value])
+
+        # DPDK driver expect only dpdk-options and not xdp-options to be set
+        # expect raise ConfigError
+        self.cli_set(base_interface_path + ['xdp-options', 'no-syscall-lock'])
+
+        with self.assertRaises(ConfigSessionError):
+            self.cli_commit()
+
+        # delete xdp-options and apply commit
+        self.cli_delete(base_interface_path + ['xdp-options'])
+        self.cli_commit()
+
+        # check dpdk options in config file
+        config = read_file(VPP_CONF)
+
+        for option, value in dpdk_options.items():
+            self.assertIn(f'{option} {value}', config)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
