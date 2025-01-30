@@ -644,7 +644,7 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         self.assertFalse(os.path.isdir(f'/sys/class/net/{interface_kernel}'))
 
         # delete bonding interface
-        self.cli_set(base_path + ['interfaces', 'bonding', interface_bond])
+        self.cli_delete(base_path + ['interfaces', 'bonding'])
         self.cli_commit()
 
         # check deleting bonding interface
