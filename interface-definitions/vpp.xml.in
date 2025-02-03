@@ -450,8 +450,11 @@
                 <format>ethN</format>
                 <description>Interface name</description>
               </valueHelp>
+              <completionHelp>
+                <script>${vyos_completion_dir}/list_interfaces --type ethernet</script>
+              </completionHelp>
               <constraint>
-                <regex>((eth|lan)[0-9]+|(eno|ens|enp|enx).+)</regex>
+                <validator name="ethernet-interface"/>
               </constraint>
               <constraintErrorMessage>Invalid interface name</constraintErrorMessage>
             </properties>
