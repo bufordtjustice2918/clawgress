@@ -397,9 +397,21 @@ def verify(config):
     if 'cpu' in config['settings']:
         if (
             'corelist_workers' in config['settings']['cpu']
-            and 'main_core' not in config['settings']['cpu']
-        ):
+            or 'workers' in config['settings']['cpu']
+        ) and 'main_core' not in config['settings']['cpu']:
             raise ConfigError('"cpu main-core" is required but not set!')
+
+        cpus = int(get_core_count())
+        if 'workers' in config['settings']['cpu']:
+            # number of worker threads must be not more than
+            # available CPUs in the system - 2 (1 for main thread and at least 1 for system processes)
+            workers = int(config['settings']['cpu']['workers'])
+            available_workers = cpus - 2
+            if workers > available_workers:
+                raise ConfigError(
+                    f'The system does not have enough CPUs for {workers} VPP workers '
+                    f'(reduce to {available_workers} or less)'
+                )
 
     verify_memory(config['settings'])
 
@@ -444,6 +456,7 @@ def generate(config):
 
 
 def apply(config):
+
     # Open persistent config
     # It is required for operations with interfaces
     persist_config = JSONStorage('vpp_conf')

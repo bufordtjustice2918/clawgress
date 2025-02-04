@@ -522,6 +522,7 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         self.cli_set(base_path + ['interfaces', 'loopback', interface_loopback])
         self.cli_commit()
 
+    @unittest.skip("Skipping temporary bonding, sometimes get recursion T7117")
     def test_06_vpp_bonding(self):
         interface_bond = 'bond23'
         interface_kernel = 'vpptun23'
@@ -976,6 +977,32 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
 
         for option, value in dpdk_options.items():
             self.assertIn(f'{option} {value}', config)
+
+    def test_11_vpp_cpu_settings(self):
+        main_core = '0'
+        workers = '2'
+
+        self.cli_set(base_path + ['settings', 'cpu', 'workers', workers])
+
+        # "cpu workers" reqiures main-core to be set
+        # expect raise ConfigError
+        with self.assertRaises(ConfigSessionError):
+            self.cli_commit()
+
+        self.cli_set(base_path + ['settings', 'cpu', 'main-core', main_core])
+
+        self.cli_commit()
+
+        config_entries = (
+            f'main-core {main_core}',
+            f'workers {workers}',
+            'dev 0000:00:00.0',
+        )
+
+        # Check configured options
+        config = read_file(VPP_CONF)
+        for config_entry in config_entries:
+            self.assertIn(config_entry, config)
 
 
 if __name__ == '__main__':

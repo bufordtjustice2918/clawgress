@@ -450,8 +450,11 @@
                 <format>ethN</format>
                 <description>Interface name</description>
               </valueHelp>
+              <completionHelp>
+                <script>${vyos_completion_dir}/list_interfaces --type ethernet</script>
+              </completionHelp>
               <constraint>
-                <regex>((eth|lan)[0-9]+|(eno|ens|enp|enx).+)</regex>
+                <validator name="ethernet-interface"/>
               </constraint>
               <constraintErrorMessage>Invalid interface name</constraintErrorMessage>
             </properties>
@@ -847,7 +850,7 @@
     <tagNode name="kernel-interfaces" owner="${vyos_conf_scripts_dir}/vpp_kernel-interfaces.py">
       <properties>
         <help>VPP kernel interface settings</help>
-        <priority>305</priority>
+        <priority>308</priority>
         <valueHelp>
           <format>vpptapN</format>
           <description>Kernel interface name</description>
