@@ -8,6 +8,8 @@ module CT = Config_tree
 module CD = Config_diff
 module CM = Commit
 
+module I = Internal.Make(Config_tree)
+
 let error_message = ref ""
 
 let make_syntax_error pos err =
@@ -24,6 +26,9 @@ let make_config_tree name = Ctypes.Root.create (CT.make name)
 
 let destroy c_ptr = 
     Root.release c_ptr
+
+let equal c_ptr_l c_ptr_r =
+    (Root.get c_ptr_l) = (Root.get c_ptr_r)
 
 let from_string s = 
   try
@@ -54,6 +59,22 @@ let render_commands c_ptr op =
             CT.render_commands ~op:CT.Delete (Root.get c_ptr) []
     | _ ->
             CT.render_commands ~op:CT.Set (Root.get c_ptr) []
+
+let read_internal file =
+    try
+        error_message := "";
+        let ct = I.read_internal file in
+        Ctypes.Root.create ct
+    with Internal.Read_error msg ->
+        error_message := msg; Ctypes.null
+
+let write_internal c_ptr file =
+    try
+        error_message := "";
+        let ct = Root.get c_ptr in
+        I.write_internal ct file
+    with Internal.Write_error msg ->
+        error_message := msg
 
 let create_node c_ptr path =
     let ct = Root.get c_ptr in
@@ -257,12 +278,15 @@ struct
 
   let () = I.internal "make" (string @-> returning (ptr void)) make_config_tree
   let () = I.internal "destroy" ((ptr void) @-> returning void) destroy
+  let () = I.internal "equal" ((ptr void) @-> (ptr void) @-> returning bool) equal
   let () = I.internal "from_string" (string @-> returning (ptr void)) from_string
   let () = I.internal "get_error" (void @-> returning string) get_error
   let () = I.internal "to_string"  ((ptr void) @-> bool @-> returning string) render_config
   let () = I.internal "to_json" ((ptr void) @-> returning string) render_json
   let () = I.internal "to_json_ast" ((ptr void) @-> returning string) render_json_ast
   let () = I.internal "to_commands" ((ptr void) @-> string @-> returning string) render_commands
+  let () = I.internal "read_internal" (string @-> returning (ptr void)) read_internal
+  let () = I.internal "write_internal" ((ptr void) @-> string @-> returning void) write_internal
   let () = I.internal "create_node" ((ptr void) @-> string @-> returning int) create_node
   let () = I.internal "set_add_value" ((ptr void) @-> string @-> string @-> returning int) set_add_value
   let () = I.internal "set_replace_value" ((ptr void) @-> string @-> string @-> returning int) set_replace_value
