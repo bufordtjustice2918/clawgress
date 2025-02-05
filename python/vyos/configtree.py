@@ -66,9 +66,14 @@ class ConfigTreeError(Exception):
 
 
 class ConfigTree(object):
-    def __init__(self, config_string=None, address=None, libpath=LIBPATH):
-        if config_string is None and address is None:
-            raise TypeError("ConfigTree() requires one of 'config_string' or 'address'")
+    def __init__(
+        self, config_string=None, address=None, internal=None, libpath=LIBPATH
+    ):
+        if config_string is None and address is None and internal is None:
+            raise TypeError(
+                "ConfigTree() requires one of 'config_string', 'address', or 'internal'"
+            )
+
         self.__config = None
         self.__lib = cdll.LoadLibrary(libpath)
 
@@ -88,6 +93,13 @@ class ConfigTree(object):
         self.__to_commands = self.__lib.to_commands
         self.__to_commands.argtypes = [c_void_p, c_char_p]
         self.__to_commands.restype = c_char_p
+
+        self.__read_internal = self.__lib.read_internal
+        self.__read_internal.argtypes = [c_char_p]
+        self.__read_internal.restype = c_void_p
+
+        self.__write_internal = self.__lib.write_internal
+        self.__write_internal.argtypes = [c_void_p, c_char_p]
 
         self.__to_json = self.__lib.to_json
         self.__to_json.argtypes = [c_void_p]
@@ -168,7 +180,21 @@ class ConfigTree(object):
         self.__destroy = self.__lib.destroy
         self.__destroy.argtypes = [c_void_p]
 
-        if address is None:
+        self.__equal = self.__lib.equal
+        self.__equal.argtypes = [c_void_p, c_void_p]
+        self.__equal.restype = c_bool
+
+        if address is not None:
+            self.__config = address
+            self.__version = ''
+        elif internal is not None:
+            config = self.__read_internal(internal.encode())
+            if config is None:
+                msg = self.__get_error().decode()
+                raise ValueError('Failed to read internal rep: {0}'.format(msg))
+            else:
+                self.__config = config
+        elif config_string is not None:
             config_section, version_section = extract_version(config_string)
             config_section = escape_backslash(config_section)
             config = self.__from_string(config_section.encode())
@@ -179,8 +205,9 @@ class ConfigTree(object):
                 self.__config = config
                 self.__version = version_section
         else:
-            self.__config = address
-            self.__version = ''
+            raise TypeError(
+                "ConfigTree() requires one of 'config_string', 'address', or 'internal'"
+            )
 
         self.__migration = os.environ.get('VYOS_MIGRATION')
         if self.__migration:
@@ -190,6 +217,11 @@ class ConfigTree(object):
         if self.__config is not None:
             self.__destroy(self.__config)
 
+    def __eq__(self, other):
+        if isinstance(other, ConfigTree):
+            return self.__equal(self._get_config(), other._get_config())
+        return False
+
     def __str__(self):
         return self.to_string()
 
@@ -198,6 +230,9 @@ class ConfigTree(object):
 
     def get_version_string(self):
         return self.__version
+
+    def write_cache(self, file_name):
+        self.__write_internal(self._get_config(), file_name)
 
     def to_string(self, ordered_values=False, no_version=False):
         config_string = self.__to_string(self.__config, ordered_values).decode()
