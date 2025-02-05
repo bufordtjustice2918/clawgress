@@ -74,6 +74,13 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         main_core = '0'
         poll_sleep = '0'
 
+        # Main core must be verified
+        # expect raise ConfigError
+        self.cli_set(base_path + ['settings', 'cpu', 'main-core', '99'])
+
+        with self.assertRaises(ConfigSessionError):
+            self.cli_commit()
+
         self.cli_set(base_path + ['settings', 'cpu', 'main-core', main_core])
         self.cli_set(base_path + ['settings', 'unix', 'poll-sleep-usec', poll_sleep])
 
