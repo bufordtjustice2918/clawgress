@@ -27,7 +27,7 @@ from vyos.base import Warning
 from vyos.config import Config, config_dict_merge
 from vyos.configdep import set_dependents, call_dependents
 from vyos.configdict import node_changed, leaf_node_changed
-from vyos.utils.cpu import get_core_count
+from vyos.utils.cpu import get_core_count, get_available_cpus
 from vyos.ifconfig import Section
 from vyos.template import render
 from vyos.utils.boot import boot_configuration_complete
@@ -303,25 +303,6 @@ def verify(config):
     if 'settings' not in config:
         raise ConfigError('"settings interface" is required but not set!')
 
-    # CPU main-core must be not included to corelist-workers
-    if config.get('settings').get('cpu', {}).get('main_core') and config.get(
-        'settings'
-    ).get('cpu', {}).get('corelist_workers'):
-        corelist_workers = config['settings']['cpu']['corelist_workers']
-        main_core = int(config['settings']['cpu']['main_core'])
-
-        all_core_numbers = []
-        for worker_range in corelist_workers:
-            core_numbers = worker_range.split('-')
-            all_core_numbers.extend(
-                range(int(core_numbers[0]), int(core_numbers[-1]) + 1)
-            )
-
-        if main_core in all_core_numbers:
-            raise ConfigError(
-                f'"cpu main-core {main_core}" must not be included in the corelist-workers!'
-            )
-
     if 'interface' not in config['settings']:
         raise ConfigError('"settings interface" is required but not set!')
 
@@ -413,6 +394,30 @@ def verify(config):
                     f'(reduce to {available_workers} or less)'
                 )
 
+        cpus_available = list(map(lambda el: el['cpu'], get_available_cpus()))
+
+        if 'main_core' in config['settings']['cpu']:
+            main_core = int(config['settings']['cpu']['main_core'])
+
+            if main_core not in cpus_available:
+                raise ConfigError(f'"cpu main-core {main_core}" is not available!')
+
+            # CPU main-core must be not included to corelist-workers
+            if config.get('settings').get('cpu', {}).get('corelist_workers'):
+                corelist_workers = config['settings']['cpu']['corelist_workers']
+
+                all_core_numbers = []
+                for worker_range in corelist_workers:
+                    core_numbers = worker_range.split('-')
+                    all_core_numbers.extend(
+                        range(int(core_numbers[0]), int(core_numbers[-1]) + 1)
+                    )
+
+                if main_core in all_core_numbers:
+                    raise ConfigError(
+                        f'"cpu main-core {main_core}" must not be included in the corelist-workers!'
+                    )
+
     verify_memory(config['settings'])
 
     # Check if deleted interfaces are not xconnect memebrs
@@ -456,7 +461,6 @@ def generate(config):
 
 
 def apply(config):
-
     # Open persistent config
     # It is required for operations with interfaces
     persist_config = JSONStorage('vpp_conf')
