@@ -94,7 +94,6 @@ class VyOSUnitTestSHIM:
         def cli_commit(self):
             if self.debug:
                 print('commit')
-            self._session.commit()
             # During a commit there is a process opening commit_lock, and run()
             # returns 0
             while run(f'sudo lsof -nP {commit_lock}') == 0:
