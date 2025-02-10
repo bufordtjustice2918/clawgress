@@ -83,13 +83,13 @@ def popen(command, flag='', shell=None, input=None, timeout=None, env=None,
             use_shell = True
 
     # Must be run as root to execute command in VRF or network namespace
+    wrapper = get_wrapper(vrf, netns)
     if vrf or netns:
         if os.getuid() != 0:
             raise OSError(
                 'Permission denied: cannot execute commands in VRF and netns contexts as an unprivileged user'
             )
 
-        wrapper = get_wrapper(vrf, netns)
         if use_shell:
             command = f'{shlex.join(wrapper)} {command}'
         else:
