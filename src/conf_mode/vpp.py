@@ -383,11 +383,23 @@ def verify(config):
             raise ConfigError('"cpu main-core" is required but not set!')
 
         cpus = int(get_core_count())
+        skip_cores = 0
+
+        if 'skip_cores' in config['settings']['cpu']:
+            skip_cores = int(config['settings']['cpu']['skip_cores'])
+            # the number of skipped cores should not be more than all CPUs - 1 (for main core)
+            if skip_cores > cpus - 1:
+                raise ConfigError(
+                    f'The system does not have enough available CPUs to skip '
+                    f'(reduce "cpu skip-cores" to {cpus - 1} or less)'
+                )
+
         if 'workers' in config['settings']['cpu']:
             # number of worker threads must be not more than
-            # available CPUs in the system - 2 (1 for main thread and at least 1 for system processes)
+            # available CPUs in the system - 1 for main thread - number of skipped cores
+            # or - 1 (at least) for system processes
             workers = int(config['settings']['cpu']['workers'])
-            available_workers = cpus - 2
+            available_workers = cpus - 1 - (skip_cores or 1)
             if workers > available_workers:
                 raise ConfigError(
                     f'The system does not have enough CPUs for {workers} VPP workers '
@@ -395,6 +407,8 @@ def verify(config):
                 )
 
         cpus_available = list(map(lambda el: el['cpu'], get_available_cpus()))
+        # available CPUs are all CPUs without first N skipped cores that will not be used
+        cpus_available = cpus_available[skip_cores:]
 
         if 'main_core' in config['settings']['cpu']:
             main_core = int(config['settings']['cpu']['main_core'])
