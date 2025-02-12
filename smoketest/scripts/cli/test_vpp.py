@@ -986,8 +986,9 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
             self.assertIn(f'{option} {value}', config)
 
     def test_11_vpp_cpu_settings(self):
-        main_core = '0'
+        main_core = '2'
         workers = '2'
+        skip_cores = '1'
 
         self.cli_set(base_path + ['settings', 'cpu', 'workers', workers])
 
@@ -998,9 +999,19 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
 
         self.cli_set(base_path + ['settings', 'cpu', 'main-core', main_core])
 
+        self.cli_set(base_path + ['settings', 'cpu', 'skip-cores', '99'])
+
+        # "cpu skip-cores" cannot be more than number of available CPUs - 1
+        # expect raise ConfigError
+        with self.assertRaises(ConfigSessionError):
+            self.cli_commit()
+
+        self.cli_set(base_path + ['settings', 'cpu', 'skip-cores', skip_cores])
+
         self.cli_commit()
 
         config_entries = (
+            f'skip-cores {skip_cores}',
             f'main-core {main_core}',
             f'workers {workers}',
             'dev 0000:00:00.0',
