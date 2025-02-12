@@ -423,6 +423,10 @@ def verify(config):
                 all_core_numbers = []
                 for worker_range in corelist_workers:
                     core_numbers = worker_range.split('-')
+                    if int(core_numbers[0]) > int(core_numbers[-1]):
+                        raise ConfigError(
+                            f'Range for "cpu corelist-workers {worker_range}" is not correct'
+                        )
                     all_core_numbers.extend(
                         range(int(core_numbers[0]), int(core_numbers[-1]) + 1)
                     )
