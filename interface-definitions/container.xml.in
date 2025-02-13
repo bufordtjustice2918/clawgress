@@ -540,7 +540,7 @@
           #include <include/generic-disable-node.xml.i>
           <leafNode name="insecure">
             <properties>
-              <help>Set to allow registry using unencrypted HTTP as well as TLS connections with untrusted certificates.</help>
+              <help>Allow registry access over unencrypted HTTP or TLS connections with untrusted certificates</help>
               <valueless/>
             </properties>
           </leafNode>
