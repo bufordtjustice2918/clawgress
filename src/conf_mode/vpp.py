@@ -382,6 +382,14 @@ def verify(config):
         ) and 'main_core' not in config['settings']['cpu']:
             raise ConfigError('"cpu main-core" is required but not set!')
 
+        if (
+            'corelist_workers' in config['settings']['cpu']
+            and 'workers' in config['settings']['cpu']
+        ):
+            raise ConfigError(
+                '"cpu corelist-workers" and "cpu workers" cannot be used at the same time!'
+            )
+
         cpus = int(get_core_count())
         skip_cores = 0
 
@@ -435,6 +443,9 @@ def verify(config):
                     raise ConfigError(
                         f'"cpu main-core {main_core}" must not be included in the corelist-workers!'
                     )
+
+                if not all(el in cpus_available for el in all_core_numbers):
+                    raise ConfigError('"cpu corelist-workers" is not correct')
 
     verify_memory(config['settings'])
 

@@ -1022,6 +1022,48 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         for config_entry in config_entries:
             self.assertIn(config_entry, config)
 
+    def test_12_vpp_cpu_corelist_workers(self):
+        main_core = '0'
+        corelist_workers = ['1', '2-3']
+
+        for worker in corelist_workers:
+            self.cli_set(base_path + ['settings', 'cpu', 'corelist-workers', worker])
+
+        # "cpu corelist-workers" reqiures main-core to be set
+        # expect raise ConfigError
+        with self.assertRaises(ConfigSessionError):
+            self.cli_commit()
+
+        self.cli_set(base_path + ['settings', 'cpu', 'main-core', main_core])
+
+        # corelist-workers and workers cannot be used at the same time
+        # expect raise ConfigError
+        self.cli_set(base_path + ['settings', 'cpu', 'workers', '2'])
+        with self.assertRaises(ConfigSessionError):
+            self.cli_commit()
+        self.cli_delete(base_path + ['settings', 'cpu', 'workers'])
+
+        # verify corelist-workers are set not correctly
+        # expect raise ConfigError
+        self.cli_set(base_path + ['settings', 'cpu', 'corelist-workers', '99-101'])
+        with self.assertRaises(ConfigSessionError):
+            self.cli_commit()
+
+        self.cli_delete(base_path + ['settings', 'cpu', 'corelist-workers', '99-101'])
+
+        self.cli_commit()
+
+        config_entries = (
+            f'main-core {main_core}',
+            f'corelist-workers {",".join(corelist_workers)}',
+            'dev 0000:00:00.0',
+        )
+
+        # Check configured options
+        config = read_file(VPP_CONF)
+        for config_entry in config_entries:
+            self.assertIn(config_entry, config)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
