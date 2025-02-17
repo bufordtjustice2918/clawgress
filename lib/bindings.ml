@@ -3,10 +3,12 @@ open Foreign
 
 open Vyos1x
 open Vyconfd_config
+open Commitd_client
 
 module CT = Config_tree
 module CD = Config_diff
 module CM = Commit
+module VC = Vycall_client
 
 module I = Internal.Make(Config_tree)
 
@@ -273,6 +275,11 @@ let show_commit_data c_ptr_a c_ptr_w =
     let ct_w = Root.get c_ptr_w in
     CM.show_commit_data ct_a ct_w
 
+let test_commit c_ptr_a c_ptr_w =
+    let ct_a = Root.get c_ptr_a in
+    let ct_w = Root.get c_ptr_w in
+    VC.test_commit ct_a ct_w
+
 module Stubs(I : Cstubs_inverted.INTERNAL) =
 struct
 
@@ -310,4 +317,5 @@ struct
   let () = I.internal "reference_tree_to_json" (string @-> string @-> string @-> returning int) reference_tree_to_json
   let () = I.internal "mask_tree" ((ptr void) @-> (ptr void) @-> returning (ptr void)) mask_tree
   let () = I.internal "show_commit_data" ((ptr void) @-> (ptr void) @-> returning string) show_commit_data
+  let () = I.internal "test_commit" ((ptr void) @-> (ptr void) @-> returning void) test_commit
 end
