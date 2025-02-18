@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2023-2024 VyOS Inc.
+# Copyright (C) 2023-2025 VyOS Inc.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -138,6 +138,10 @@ def get_config(config=None):
             del default_values['settings']['interface'][iface]['xdp_options']
 
     config = config_dict_merge(default_values, config)
+
+    # Ignore default XML values if config doesn't exists
+    if not conf.exists(base_settings + ['ipsec']):
+        del config['settings']['ipsec']
 
     # add running config
     if effective_config:
