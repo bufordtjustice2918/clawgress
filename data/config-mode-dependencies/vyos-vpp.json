@@ -10,34 +10,42 @@
         "vpp_interfaces_loopback": ["vpp_interfaces_loopback"],
         "vpp_interfaces_vxlan": ["vpp_interfaces_vxlan"],
         "vpp_interfaces_xconnect": ["vpp_interfaces_xconnect"],
+        "vpp_nat_source": ["vpp_nat_source"],
         "vpp_kernel_interface": ["vpp_kernel-interfaces"]
     },
     "vpp_interfaces_bonding": {
         "vpp_interfaces_xconnect": ["vpp_interfaces_xconnect"],
+        "vpp_nat_source": ["vpp_nat_source"],
         "vpp_kernel_interface": ["vpp_kernel-interfaces"]
     },
     "vpp_interfaces_ethernet": {
         "vpp_interfaces_xconnect": ["vpp_interfaces_xconnect"],
+        "vpp_nat_source": ["vpp_nat_source"],
         "vpp_kernel_interface": ["vpp_kernel-interfaces"]
     },
     "vpp_interfaces_geneve": {
         "vpp_interfaces_xconnect": ["vpp_interfaces_xconnect"],
+        "vpp_nat_source": ["vpp_nat_source"],
         "vpp_kernel_interface": ["vpp_kernel-interfaces"]
     },
     "vpp_interfaces_gre": {
         "vpp_interfaces_xconnect": ["vpp_interfaces_xconnect"],
+        "vpp_nat_source": ["vpp_nat_source"],
         "vpp_kernel_interface": ["vpp_kernel-interfaces"]
     },
     "vpp_interfaces_ipip": {
         "vpp_interfaces_xconnect": ["vpp_interfaces_xconnect"],
+        "vpp_nat_source": ["vpp_nat_source"],
         "vpp_kernel_interface": ["vpp_kernel-interfaces"]
     },
     "vpp_interfaces_loopback": {
+        "vpp_nat_source": ["vpp_nat_source"],
         "vpp_kernel_interface": ["vpp_kernel-interfaces"]
     },
     "vpp_interfaces_vxlan": {
         "vpp_interfaces_bridge": ["vpp_interfaces_bridge"],
         "vpp_interfaces_xconnect": ["vpp_interfaces_xconnect"],
+        "vpp_nat_source": ["vpp_nat_source"],
         "vpp_kernel_interface": ["vpp_kernel-interfaces"]
     }
 }

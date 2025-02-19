@@ -833,6 +833,71 @@
         </node>
       </children>
     </node>
+    <node name="nat44">
+      <properties>
+        <help>NAT44</help>
+      </properties>
+      <children>
+        <node name="source" owner="${vyos_conf_scripts_dir}/vpp_nat_source.py">
+          <properties>
+            <help>Source NAT setting</help>
+            <priority>320</priority>
+          </properties>
+          <children>
+            <leafNode name="inbound-interface">
+              <properties>
+                <help>Inbound interface of NAT traffic</help>
+                <completionHelp>
+                  <list>any</list>
+                  <script>${vyos_completion_dir}/list_interfaces</script>
+                </completionHelp>
+              </properties>
+            </leafNode>
+            <leafNode name="outbound-interface">
+              <properties>
+                <help>Outbound interface of NAT traffic</help>
+                <completionHelp>
+                  <list>any</list>
+                  <script>${vyos_completion_dir}/list_interfaces</script>
+                </completionHelp>
+              </properties>
+            </leafNode>
+            <node name="translation">
+              <properties>
+                <help>Outside NAT IP (source NAT only)</help>
+              </properties>
+              <children>
+                <leafNode name="address">
+                  <properties>
+                    <help>IP address, subnet, or range</help>
+                    <completionHelp>
+                      <list>masquerade</list>
+                    </completionHelp>
+                    <valueHelp>
+                      <format>ipv4</format>
+                      <description>IPv4 address to match</description>
+                    </valueHelp>
+                    <valueHelp>
+                      <format>ipv4range</format>
+                      <description>IPv4 address range to match</description>
+                    </valueHelp>
+                    <valueHelp>
+                      <format>masquerade</format>
+                      <description>NAT to the primary address of outbound-interface</description>
+                    </valueHelp>
+                    <constraint>
+                      <validator name="ipv4-address"/>
+                      <validator name="ipv4-range"/>
+                      <regex>(masquerade)</regex>
+                    </constraint>
+                  </properties>
+                </leafNode>
+              </children>
+            </node>
+          </children>
+        </node>
+      </children>
+    </node>
     <tagNode name="kernel-interfaces" owner="${vyos_conf_scripts_dir}/vpp_kernel-interfaces.py">
       <properties>
         <help>VPP kernel interface settings</help>
