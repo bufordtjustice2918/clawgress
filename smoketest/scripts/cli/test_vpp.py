@@ -164,6 +164,7 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         remote_address = '192.0.2.254'
         kernel_address = '203.0.113.1'
 
+        self.cli_set(['interfaces', 'ethernet', interface, 'address', '192.0.2.1/24'])
         self.cli_set(
             base_path
             + ['interfaces', 'vxlan', interface_vxlan, 'source-address', source_address]
@@ -365,7 +366,7 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         self.cli_set(base_path + ['interfaces', 'gre', interface_gre])
         self.cli_commit()
 
-    @unittest.skip("Skipping this test geneve index always is 0")
+    @unittest.skip('Skipping this test geneve index always is 0')
     def test_04_vpp_geneve(self):
         vni = '2'
         # Must be 'geneve0' to pass smoketest
@@ -567,7 +568,6 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         self.cli_set(base_path + ['interfaces', 'loopback', interface_loopback])
         self.cli_commit()
 
-    @unittest.skip("Skipping temporary bonding, sometimes get recursion T7117")
     def test_06_vpp_bonding(self):
         interface_bond = 'bond23'
         interface_kernel = 'vpptun23'
@@ -706,6 +706,7 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         source_address = '192.0.2.1'
         remote_address = '192.0.2.254'
 
+        self.cli_set(['interfaces', 'ethernet', interface, 'address', '192.0.2.1/24'])
         for member in members:
             self.cli_set(
                 base_path
@@ -826,6 +827,7 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         remote_address = '192.0.2.5'
         kernel_address = '10.0.0.0'
 
+        self.cli_set(['interfaces', 'ethernet', interface, 'address', '192.0.2.1/24'])
         self.cli_set(
             base_path
             + ['interfaces', 'ipip', interface_ipip, 'source-address', source_address]
@@ -932,6 +934,7 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         source_address = '192.0.2.1'
         remote_address = '192.0.2.254'
 
+        self.cli_set(['interfaces', 'ethernet', interface, 'address', '192.0.2.1/24'])
         self.cli_set(
             base_path
             + ['interfaces', 'vxlan', interface_vxlan, 'source-address', source_address]
