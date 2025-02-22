@@ -1131,6 +1131,38 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
             conf = get_vpp_config()
             self.assertEqual(conf['memory']['default-hugepage-size'], size)
 
+    def test_15_vpp_ipsec_xfrm_nl(self):
+        base_ipsec = base_path + ['settings', 'ipsec']
+        batch_delay = '250'
+        batch_size = '150'
+        rx_buffer_zise = '1024'
+
+        self.cli_set(base_ipsec + ['netlink', 'batch-delay-ms', batch_delay])
+        self.cli_set(base_ipsec + ['netlink', 'batch-size', batch_size])
+        self.cli_set(base_ipsec + ['netlink', 'rx-buffer-size', rx_buffer_zise])
+        self.cli_commit()
+
+        config_entries = (
+            'linux-xfrm-nl',
+            'enable-route-mode-ipsec',
+            'interface ipsec',
+            f'nl-batch-delay-ms {batch_delay}',
+            f'nl-batch-size {batch_size}',
+            f'nl-rx-buffer-size {rx_buffer_zise}',
+        )
+
+        # Check configured options
+        config = read_file(VPP_CONF)
+        for config_entry in config_entries:
+            self.assertIn(config_entry, config)
+
+        # set IPsec tunnel-type ipip
+        self.cli_set(base_ipsec + ['interface-type', 'ipip'])
+        self.cli_commit()
+
+        config = read_file(VPP_CONF)
+        self.assertIn('interface ipip', config)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
