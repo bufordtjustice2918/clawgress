@@ -1,6 +1,7 @@
 <!-- include start from unformat_log2_page_size.xml.i -->
 <completionHelp>
   <list>default default-hugepage</list>
+  <script>sudo ${vyos_completion_dir}/list_mem_page_size.py</script>
 </completionHelp>
 <valueHelp>
   <format>default</format>
@@ -10,20 +11,7 @@
   <format>default-hugepage</format>
   <description>Default huge-page</description>
 </valueHelp>
-<valueHelp>
-  <format>&lt;number&gt;K</format>
-  <description>Kilobyte</description>
-</valueHelp>
-<valueHelp>
-  <format>&lt;number&gt;M</format>
-  <description>Megabyte</description>
-</valueHelp>
-<valueHelp>
-  <format>&lt;number&gt;G</format>
-  <description>Gigabyte</description>
-</valueHelp>
 <constraint>
-  <validator name="numeric" argument="--range 0-4294967295"/>
-  <regex>(default|default-hugepage|\d+K|\d+M|\d+G)</regex>
+  <regex>(default|default-hugepage|4K|8K|1024K|64K|256K|2048K|4096K|16384K|262144K|1048576K|16777216K|1M|2M|4M|16M|256M|1024M|16384M|1G|16G)</regex>
 </constraint>
 <!-- include end -->

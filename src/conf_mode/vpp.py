@@ -39,7 +39,11 @@ from vyos.vpp import control_host
 from vyos.vpp.config_deps import deps_xconnect_dict
 from vyos.vpp.config_verify import verify_dev_driver
 from vyos.vpp.config_filter import iface_filter_eth
-from vyos.vpp.utils import EthtoolGDrvinfo
+from vyos.vpp.utils import (
+    EthtoolGDrvinfo,
+    human_page_memory_to_bytes,
+    human_memory_to_bytes,
+)
 from vyos.vpp.configdb import JSONStorage
 
 airbag.enable()
@@ -268,18 +272,6 @@ def get_config(config=None):
     return config
 
 
-def convert_to_int(val):
-    rates = {
-        'K': 1024,
-        'M': 1024**2,
-        'G': 1024**3,
-    }
-    try:
-        return int(val)
-    except ValueError:
-        return int(val[:-1]) * rates[val[-1]]
-
-
 def verify_memory(settings):
     memory_available: int = virtual_memory().available
     cpus: int = get_core_count()
@@ -299,12 +291,24 @@ def verify_memory(settings):
     )
     memory_required += netlink_buffer_size
 
-    memory_main_heap = convert_to_int(
+    memory_main_heap = human_memory_to_bytes(
         settings.get('memory', {}).get('main_heap_size', '1G')
     )
-    memory_required += memory_main_heap
 
-    statseg_size = convert_to_int(settings.get('statseg', {}).get('size', '96M'))
+    memory_main_heap_page_size = settings.get('memory', {}).get(
+        'main_heap_page_size', 0
+    )
+    if memory_main_heap_page_size:
+        memory_main_heap_page_size = human_page_memory_to_bytes(
+            memory_main_heap_page_size
+        )
+        memory_required += (memory_main_heap + memory_main_heap_page_size - 1) & ~(
+            memory_main_heap_page_size - 1
+        )
+    else:
+        memory_required += memory_main_heap
+
+    statseg_size = human_memory_to_bytes(settings.get('statseg', {}).get('size', '96M'))
     memory_required += statseg_size
 
     if memory_available < memory_required:
@@ -482,6 +486,17 @@ def verify(config):
                     raise ConfigError('"cpu corelist-workers" is not correct')
 
     verify_memory(config['settings'])
+    if 'host_resources' in config['settings']:
+        if (
+            'nr_hugepages' in config['settings']['host_resources']
+            and 'max_map_count' in config['settings']['host_resources']
+        ):
+            if int(config['settings']['host_resources']['max_map_count']) < 2 * int(
+                config['settings']['host_resources']['nr_hugepages']
+            ):
+                raise ConfigError(
+                    'The max_map_count must be greater than or equal to (2 * nr_hugepages)'
+                )
 
     # Check if deleted interfaces are not xconnect memebrs
     for iface_config in config.get('removed_ifaces', []):

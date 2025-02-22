@@ -19,7 +19,9 @@
 
 import os
 import re
+import sys
 import unittest
+from collections import defaultdict
 
 from json import loads
 
@@ -30,11 +32,46 @@ from vyos.utils.process import process_named_running
 from vyos.utils.file import read_file
 from vyos.utils.process import rc_cmd
 
+sys.path.append(os.getenv('vyos_completion_dir'))
+from list_mem_page_size import list_mem_page_size
+
 PROCESS_NAME = 'vpp_main'
 VPP_CONF = '/run/vpp/vpp.conf'
 base_path = ['vpp']
 driver = 'dpdk'
 interface = 'eth1'
+
+
+def get_vpp_config():
+    config = defaultdict(dict)
+    current_section = None
+
+    with open(VPP_CONF, 'r') as f:
+        for line in f:
+            line = line.strip()
+
+            if not line or line.startswith('#'):  # Ignore empty lines and comments
+                continue
+
+            section_match = re.match(r'([a-zA-Z0-9_-]+)\s*{', line)
+            if section_match:
+                current_section = section_match.group(1)
+                config[current_section] = {}
+                continue
+
+            if line == '}':  # End of section
+                current_section = None
+                continue
+
+            key_value_match = re.match(r'([a-zA-Z0-9_-]+)\s+(.+)', line)
+            if key_value_match:
+                key, value = key_value_match.groups()
+                if current_section:
+                    config[current_section][key] = value
+                else:
+                    config[key] = value
+
+    return config
 
 
 def get_address(interface):
@@ -60,12 +97,13 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         self.cli_set(base_path + ['settings', 'unix', 'poll-sleep-usec', '10'])
 
     def tearDown(self):
-        # Check for running process
-        self.assertTrue(process_named_running(PROCESS_NAME))
-
-        # delete test config
-        self.cli_delete(base_path)
-        self.cli_commit()
+        try:
+            # Check for running process
+            self.assertTrue(process_named_running(PROCESS_NAME))
+        finally:
+            # Ensure these cleanup operations always run
+            self.cli_delete(base_path)
+            self.cli_commit()
 
         self.assertFalse(os.path.exists(VPP_CONF))
         self.assertFalse(process_named_running(PROCESS_NAME))
@@ -1063,6 +1101,32 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         config = read_file(VPP_CONF)
         for config_entry in config_entries:
             self.assertIn(config_entry, config)
+
+    def test_13_mem_page_size(self):
+        sizes = ['default', 'default-hugepage'] + list_mem_page_size()
+        for size in sizes:
+            self.cli_set(base_path + ['settings', 'buffers', 'page-size', size])
+            self.cli_set(base_path + ['settings', 'statseg', 'page-size', size])
+            self.cli_set(
+                base_path + ['settings', 'memory', 'main-heap-page-size', size]
+            )
+            self.cli_commit()
+
+            conf = get_vpp_config()
+            self.assertEqual(conf['buffers']['page-size'], size)
+            self.assertEqual(conf['statseg']['page-size'], size)
+            self.assertEqual(conf['memory']['main-heap-page-size'], size)
+
+    def test_14_mem_default_hugepage(self):
+        sizes = list_mem_page_size(hugepage_only=True)
+        for size in sizes:
+            self.cli_set(
+                base_path + ['settings', 'memory', 'default-hugepage-size', size]
+            )
+            self.cli_commit()
+
+            conf = get_vpp_config()
+            self.assertEqual(conf['memory']['default-hugepage-size'], size)
 
 
 if __name__ == '__main__':
