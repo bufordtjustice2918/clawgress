@@ -70,7 +70,7 @@ class BridgeInterface:
         """
         self.vpp.api.bridge_domain_add_del_v2(is_add=False, bd_id=self.interface_suffix)
 
-    def add_member(self, member: str | int):
+    def add_member(self, member: str | int, port_type: int = 0):
         """Add member to Bridge interface
 
         Attaches a VPP interface to the Bridge interface specified by `interface_suffix`.
@@ -80,6 +80,7 @@ class BridgeInterface:
         Args:
             member (str or int): The name or index of the VPP network interface
                                  to be added as a member to the bridge.
+            port_type: 0 - Normal port, 1 - BVI port
 
         Example:
             from vyos.vpp.interface import BridgeInterface
@@ -96,7 +97,7 @@ class BridgeInterface:
             member_if_index = self.vpp.get_sw_if_index(member)
 
         return self.vpp.api.sw_interface_set_l2_bridge(
-            rx_sw_if_index=member_if_index, bd_id=bridge_index, port_type=0
+            rx_sw_if_index=member_if_index, bd_id=bridge_index, port_type=port_type
         )
 
     def detach_member(self, member: str | int):

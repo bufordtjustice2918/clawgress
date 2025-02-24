@@ -740,7 +740,7 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         self.assertRegex(out, r'\s*eth1\s+\d+\s+\d+')
 
         # Set non exist member
-        # expect raise ConfigErro
+        # expect raise ConfigError
         self.cli_set(
             base_path
             + [
@@ -799,7 +799,7 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
 
         # Perform assertions based on the normalized output
         self.assertIn('BD-ID Index BSN Age(min)', normalized_out)
-        self.assertIn('10 1 1 off', normalized_out)
+        self.assertIn('10 1 0 off', normalized_out)
         self.assertIn('Learning U-Forwrd UU-Flood Flooding', normalized_out)
         self.assertIn('on on flood on', normalized_out)
         self.assertIn('Interface If-idx ISN', normalized_out)
@@ -818,6 +818,31 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         normalized_out = re.sub(r'\s+', ' ', out)
         self.assertRegex(out, r'\s*eth1\s+\d+\s+\d+')
         self.assertRegex(out, r'\s*vxlan_tunnel23\s+\d+\s+\d+')
+
+        # Add Loopback BVI to the bridge
+        self.cli_set(base_path + ['interfaces', 'loopback', f'lo{vni}'])
+        self.cli_set(
+            base_path
+            + [
+                'interfaces',
+                'bridge',
+                interface_bridge,
+                'member',
+                'interface',
+                f'lo{vni}',
+                'bvi',
+            ]
+        )
+        # commit changes
+        self.cli_commit()
+
+        # check bridge interface
+        _, out = rc_cmd('sudo vppctl show bridge-domain 10 detail')
+        # Normalize the output for consistent whitespace
+        normalized_out = re.sub(r'\s+', ' ', out)
+
+        self.assertIn('10 1 0 off', normalized_out)
+        self.assertRegex(out, r'\bloop23\s+\d+\s+\d+\s+\d+\s+\*\s+')
 
     def test_08_vpp_ipip(self):
         interface_ipip = 'ipip12'

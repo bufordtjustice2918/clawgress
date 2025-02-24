@@ -132,7 +132,7 @@
                   <help>Bridge member interfaces</help>
                 </properties>
                 <children>
-                  <leafNode name="interface">
+                  <tagNode name="interface">
                     <properties>
                       <help>Member interface name</help>
                       <completionHelp>
@@ -142,9 +142,16 @@
                         <format>txt</format>
                         <description>Interface name</description>
                       </valueHelp>
-                      <multi/>
                     </properties>
-                  </leafNode>
+                    <children>
+                      <leafNode name="bvi">
+                        <properties>
+                          <help>Bridge Virtual Interface (BVI)</help>
+                          <valueless/>
+                        </properties>
+                      </leafNode>
+                    </children>
+                  </tagNode>
                 </children>
               </node>
             </children>
