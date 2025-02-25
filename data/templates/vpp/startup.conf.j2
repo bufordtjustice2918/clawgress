@@ -45,13 +45,13 @@ buffers {
 }
 {% endif %}
 
-{% if ip6 is vyos_defined %}
+{% if ipv6 is vyos_defined %}
 ip6 {
-{%     if ip6.hash_buckets is vyos_defined %}
-    hash-buckets {{ ip6.hash_buckets }}
+{%     if ipv6.hash_buckets is vyos_defined %}
+    hash-buckets {{ ipv6.hash_buckets }}
 {%     endif %}
-{%     if ip6.heap_size is vyos_defined %}
-    heap-size {{ ip6.heap_size }}
+{%     if ipv6.heap_size is vyos_defined %}
+    heap-size {{ ipv6.heap_size }}
 {%     endif %}
 }
 {% endif %}
