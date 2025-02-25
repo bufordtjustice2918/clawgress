@@ -611,7 +611,7 @@
               </node>
             </children>
           </tagNode>
-          <node name="ip6">
+          <node name="ipv6">
             <properties>
               <help>IPv6 settings</help>
             </properties>
