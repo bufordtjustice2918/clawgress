@@ -19,7 +19,7 @@
 import os
 
 from vyos.config import Config
-from vyos.configdict import leaf_node_changed
+from vyos.configdict import node_changed
 from vyos import ConfigError
 from vyos.vpp.interface import BridgeInterface
 from vyos.vpp.utils import iftunnel_transform
@@ -77,7 +77,7 @@ def get_config(config=None) -> dict:
     )
 
     # determine which members have been removed
-    interfaces_removed = leaf_node_changed(conf, base + [ifname, 'member', 'interface'])
+    interfaces_removed = node_changed(conf, base + [ifname, 'member', 'interface'])
     if interfaces_removed:
         config['members_removed'] = interfaces_removed
 
@@ -92,18 +92,29 @@ def verify(config):
 
     # Check if interface exists in vpp before adding to bridge-domain
 
-    allowed_prefixes = ('gre', 'geneve', 'vxlan')
+    allowed_prefixes = ('gre', 'geneve', 'lo', 'vxlan')
 
     if 'member' in config:
-        for member in config.get('member', {}).get('interface', []):
-            # Check if the interface is explicitly listed or starts with allowed prefixes
+        bvi_exists = False
+        for member, member_config in (
+            config.get('member', {}).get('interface', {}).items()
+        ):
+            # Check if the interface exists in VPP settings or starts with allowed prefixes
             if not (
-                member in config.get('vpp_interfaces', [])
+                member in config.get('vpp_interfaces', {})
                 or member.startswith(allowed_prefixes)
             ):
                 raise ConfigError(
                     f"Interface '{member}' not found in 'vpp settings interface' or does not start with allowed prefixes {allowed_prefixes}"
                 )
+
+            # Check if BVI is already defined, only one BVI per bridge domain is allowed
+            if 'bvi' in member_config:
+                if bvi_exists:
+                    raise ConfigError("Only one BVI per bridge domain is allowed")
+                if not member.startswith('lo'):
+                    raise ConfigError("BVI can only be defined on loopback interface")
+                bvi_exists = True
 
 
 def generate(config):
@@ -120,6 +131,9 @@ def apply(config):
         for member in config.get('members_removed'):
             if member.startswith(interface_transform_filter):
                 member = iftunnel_transform(member)
+            if member.startswith('lo'):
+                # interface name in VPP is loopX
+                member = member.replace('lo', 'loop')
             i.detach_member(member=member)
 
     # Delete bridge domain
@@ -138,10 +152,19 @@ def apply(config):
     # Add members to bridge
     if members:
         br = BridgeInterface(ifname)
-        for member in members:
+        port_type = 0
+        for member, member_config in members.items():
             if member.startswith(interface_transform_filter):
                 member = iftunnel_transform(member)
-            br.add_member(member=member)
+            if member.startswith('lo'):
+                # interface name in VPP is loopX
+                member = member.replace('lo', 'loop')
+                if 'bvi' in member_config:
+                    port_type = 1
+
+            br.add_member(member=member, port_type=port_type)
+            # set default port type 0 (not BVI)
+            port_type = 0
 
     return None
 
