@@ -43,6 +43,7 @@ from vyos.vpp.utils import (
     EthtoolGDrvinfo,
     human_page_memory_to_bytes,
     human_memory_to_bytes,
+    bytes_to_human_memory,
 )
 from vyos.vpp.configdb import JSONStorage
 
@@ -295,18 +296,22 @@ def verify_memory(settings):
         settings.get('memory', {}).get('main_heap_size', '1G')
     )
 
-    memory_main_heap_page_size = settings.get('memory', {}).get(
-        'main_heap_page_size', 0
+    if memory_main_heap < 51 << 20:
+        # vpp is aborted when we try to use a smaller heap size
+        raise ConfigError('The main heap size must be greater than or equal to 51M')
+
+    memory_main_heap_page_size = human_page_memory_to_bytes(
+        settings.get('memory', {}).get('main_heap_page_size', 'default')
     )
-    if memory_main_heap_page_size:
-        memory_main_heap_page_size = human_page_memory_to_bytes(
-            memory_main_heap_page_size
+
+    if memory_main_heap_page_size > memory_main_heap:
+        raise ConfigError(
+            f'The main heap size must be greater than or equal to page-size({bytes_to_human_memory(memory_main_heap_page_size, "K")})'
         )
-        memory_required += (memory_main_heap + memory_main_heap_page_size - 1) & ~(
-            memory_main_heap_page_size - 1
-        )
-    else:
-        memory_required += memory_main_heap
+
+    memory_required += (memory_main_heap + memory_main_heap_page_size - 1) & ~(
+        memory_main_heap_page_size - 1
+    )
 
     statseg_size = human_memory_to_bytes(settings.get('statseg', {}).get('size', '96M'))
     memory_required += statseg_size
@@ -496,6 +501,24 @@ def verify(config):
             ):
                 raise ConfigError(
                     'The max_map_count must be greater than or equal to (2 * nr_hugepages)'
+                )
+
+    if 'statseg' in config['settings']:
+        _size = human_memory_to_bytes(config['settings']['statseg'].get('size', '96M'))
+
+        if 'size' in config['settings']['statseg']:
+            if _size < 1 << 20:
+                raise ConfigError(
+                    'The statseg size must be greater than or equal to 1M'
+                )
+
+        if 'page_size' in config['settings']['statseg']:
+            _page_size = human_page_memory_to_bytes(
+                config['settings']['statseg']['page_size']
+            )
+            if _page_size > _size:
+                raise ConfigError(
+                    f'The statseg size must be greater than or equal to page-size({bytes_to_human_memory(_page_size, "K")})'
                 )
 
     # Check if deleted interfaces are not xconnect memebrs

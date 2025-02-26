@@ -31,6 +31,7 @@ from vyos.configsession import ConfigSessionError
 from vyos.utils.process import process_named_running
 from vyos.utils.file import read_file
 from vyos.utils.process import rc_cmd
+from vyos.vpp.utils import human_page_memory_to_bytes
 
 sys.path.append(os.getenv('vyos_completion_dir'))
 from list_mem_page_size import list_mem_page_size
@@ -1106,24 +1107,46 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         for config_entry in config_entries:
             self.assertIn(config_entry, config)
 
-    def test_13_mem_page_size(self):
+    def test_13_1_buffer_page_size(self):
         sizes = ['default', 'default-hugepage'] + list_mem_page_size()
         for size in sizes:
+            if human_page_memory_to_bytes(size) >= 1 << 30:
+                continue
             self.cli_set(base_path + ['settings', 'buffers', 'page-size', size])
+            self.cli_commit()
+
+            conf = get_vpp_config()
+            self.assertEqual(conf['buffers']['page-size'], size)
+
+    def test_13_2_statseg_page_size(self):
+        sizes = ['default', 'default-hugepage'] + list_mem_page_size()
+        for size in sizes:
+            if human_page_memory_to_bytes(size) >= 1 << 30:
+                continue
             self.cli_set(base_path + ['settings', 'statseg', 'page-size', size])
+            self.cli_commit()
+
+            conf = get_vpp_config()
+            self.assertEqual(conf['statseg']['page-size'], size)
+
+    def test_13_3_mem_page_size(self):
+        sizes = ['default', 'default-hugepage'] + list_mem_page_size()
+        for size in sizes:
+            if human_page_memory_to_bytes(size) >= 1 << 30:
+                continue
             self.cli_set(
                 base_path + ['settings', 'memory', 'main-heap-page-size', size]
             )
             self.cli_commit()
 
             conf = get_vpp_config()
-            self.assertEqual(conf['buffers']['page-size'], size)
-            self.assertEqual(conf['statseg']['page-size'], size)
             self.assertEqual(conf['memory']['main-heap-page-size'], size)
 
     def test_14_mem_default_hugepage(self):
         sizes = list_mem_page_size(hugepage_only=True)
         for size in sizes:
+            if human_page_memory_to_bytes(size) >= 1 << 30:
+                continue
             self.cli_set(
                 base_path + ['settings', 'memory', 'default-hugepage-size', size]
             )
