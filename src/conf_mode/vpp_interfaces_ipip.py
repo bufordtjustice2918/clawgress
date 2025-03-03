@@ -31,8 +31,9 @@ from vyos.vpp.config_verify import (
     verify_vpp_change_kernel_interface,
     verify_vpp_remove_xconnect_interface,
     verify_vpp_exists_kernel_interface,
+    verify_vpp_tunnel_source_address,
 )
-from vyos.vpp.utils import cli_ifaces_lcp_kernel_list
+from vyos.vpp.utils import cli_ifaces_lcp_kernel_list, cli_ethernet_with_vifs_ifaces
 
 
 def get_config(config=None) -> dict:
@@ -93,6 +94,9 @@ def get_config(config=None) -> dict:
     # list of all kernel interfaces `vpp interface xxx kernel-interface xxx`
     config['candidate_kernel_interfaces'] = cli_ifaces_lcp_kernel_list(conf)
 
+    # list of all Ethernet interfaces with vifs
+    config['vpp_ether_vif_ifaces'] = cli_ethernet_with_vifs_ifaces(conf)
+
     # Dependency
     config['xconn_members'] = deps_xconnect_dict(conf)
     if ifname in config['xconn_members']:
@@ -129,6 +133,11 @@ def verify(config):
         raise ConfigError(
             f"Required options are missing: {', '.join(missing_keys).replace('_', '-')}"
         )
+
+    # verify source address and remote address
+    verify_vpp_tunnel_source_address(config)
+    if config.get('source_address') == config.get('remote'):
+        raise ConfigError('Remote address must not be the same as source address')
 
     # Change 'vpp interfaces ipip ipipX kernel-interface vpp-tunX'
     #     => 'vpp interfaces ipip ipipX kernel-interface vpp-tunY'
