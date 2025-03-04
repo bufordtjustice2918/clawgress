@@ -80,6 +80,7 @@
               <help>Mark messages sent to syslog</help>
             </properties>
             <children>
+              #include <include/generic-disable-node.xml.i>
               <leafNode name="interval">
                 <properties>
                   <help>Mark message interval</help>
@@ -88,9 +89,9 @@
                     <description>Time in seconds</description>
                   </valueHelp>
                   <constraint>
-                    <validator name="numeric" argument="--range 1-86400"/>
+                    <validator name="numeric" argument="--range 1-65535"/>
                   </constraint>
-                  <constraintErrorMessage>Port number must be in range 1 to 86400</constraintErrorMessage>
+                  <constraintErrorMessage>Port number must be in range 1 to 65535</constraintErrorMessage>
                 </properties>
                 <defaultValue>1200</defaultValue>
               </leafNode>
