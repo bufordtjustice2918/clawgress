@@ -44,6 +44,7 @@ jobs:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
       - name: Build vyos-1x package
         run: |
+          eval $(opam env --root=/opt/opam --set-root)
           cd packages/vyos-1x; dpkg-buildpackage -uc -us -tc -b
       - name: Generate ISO version string
         id: version
