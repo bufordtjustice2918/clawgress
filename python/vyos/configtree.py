@@ -19,7 +19,9 @@ import logging
 
 from ctypes import cdll, c_char_p, c_void_p, c_int, c_bool
 
-LIBPATH = '/usr/lib/libvyosconfig.so.0'
+BUILD_PATH = '/tmp/libvyosconfig/_build/libvyosconfig.so'
+INSTALL_PATH = '/usr/lib/libvyosconfig.so.0'
+LIBPATH = BUILD_PATH if os.path.isfile(BUILD_PATH) else INSTALL_PATH
 
 
 def replace_backslash(s, search, replace):
