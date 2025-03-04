@@ -120,6 +120,12 @@ class TestRSYSLOGService(VyOSUnitTestSHIM.TestCase):
         self.assertIn( '        rotation.sizeLimit="524288"', config)
         self.assertIn( '        rotation.sizeLimitCommand="/usr/sbin/logrotate /etc/logrotate.d/vyos-rsyslog"', config)
 
+        self.cli_set(base_path + ['marker', 'disable'])
+        self.cli_commit()
+
+        config = get_config('')
+        self.assertNotIn('module(load="immark"', config)
+
     def test_remote(self):
         rhosts = {
             '169.254.0.1': {

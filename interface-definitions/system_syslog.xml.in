@@ -80,6 +80,7 @@
               <help>Mark messages sent to syslog</help>
             </properties>
             <children>
+              #include <include/generic-disable-node.xml.i>
               <leafNode name="interval">
                 <properties>
                   <help>Mark message interval</help>
