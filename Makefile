@@ -8,6 +8,7 @@ CFLAGS :=
 BUILD_ARCH := $(shell dpkg-architecture -q DEB_BUILD_ARCH)
 J2LINT := $(shell command -v j2lint 2> /dev/null)
 PYLINT_FILES := $(shell git ls-files *.py src/migration-scripts)
+LIBVYOSCONFIG_BUILD_PATH := /tmp/libvyosconfig/_build/libvyosconfig.so
 
 config_xml_src = $(wildcard interface-definitions/*.xml.in)
 config_xml_obj = $(config_xml_src:.xml.in=.xml)
@@ -19,9 +20,19 @@ op_xml_obj = $(op_xml_src:.xml.in=.xml)
 	mkdir -p $(BUILD_DIR)/$(dir $@)
 	$(CURDIR)/scripts/transclude-template $< > $(BUILD_DIR)/$@
 
+.PHONY: libvyosconfig
+.ONESHELL:
+libvyosconfig:
+	if ! [ -f $(LIBVYOSCONFIG_BUILD_PATH) ]; then
+		git clone https://github.com/vyos/libvyosconfig.git /tmp/libvyosconfig || exit 1
+		cd /tmp/libvyosconfig && \
+			git checkout 677d1e2bf8109b9fd4da60e20376f992b747e384 || exit 1
+		./build.sh
+	fi
+
 .PHONY: interface_definitions
 .ONESHELL:
-interface_definitions: $(config_xml_obj)
+interface_definitions: $(config_xml_obj) libvyosconfig
 	mkdir -p $(TMPL_DIR)
 
 	$(CURDIR)/scripts/override-default $(BUILD_DIR)/interface-definitions
@@ -75,7 +86,7 @@ vyshim:
 	$(MAKE) -C $(SHIM_DIR)
 
 .PHONY: all
-all: clean interface_definitions op_mode_definitions test j2lint vyshim generate-configd-include-json
+all: clean libvyosconfig interface_definitions op_mode_definitions test j2lint vyshim generate-configd-include-json
 
 .PHONY: clean
 clean:
