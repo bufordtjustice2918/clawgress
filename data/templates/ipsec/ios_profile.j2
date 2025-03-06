@@ -55,7 +55,7 @@
                 <!-- The server is authenticated using a certificate -->
                 <key>AuthenticationMethod</key>
                 <string>Certificate</string>
-{% if authentication.client_mode.startswith("eap") %}
+{% if authentication.client_mode is vyos_defined and authentication.client_mode.startswith("eap") %}
                 <!-- The client uses EAP to authenticate -->
                 <key>ExtendedAuthEnabled</key>
                 <integer>1</integer>
