@@ -98,7 +98,7 @@ if prifilt("{{ tmp | join(',') }}") then {
     action(
         type="omfwd"
         # Remote syslog server where we send our logs to
-        target="{{ remote_name | bracketize_ipv6 }}"
+        target="{{ remote_name }}"
         # Port on the remote syslog server
         port="{{ remote_options.port }}"
         protocol="{{ remote_options.protocol }}"

@@ -132,9 +132,15 @@ class TestRSYSLOGService(VyOSUnitTestSHIM.TestCase):
                 'facility': {'auth' : {'level': 'info'}},
                 'protocol': 'udp',
             },
-            '169.254.0.2': {
+            '2001:db8::1': {
+                'facility': {'all' : {'level': 'debug'}},
                 'port': '1514',
                 'protocol': 'udp',
+            },
+            'syslog.vyos.net': {
+                'facility': {'all' : {'level': 'debug'}},
+                'port': '1515',
+                'protocol': 'tcp',
             },
             '169.254.0.3': {
                 'facility': {'auth' : {'level': 'info'},
