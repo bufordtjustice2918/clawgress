@@ -24,7 +24,8 @@ op_xml_obj = $(op_xml_src:.xml.in=.xml)
 .ONESHELL:
 libvyosconfig:
 	if ! [ -f $(LIBVYOSCONFIG_BUILD_PATH) ]; then
-		git clone https://github.com/vyos/libvyosconfig.git /tmp/libvyosconfig || exit 1
+		rm -rf /tmp/libvyosconfig && \
+			git clone https://github.com/vyos/libvyosconfig.git /tmp/libvyosconfig || exit 1
 		cd /tmp/libvyosconfig && \
 			git checkout 677d1e2bf8109b9fd4da60e20376f992b747e384 || exit 1
 		./build.sh
