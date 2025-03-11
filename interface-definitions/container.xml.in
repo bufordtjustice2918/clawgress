@@ -544,14 +544,48 @@
               <valueless/>
             </properties>
           </leafNode>
-          <leafNode name="mirror">
+          <node name="mirror">
             <properties>
-              <help>Registry mirror, use host[:port][/path]</help>
-              <constraint>
-                <regex>^(?:[[:alnum:]-]+(?:\.[[:alnum:]-]+)*|(?:[[:digit:]]{1,3}\.){3}[[:digit:]]{1,3}|\[[[:xdigit:]:]+])(?::[[:digit:]]{1,5})?(?:\/[^[:space:]?#]*)?$</regex>
-              </constraint>
+              <help>Registry mirror, use host-name|address[:port][/path]</help>
             </properties>
-          </leafNode>
+            <children>
+              <leafNode name="address">
+                <properties>
+                  <help>IP address of container registry mirror</help>
+                  <valueHelp>
+                    <format>ipv4</format>
+                    <description>IPv4 address of container registry mirror</description>
+                  </valueHelp>
+                  <valueHelp>
+                    <format>ipv6</format>
+                    <description>IPv6 address of container registry mirror</description>
+                  </valueHelp>
+                  <constraint>
+                    <validator name="ip-address"/>
+                    <validator name="ipv6-link-local"/>
+                  </constraint>
+                </properties>
+              </leafNode>
+              <leafNode name="host-name">
+                <properties>
+                  <help>Hostname of container registry mirror</help>
+                  <valueHelp>
+                    <format>hostname</format>
+                    <description>FQDN of container registry mirror</description>
+                  </valueHelp>
+                  <constraint>
+                    <validator name="fqdn"/>
+                  </constraint>
+                </properties>
+              </leafNode>
+              #include <include/port-number.xml.i>
+              <leafNode name="path">
+                <properties>
+                  <help>Path of container registry mirror, optional, must be start with '/' if not empty</help>
+                </properties>
+              </leafNode>
+            </children>
+          </node>
         </children>
       </tagNode>
     </children>
