@@ -17,6 +17,7 @@ import re
 from netifaces import AF_INET
 from netifaces import AF_INET6
 from netifaces import ifaddresses
+from systemd import journal
 
 from base_vyostest_shim import VyOSUnitTestSHIM
 from base_vyostest_shim import CSTORE_GUARD_TIME
@@ -1151,10 +1152,19 @@ class BasicInterfaceTest:
                 self.assertIn('};', dhcpc6_config)
                 duid_base += 1
 
+                # T7058: verify daemon has no problems understanding the custom DUID option
+                j = journal.Reader()
+                j.this_boot()
+                j.add_match(_SYSTEMD_UNIT=f'dhcp6c@{interface}.service')
+                for entry in j:
+                    self.assertNotIn('yyerror0', entry.get('MESSAGE', ''))
+                    self.assertNotIn('syntax error', entry.get('MESSAGE', ''))
+
                 # Better ask the process about it's commandline in the future
                 pid = process_named_running(dhcp6c_process_name, cmdline=interface, timeout=10)
                 self.assertTrue(pid)
 
+                # DHCPv6 option "no-release" requires "-n" daemon startup option
                 dhcp6c_options = read_file(f'/proc/{pid}/cmdline')
                 self.assertIn('-n', dhcp6c_options)
 
