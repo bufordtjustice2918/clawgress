@@ -92,6 +92,9 @@ def verify_mtu_ipv6(config):
             tmp = dict_search('ipv6.address.eui64', config)
             if tmp != None: raise ConfigError(error_msg)
 
+            tmp = dict_search('ipv6.address.interface_identifier', config)
+            if tmp != None: raise ConfigError(error_msg)
+
 def verify_vrf(config):
     """
     Common helper function used by interface implementations to perform

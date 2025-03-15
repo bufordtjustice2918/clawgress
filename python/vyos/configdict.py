@@ -517,6 +517,14 @@ def get_interface_dict(config, base, ifname='', recursive_defaults=True, with_pk
         else:
             dict['ipv6']['address'].update({'eui64_old': eui64})
 
+    interface_identifier = leaf_node_changed(config, base + [ifname, 'ipv6', 'address', 'interface-identifier'])
+    if interface_identifier:
+        tmp = dict_search('ipv6.address', dict)
+        if not tmp:
+            dict.update({'ipv6': {'address': {'interface_identifier_old': interface_identifier}}})
+        else:
+            dict['ipv6']['address'].update({'interface_identifier_old': interface_identifier})
+
     for vif, vif_config in dict.get('vif', {}).items():
         # Add subinterface name to dictionary
         dict['vif'][vif].update({'ifname' : f'{ifname}.{vif}'})

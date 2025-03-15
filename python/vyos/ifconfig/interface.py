@@ -937,6 +937,20 @@ class Interface(Control):
             prefixlen = prefix.split('/')[1]
             self.del_addr(f'{eui64}/{prefixlen}')
 
+    def set_ipv6_interface_identifier(self, identifier):
+        """
+        Set the interface identifier for IPv6 autoconf.
+        """
+        cmd = f'ip token set {identifier} dev {self.ifname}'
+        self._cmd(cmd)
+
+    def del_ipv6_interface_identifier(self):
+        """
+        Delete the interface identifier for IPv6 autoconf.
+        """
+        cmd = f'ip token delete dev {self.ifname}'
+        self._cmd(cmd)
+
     def set_ipv6_forwarding(self, forwarding):
         """
         Configure IPv6 interface-specific Host/Router behaviour.
@@ -1791,6 +1805,23 @@ class Interface(Control):
         tmp = dict_search('ipv6.disable_forwarding', config)
         value = '0' if (tmp != None) else '1'
         self.set_ipv6_forwarding(value)
+
+        # Delete old interface identifier
+        # This should be before setting the accept_ra value
+        old = dict_search('ipv6.address.interface_identifier_old', config)
+        now = dict_search('ipv6.address.interface_identifier', config)
+        if old and not now:
+            # accept_ra of ra is required to delete the interface identifier
+            self.set_ipv6_accept_ra('2')
+            self.del_ipv6_interface_identifier()
+
+        # Set IPv6 Interface identifier
+        # This should be before setting the accept_ra value
+        tmp = dict_search('ipv6.address.interface_identifier', config)
+        if tmp:
+            # accept_ra is required to set the interface identifier
+            self.set_ipv6_accept_ra('2')
+            self.set_ipv6_interface_identifier(tmp)
 
         # IPv6 router advertisements
         tmp = dict_search('ipv6.address.autoconf', config)
