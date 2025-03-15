@@ -1,4 +1,4 @@
-# Copyright (C) 2019-2024 VyOS maintainers and contributors
+# Copyright (C) 2019-2025 VyOS maintainers and contributors
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -1122,7 +1122,7 @@ class BasicInterfaceTest:
 
             duid_base = 10
             for interface in self._interfaces:
-                duid = '00:01:00:01:27:71:db:f0:00:50:00:00:00:{}'.format(duid_base)
+                duid = f'00:01:00:01:27:71:db:f0:00:50:00:00:00:{duid_base}'
                 path = self._base_path + [interface]
                 for option in self._options.get(interface, []):
                     self.cli_set(path + option.split())
@@ -1139,7 +1139,7 @@ class BasicInterfaceTest:
 
             duid_base = 10
             for interface in self._interfaces:
-                duid = '00:01:00:01:27:71:db:f0:00:50:00:00:00:{}'.format(duid_base)
+                duid = f'00:01:00:01:27:71:db:f0:00:50:00:00:00:{duid_base}'
                 dhcpc6_config = read_file(f'{dhcp6c_base_dir}/dhcp6c.{interface}.conf')
                 self.assertIn(f'interface {interface} ' + '{', dhcpc6_config)
                 self.assertIn(f'  request domain-name-servers;', dhcpc6_config)
