@@ -28,7 +28,7 @@ libvyosconfig:
 			git clone https://github.com/vyos/libvyosconfig.git /tmp/libvyosconfig || exit 1
 		cd /tmp/libvyosconfig && \
 			git checkout 677d1e2bf8109b9fd4da60e20376f992b747e384 || exit 1
-		./build.sh
+		eval $$(opam env --root=/opt/opam --set-root) && ./build.sh
 	fi
 
 .PHONY: interface_definitions
