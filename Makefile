@@ -19,10 +19,10 @@ GENERATED=$(BUILDDIR)/generated/vyosconfig.h \
           $(BUILDDIR)/generated/vyosconfig.c \
           $(BUILDDIR)/generated/vyosconfig_bindings.ml
 
-OSTYPE:=$(shell ocamlfind ocamlc -config | awk '/^os_type:/ {print $$2}')
-SYSTEM:=$(shell ocamlfind ocamlc -config | awk '/^system:/ {print $$2}')
-EXTDLL:=$(shell ocamlfind ocamlc -config | awk '/^ext_dll:/ {print $$2}')
-CC:= $(shell ocamlfind ocamlc -config | awk '/^bytecomp_c_compiler/ {for(i=2;i<=NF;i++) printf "%s " ,$$i}')
+OSTYPE:=$(shell eval $$(opam env --root=/opt/opam --set-root); ocamlfind ocamlc -config | awk '/^os_type:/ {print $$2}')
+SYSTEM:=$(shell eval $$(opam env --root=/opt/opam --set-root); ocamlfind ocamlc -config | awk '/^system:/ {print $$2}')
+EXTDLL:=$(shell eval $$(opam env --root=/opt/opam --set-root); ocamlfind ocamlc -config | awk '/^ext_dll:/ {print $$2}')
+CC:= $(shell eval $$(opam env --root=/opt/opam --set-root); ocamlfind ocamlc -config | awk '/^bytecomp_c_compiler/ {for(i=2;i<=NF;i++) printf "%s " ,$$i}')
 
 ifeq ($(OSTYPE),$(filter $(OSTYPE),Win32 Cygwin))
 EXTEXE=.exe

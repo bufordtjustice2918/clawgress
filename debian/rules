@@ -11,7 +11,7 @@ VYCONF_DEF := etc/vyos
 	dh $@ --with quilt
 
 override_dh_auto_build:
-	./build.sh $(DIR)
+	eval $$(opam env --root=/opt/opam --set-root) && ./build.sh $(DIR)
 
 override_dh_auto_install:
 	mkdir -p $(DIR)/$(VYCONF_CONF)
