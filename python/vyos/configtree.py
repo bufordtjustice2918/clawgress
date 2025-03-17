@@ -539,6 +539,19 @@ def show_commit_data(active_tree, proposed_tree, libpath=LIBPATH):
     return res.decode()
 
 
+def test_commit(active_tree, proposed_tree, libpath=LIBPATH):
+    if not (
+        isinstance(active_tree, ConfigTree) and isinstance(proposed_tree, ConfigTree)
+    ):
+        raise TypeError('Arguments must be instances of ConfigTree')
+
+    __lib = cdll.LoadLibrary(libpath)
+    __test_commit = __lib.test_commit
+    __test_commit.argtypes = [c_void_p, c_void_p]
+
+    __test_commit(active_tree._get_config(), proposed_tree._get_config())
+
+
 def reference_tree_to_json(from_dir, to_file, internal_cache='', libpath=LIBPATH):
     try:
         __lib = cdll.LoadLibrary(libpath)
