@@ -2,9 +2,15 @@ open Ctypes
 open Foreign
 
 open Vyos1x
+open Vyconfd_config
+open Commitd_client
 
 module CT = Config_tree
 module CD = Config_diff
+module CM = Commit
+module VC = Vycall_client
+
+module I = Internal.Make(Config_tree)
 
 let error_message = ref ""
 
@@ -22,6 +28,9 @@ let make_config_tree name = Ctypes.Root.create (CT.make name)
 
 let destroy c_ptr = 
     Root.release c_ptr
+
+let equal c_ptr_l c_ptr_r =
+    (Root.get c_ptr_l) = (Root.get c_ptr_r)
 
 let from_string s = 
   try
@@ -52,6 +61,22 @@ let render_commands c_ptr op =
             CT.render_commands ~op:CT.Delete (Root.get c_ptr) []
     | _ ->
             CT.render_commands ~op:CT.Set (Root.get c_ptr) []
+
+let read_internal file =
+    try
+        error_message := "";
+        let ct = I.read_internal file in
+        Ctypes.Root.create ct
+    with Internal.Read_error msg ->
+        error_message := msg; Ctypes.null
+
+let write_internal c_ptr file =
+    try
+        error_message := "";
+        let ct = Root.get c_ptr in
+        I.write_internal ct file
+    with Internal.Write_error msg ->
+        error_message := msg
 
 let create_node c_ptr path =
     let ct = Root.get c_ptr in
@@ -245,17 +270,30 @@ let mask_tree c_ptr_l c_ptr_r =
         | CD.Incommensurable -> error_message := "Incommensurable"; Ctypes.null
         | CD.Empty_comparison -> error_message := "Empty comparison"; Ctypes.null
 
+let show_commit_data c_ptr_a c_ptr_w =
+    let ct_a = Root.get c_ptr_a in
+    let ct_w = Root.get c_ptr_w in
+    CM.show_commit_data ct_a ct_w
+
+let test_commit c_ptr_a c_ptr_w =
+    let ct_a = Root.get c_ptr_a in
+    let ct_w = Root.get c_ptr_w in
+    VC.test_commit ct_a ct_w
+
 module Stubs(I : Cstubs_inverted.INTERNAL) =
 struct
 
   let () = I.internal "make" (string @-> returning (ptr void)) make_config_tree
   let () = I.internal "destroy" ((ptr void) @-> returning void) destroy
+  let () = I.internal "equal" ((ptr void) @-> (ptr void) @-> returning bool) equal
   let () = I.internal "from_string" (string @-> returning (ptr void)) from_string
   let () = I.internal "get_error" (void @-> returning string) get_error
   let () = I.internal "to_string"  ((ptr void) @-> bool @-> returning string) render_config
   let () = I.internal "to_json" ((ptr void) @-> returning string) render_json
   let () = I.internal "to_json_ast" ((ptr void) @-> returning string) render_json_ast
   let () = I.internal "to_commands" ((ptr void) @-> string @-> returning string) render_commands
+  let () = I.internal "read_internal" (string @-> returning (ptr void)) read_internal
+  let () = I.internal "write_internal" ((ptr void) @-> string @-> returning void) write_internal
   let () = I.internal "create_node" ((ptr void) @-> string @-> returning int) create_node
   let () = I.internal "set_add_value" ((ptr void) @-> string @-> string @-> returning int) set_add_value
   let () = I.internal "set_replace_value" ((ptr void) @-> string @-> string @-> returning int) set_replace_value
@@ -278,4 +316,6 @@ struct
   let () = I.internal "tree_union" ((ptr void) @-> (ptr void) @-> returning (ptr void)) tree_union
   let () = I.internal "reference_tree_to_json" (string @-> string @-> string @-> returning int) reference_tree_to_json
   let () = I.internal "mask_tree" ((ptr void) @-> (ptr void) @-> returning (ptr void)) mask_tree
+  let () = I.internal "show_commit_data" ((ptr void) @-> (ptr void) @-> returning string) show_commit_data
+  let () = I.internal "test_commit" ((ptr void) @-> (ptr void) @-> returning void) test_commit
 end

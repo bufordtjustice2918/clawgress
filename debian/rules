@@ -4,6 +4,7 @@ DIR := debian/tmp
 OCAML_DIR := /opt/opam/${OCAML_VERSION}
 VYCONF := usr/libexec/vyos/vyconf
 VYCONF_CONF := $(VYCONF)/config
+VYCONF_SESSION := $(VYCONF)/session
 VYCONF_DATA := usr/share/vyos/vyconf
 VYCONF_DEF := etc/vyos
 
@@ -15,6 +16,7 @@ override_dh_auto_build:
 
 override_dh_auto_install:
 	mkdir -p $(DIR)/$(VYCONF_CONF)
+	mkdir -p $(DIR)/$(VYCONF_SESSION)
 	mkdir -p $(DIR)/$(VYCONF_DATA)
 	mkdir -p $(DIR)/$(VYCONF_DEF)
 	cp $(OCAML_DIR)/share/vyconf/vyconf.proto $(DIR)/$(VYCONF_DATA)
