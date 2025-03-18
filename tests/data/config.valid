@@ -35,5 +35,5 @@ empty-node {
 
 trailing-leaf-node-without-value
 
-// Trailing comment
-// Another trailing comment
+// some version string info
+// continued
