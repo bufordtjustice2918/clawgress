@@ -135,6 +135,10 @@ def get_config(config=None):
             # to be reinitialized after the commit
             set_dependents('ethernet', conf, removed_iface)
 
+    # NAT dependency
+    if conf.exists(['vpp', 'nat44', 'source']):
+        set_dependents('vpp_nat_source', conf)
+
     if not conf.exists(base):
         return {
             'removed_ifaces': removed_ifaces,
