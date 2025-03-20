@@ -14,7 +14,7 @@
         <children>
           <tagNode name="bonding" owner="${vyos_conf_scripts_dir}/vpp_interfaces_bonding.py">
             <properties>
-              <priority>304</priority>
+              <priority>324</priority>
               <help>Bonding Interface/Link Aggregation</help>
               <constraint>
                 <regex>bond[0-9]+</regex>
@@ -112,7 +112,7 @@
           </tagNode>
           <tagNode name="bridge" owner="${vyos_conf_scripts_dir}/vpp_interfaces_bridge.py">
             <properties>
-              <priority>307</priority>
+              <priority>327</priority>
               <help>Bridge domain</help>
               <constraint>
                 <!-- Bridge domain 0 is reserved to vpp default -->
@@ -159,7 +159,7 @@
           <!-- Disable as geneve interface index in the VPP always 0 and not configured -->
           <!-- <tagNode name="geneve" owner="${vyos_conf_scripts_dir}/vpp_interfaces_geneve.py">
             <properties>
-              <priority>305</priority>
+              <priority>325</priority>
               <help>Generic Network Virtualization Encapsulation (GENEVE) Interface</help>
               <constraint>
                 <regex>geneve[0-9]+</regex>
@@ -179,7 +179,7 @@
           <!-- </tagNode> -->
           <tagNode name="gre" owner="${vyos_conf_scripts_dir}/vpp_interfaces_gre.py">
             <properties>
-              <priority>305</priority>
+              <priority>325</priority>
               <help>Generic Network Encapsulation (GRE) Interface</help>
               <constraint>
                 <regex>gre[0-9]+</regex>
@@ -246,7 +246,7 @@
           </tagNode>
           <tagNode name="ipip" owner="${vyos_conf_scripts_dir}/vpp_interfaces_ipip.py">
             <properties>
-              <priority>305</priority>
+              <priority>325</priority>
               <help>IP encapsulation tunnel interface</help>
               <constraint>
                 <regex>ipip[0-9]+</regex>
@@ -267,7 +267,7 @@
           </tagNode>
           <tagNode name="loopback" owner="${vyos_conf_scripts_dir}/vpp_interfaces_loopback.py">
             <properties>
-              <priority>305</priority>
+              <priority>325</priority>
               <help>Loopback Interface</help>
               <constraint>
                 <regex>lo[0-9]+</regex>
@@ -286,7 +286,7 @@
           </tagNode>
           <tagNode name="vxlan" owner="${vyos_conf_scripts_dir}/vpp_interfaces_vxlan.py">
             <properties>
-              <priority>305</priority>
+              <priority>325</priority>
               <help>Virtual Extensible LAN (VXLAN) Interface</help>
               <constraint>
                 <regex>vxlan[0-9]+</regex>
@@ -309,7 +309,7 @@
           <tagNode name="xconnect" owner="${vyos_conf_scripts_dir}/vpp_interfaces_xconnect.py">
             <properties>
               <help>Layer 2 cross connect</help>
-              <priority>305</priority>
+              <priority>325</priority>
               <constraint>
                 <regex>xcon[0-9]+</regex>
               </constraint>
@@ -910,7 +910,7 @@
     <tagNode name="kernel-interfaces" owner="${vyos_conf_scripts_dir}/vpp_kernel-interfaces.py">
       <properties>
         <help>VPP kernel interface settings</help>
-        <priority>308</priority>
+        <priority>328</priority>
         <valueHelp>
           <format>vpptapN</format>
           <description>Kernel interface name</description>

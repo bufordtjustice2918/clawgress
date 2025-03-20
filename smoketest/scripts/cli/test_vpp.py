@@ -106,6 +106,10 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
             self.cli_delete(base_path)
             self.cli_commit()
 
+            # delete address for Ethernet interface
+            self.cli_delete(['interfaces', 'ethernet', interface, 'address'])
+            self.cli_commit()
+
         self.assertFalse(os.path.exists(VPP_CONF))
         self.assertFalse(process_named_running(PROCESS_NAME))
 
@@ -170,11 +174,21 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
             base_path
             + ['interfaces', 'vxlan', interface_vxlan, 'source-address', source_address]
         )
+        self.cli_set(base_path + ['interfaces', 'vxlan', interface_vxlan, 'vni', vni])
+
+        # remote and source address must not be the same
+        # expect raise ConfigError
+        self.cli_set(
+            base_path
+            + ['interfaces', 'vxlan', interface_vxlan, 'remote', source_address]
+        )
+        with self.assertRaises(ConfigSessionError):
+            self.cli_commit()
+
         self.cli_set(
             base_path
             + ['interfaces', 'vxlan', interface_vxlan, 'remote', remote_address]
         )
-        self.cli_set(base_path + ['interfaces', 'vxlan', interface_vxlan, 'vni', vni])
         self.cli_set(
             base_path
             + [
@@ -212,6 +226,23 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
                 interface_vxlan,
                 'source-address',
                 new_source_address,
+            ]
+        )
+
+        # source address of the tunnel interface should be configured
+        # expect raise ConfigError
+        with self.assertRaises(ConfigSessionError):
+            self.cli_commit()
+
+        self.cli_set(
+            [
+                'interfaces',
+                'ethernet',
+                interface,
+                'vif',
+                vni,
+                'address',
+                f'{new_source_address}/24',
             ]
         )
         self.cli_commit()
@@ -274,7 +305,11 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         self.assertFalse(os.path.isdir(f'/sys/class/net/{interface_kernel}'))
 
         # delete vxlan interface
-        self.cli_set(base_path + ['interfaces', 'vxlan', interface_vxlan])
+        self.cli_delete(base_path + ['interfaces', 'vxlan', interface_vxlan])
+        self.cli_commit()
+
+        # delete vif Ethernet interface
+        self.cli_delete(['interfaces', 'ethernet', interface, 'vif'])
         self.cli_commit()
 
     def test_03_vpp_gre(self):
@@ -302,6 +337,15 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
             + ['kernel-interfaces', interface_kernel, 'address', f'{kernel_address}/31']
         )
 
+        # source address of the tunnel interface should be configured
+        # expect raise ConfigError
+        with self.assertRaises(ConfigSessionError):
+            self.cli_commit()
+
+        self.cli_set(
+            ['interfaces', 'ethernet', interface, 'address', f'{source_address}/24']
+        )
+
         # commit changes
         self.cli_commit()
 
@@ -318,6 +362,10 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         self.cli_set(
             base_path
             + ['interfaces', 'gre', interface_gre, 'source-address', new_source_address]
+        )
+
+        self.cli_set(
+            ['interfaces', 'ethernet', interface, 'address', f'{new_source_address}/24']
         )
         self.cli_commit()
 
@@ -364,7 +412,7 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         self.assertFalse(os.path.isdir(f'/sys/class/net/{interface_kernel}'))
 
         # delete gre interface
-        self.cli_set(base_path + ['interfaces', 'gre', interface_gre])
+        self.cli_delete(base_path + ['interfaces', 'gre', interface_gre])
         self.cli_commit()
 
     @unittest.skip('Skipping this test geneve index always is 0')
@@ -566,7 +614,7 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         self.assertFalse(os.path.isdir(f'/sys/class/net/{interface_kernel}'))
 
         # delete loopback interface
-        self.cli_set(base_path + ['interfaces', 'loopback', interface_loopback])
+        self.cli_delete(base_path + ['interfaces', 'loopback', interface_loopback])
         self.cli_commit()
 
     @unittest.skip('Skipping temporary bonding, sometimes get recursion T7117')
@@ -900,6 +948,15 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
                 new_source_address,
             ]
         )
+
+        # source address of the tunnel interface should be configured
+        # expect raise ConfigError
+        with self.assertRaises(ConfigSessionError):
+            self.cli_commit()
+
+        self.cli_set(
+            ['interfaces', 'ethernet', interface, 'address', f'{new_source_address}/24']
+        )
         self.cli_commit()
 
         # check ipip interface after update
@@ -951,7 +1008,7 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         self.assertFalse(os.path.isdir(f'/sys/class/net/{interface_kernel}'))
 
         # delete ipip interface
-        self.cli_set(base_path + ['interfaces', 'ipip', interface_ipip])
+        self.cli_delete(base_path + ['interfaces', 'ipip', interface_ipip])
         self.cli_commit()
 
     def test_09_vpp_xconnect(self):

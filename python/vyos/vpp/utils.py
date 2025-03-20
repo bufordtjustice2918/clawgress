@@ -85,6 +85,43 @@ def cli_ifaces_list(config_instance, mode: str = 'candidate') -> list[str]:
     return vpp_ifaces
 
 
+def cli_ethernet_with_vifs_ifaces(config_instance) -> list[str]:
+    """List of all VPP Ethernet interfaces with VIFs
+
+    Args:
+        config_instance (VyOS Config): VyOS Config instance
+
+    Returns:
+        list[str]: list of interfaces
+    """
+    from vyos.configdict import get_interface_dict
+
+    # Read a config
+    config = config_instance.get_config_dict(
+        ['vpp'],
+        key_mangling=('-', '_'),
+        get_first_key=True,
+        no_tag_node_value_mangle=True,
+        with_recursive_defaults=True,
+    )
+
+    ifaces: list[str] = []
+
+    # Get a list of Ethernet interfaces
+    for iface in config.get('settings', {}).get('interface', {}).keys():
+        ifaces.append(iface)
+
+    # Add Ethernet interfaces with VIFs
+    for iface in ifaces:
+        _, iface_config = get_interface_dict(
+            config_instance, ['interfaces', 'ethernet'], ifname=iface
+        )
+        ifaces.extend([f'{iface}.{vif}' for vif in iface_config.get('vif', {})])
+        ifaces.extend([f'{iface}.{vif_s}' for vif_s in iface_config.get('vif_s', {})])
+
+    return ifaces
+
+
 def vpp_ifaces_list(vpp_api) -> list[dict]:
     """List interfaces in VPP
 

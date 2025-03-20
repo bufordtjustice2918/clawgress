@@ -102,6 +102,19 @@ def verify_vpp_remove_xconnect_interface(config: dict):
             )
 
 
+def verify_vpp_tunnel_source_address(config: dict):
+    from vyos.utils.network import is_intf_addr_assigned
+
+    address = config.get('source_address')
+    for iface in config.get('vpp_ether_vif_ifaces', []):
+        if is_intf_addr_assigned(iface, address):
+            return True
+
+    raise ConfigError(
+        f'Source address "{address}" is not assigned on any Ethernet or VIF interface!'
+    )
+
+
 def verify_dev_driver(iface_name: str, driver_type: str) -> bool:
     # Lists of drivers compatible with DPDK and XDP
     drivers_dpdk: list[str] = [
