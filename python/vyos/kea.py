@@ -145,7 +145,7 @@ def kea_parse_options(config):
 
 
 def kea_parse_subnet(subnet, config):
-    out = {'subnet': subnet, 'id': int(config['subnet_id'])}
+    out = {'subnet': subnet, 'id': int(config['subnet_id']), 'user-context': {}}
 
     if 'option' in config:
         out['option-data'] = kea_parse_options(config['option'])
@@ -162,6 +162,9 @@ def kea_parse_subnet(subnet, config):
     if 'lease' in config:
         out['valid-lifetime'] = int(config['lease'])
         out['max-valid-lifetime'] = int(config['lease'])
+
+    if 'ping_check' in config:
+        out['user-context']['enable-ping-check'] = True
 
     if 'range' in config:
         pools = []

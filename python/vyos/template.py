@@ -873,7 +873,8 @@ def kea_shared_network_json(shared_networks):
         network = {
             'name': name,
             'authoritative': ('authoritative' in config),
-            'subnet4': []
+            'subnet4': [],
+            'user-context': {}
         }
 
         if 'option' in config:
@@ -884,6 +885,9 @@ def kea_shared_network_json(shared_networks):
 
             if 'bootfile_server' in config['option']:
                 network['next-server'] = config['option']['bootfile_server']
+
+        if 'ping_check' in config:
+            network['user-context']['enable-ping-check'] = True
 
         if 'subnet' in config:
             for subnet, subnet_config in config['subnet'].items():

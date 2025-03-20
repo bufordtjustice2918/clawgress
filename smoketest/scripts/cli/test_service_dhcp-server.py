@@ -106,9 +106,12 @@ class TestServiceDHCPServer(VyOSUnitTestSHIM.TestCase):
 
         self.cli_set(base_path + ['listen-interface', interface])
 
+        self.cli_set(base_path + ['shared-network-name', shared_net_name, 'ping-check'])
+
         pool = base_path + ['shared-network-name', shared_net_name, 'subnet', subnet]
         self.cli_set(pool + ['subnet-id', '1'])
         self.cli_set(pool + ['ignore-client-id'])
+        self.cli_set(pool + ['ping-check'])
         # we use the first subnet IP address as default gateway
         self.cli_set(pool + ['option', 'default-router', router])
         self.cli_set(pool + ['option', 'name-server', dns_1])
@@ -149,6 +152,21 @@ class TestServiceDHCPServer(VyOSUnitTestSHIM.TestCase):
         )
         self.verify_config_value(
             obj, ['Dhcp4', 'shared-networks', 0, 'subnet4'], 'max-valid-lifetime', 86400
+        )
+
+        # Verify ping-check
+        self.verify_config_value(
+            obj,
+            ['Dhcp4', 'shared-networks', 0, 'user-context'],
+            'enable-ping-check',
+            True
+        )
+
+        self.verify_config_value(
+            obj,
+            ['Dhcp4', 'shared-networks', 0, 'subnet4', 0, 'user-context'],
+            'enable-ping-check',
+            True
         )
 
         # Verify options
