@@ -217,8 +217,11 @@ class TestServiceDHCPServer(VyOSUnitTestSHIM.TestCase):
         self.cli_set(pool + ['option', 'wpad-url', wpad])
         self.cli_set(pool + ['option', 'server-identifier', server_identifier])
 
+        static_route = '10.0.0.0/24'
+        static_route_nexthop = '192.0.2.1'
+
         self.cli_set(
-            pool + ['option', 'static-route', '10.0.0.0/24', 'next-hop', '192.0.2.1']
+            pool + ['option', 'static-route', static_route, 'next-hop', static_route_nexthop]
         )
         self.cli_set(pool + ['option', 'ipv6-only-preferred', ipv6_only_preferred])
         self.cli_set(pool + ['option', 'time-zone', 'Europe/London'])
@@ -312,14 +315,9 @@ class TestServiceDHCPServer(VyOSUnitTestSHIM.TestCase):
             obj,
             ['Dhcp4', 'shared-networks', 0, 'subnet4', 0, 'option-data'],
             {
-                'name': 'rfc3442-static-route',
-                'data': '24,10,0,0,192,0,2,1, 0,192,0,2,1',
+                'name': 'classless-static-route',
+                'data': f'{static_route} - {static_route_nexthop}, 0.0.0.0/0 - {router}',
             },
-        )
-        self.verify_config_object(
-            obj,
-            ['Dhcp4', 'shared-networks', 0, 'subnet4', 0, 'option-data'],
-            {'name': 'windows-static-route', 'data': '24,10,0,0,192,0,2,1'},
         )
         self.verify_config_object(
             obj,
