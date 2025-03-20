@@ -50,7 +50,7 @@ def unescape_backslash(string: str) -> str:
 def extract_version(s):
     """Extract the version string from the config string"""
     t = re.split('(^//)', s, maxsplit=1, flags=re.MULTILINE)
-    return (s, ''.join(t[1:]))
+    return (t[0], ''.join(t[1:]))
 
 
 def check_path(path):
