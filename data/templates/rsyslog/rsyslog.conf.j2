@@ -105,7 +105,7 @@ if prifilt("{{ tmp | join(',') }}") then {
 {%             if remote_options.format.include_timezone is vyos_defined %}
         template="SyslogProtocol23Format"
 {%             endif %}
-        TCP_Framing="{{ 'octed-counted' if remote_options.format.octet_counted is vyos_defined else 'traditional' }}"
+        TCP_Framing="{{ 'octet-counted' if remote_options.format.octet_counted is vyos_defined else 'traditional' }}"
 {%             if remote_options.source_address is vyos_defined %}
         Address="{{ remote_options.source_address }}"
 {%             endif %}

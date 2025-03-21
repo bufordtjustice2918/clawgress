@@ -226,7 +226,7 @@ class TestRSYSLOGService(VyOSUnitTestSHIM.TestCase):
                     self.assertIn( '        template="SyslogProtocol23Format"', config)
 
                 if 'octet-counted' in remote_options['format']:
-                    self.assertIn( '        TCP_Framing="octed-counted"', config)
+                    self.assertIn( '        TCP_Framing="octet-counted"', config)
                 else:
                     self.assertIn( '        TCP_Framing="traditional"', config)
 
