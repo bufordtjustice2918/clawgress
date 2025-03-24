@@ -72,8 +72,6 @@ class Session:
     # pylint: disable=too-many-instance-attributes
 
     session_id: str = ''
-    named_active: str = None
-    named_proposed: str = None
     dry_run: bool = False
     atomic: bool = False
     background: bool = False
