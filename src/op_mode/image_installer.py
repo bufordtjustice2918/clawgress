@@ -783,6 +783,7 @@ def install_image() -> None:
             break
         print(MSG_WARN_IMAGE_NAME_WRONG)
 
+    failed_check_status = [EPasswdStrength.WEAK, EPasswdStrength.ERROR]
     # ask for password
     while True:
         user_password: str = ask_input(MSG_INPUT_PASSWORD, no_echo=True,
@@ -792,7 +793,7 @@ def install_image() -> None:
             Warning(MSG_WARN_CHANGE_PASSWORD)
         else:
             result = evaluate_strength(user_password)
-            if result['strength'] == EPasswdStrength.WEAK:
+            if result['strength'] in failed_check_status:
                 Warning(result['error'])
 
         confirm: str = ask_input(MSG_INPUT_PASSWORD_CONFIRM, no_echo=True,

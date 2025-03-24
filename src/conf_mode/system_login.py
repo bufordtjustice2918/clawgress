@@ -160,9 +160,10 @@ def verify(login):
                 dict_object=user_config
             ) or None
 
+            failed_check_status = [EPasswdStrength.WEAK, EPasswdStrength.ERROR]
             if plaintext_password is not None:
                 result = evaluate_strength(plaintext_password)
-                if result['strength'] == EPasswdStrength.WEAK:
+                if result['strength'] in failed_check_status:
                     Warning(result['error'])
 
             for pubkey, pubkey_options in (dict_search('authentication.public_keys', user_config) or {}).items():
