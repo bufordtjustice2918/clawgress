@@ -23,15 +23,18 @@ from decimal import Decimal
 from vyos.utils.process import cmd
 
 
-DEFAULT_PASSWORD = 'vyos'
-LOW_ENTROPY_MSG = 'should be at least 8 characters long;'
-WEAK_PASSWORD_MSG= 'The password complexity is too low - @MSG@'
-
+DEFAULT_PASSWORD: str = 'vyos'
+LOW_ENTROPY_MSG: str = 'should be at least 8 characters long;'
+WEAK_PASSWORD_MSG: str = 'The password complexity is too low - @MSG@'
+CRACKLIB_ERROR_MSG: str = 'A following error occurred: @MSG@\n' \
+    'Possibly the cracklib database is corrupted or is missing. ' \
+    'Try reinstalling the python3-cracklib package.'
 
 class EPasswdStrength(StrEnum):
     WEAK = 'Weak'
     DECENT = 'Decent'
     STRONG = 'Strong'
+    ERROR = 'Cracklib Error'
 
 
 def calculate_entropy(charset: str, passwd: str) -> float:
@@ -63,6 +66,9 @@ def evaluate_strength(passwd: str) -> dict[str, str]:
             msg = f'should not be {e}'
         result.update(strength=EPasswdStrength.WEAK)
         result.update(error=WEAK_PASSWORD_MSG.replace('@MSG@', msg))
+    except Exception as e:
+        result.update(strength=EPasswdStrength.ERROR)
+        result.update(error=CRACKLIB_ERROR_MSG.replace('@MSG@', str(e)))
     else:
         # Now check the password's entropy
         # Cast to Decimal for more precise rounding
