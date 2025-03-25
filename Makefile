@@ -27,7 +27,7 @@ libvyosconfig:
 		rm -rf /tmp/libvyosconfig && \
 			git clone https://github.com/vyos/libvyosconfig.git /tmp/libvyosconfig || exit 1
 		cd /tmp/libvyosconfig && \
-			git checkout 55b2d352333e3cfcb54d2057b73cef6ebe8331f9 || exit 1
+			git checkout 27e4b0a5eaf77d9a1f5e1f6dcaa109e5d73c51d1 || exit 1
 		eval $$(opam env --root=/opt/opam --set-root) && ./build.sh
 	fi
 
