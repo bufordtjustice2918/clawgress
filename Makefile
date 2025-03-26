@@ -23,12 +23,10 @@ op_xml_obj = $(op_xml_src:.xml.in=.xml)
 .PHONY: libvyosconfig
 .ONESHELL:
 libvyosconfig:
-	if ! [ -f $(LIBVYOSCONFIG_BUILD_PATH) ]; then
-		rm -rf /tmp/libvyosconfig && \
-			git clone https://github.com/vyos/libvyosconfig.git /tmp/libvyosconfig || exit 1
-		cd /tmp/libvyosconfig && \
-			git checkout 27e4b0a5eaf77d9a1f5e1f6dcaa109e5d73c51d1 || exit 1
-		eval $$(opam env --root=/opt/opam --set-root) && ./build.sh
+	if test ! -f $(LIBVYOSCONFIG_BUILD_PATH); then
+		rm -rf /tmp/libvyosconfig && mkdir /tmp/libvyosconfig
+		cp -r libvyosconfig /tmp && cd /tmp/libvyosconfig && \
+		eval $$(opam env --root=/opt/opam --set-root) && ./build.sh || exit 1
 	fi
 
 .PHONY: interface_definitions
