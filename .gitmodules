@@ -1,4 +1,4 @@
 [submodule "libvyosconfig"]
 	path = libvyosconfig
-	url = git@github.com:vyos/libvyosconfig.git
+	url = ../libvyosconfig.git
 	branch = current
