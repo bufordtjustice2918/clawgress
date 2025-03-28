@@ -42,7 +42,8 @@ Pre-Depends:
   libnss-tacplus [amd64],
   libpam-tacplus [amd64],
   libpam-radius-auth (= 1.5.0-cl3u7) [amd64],
-  libnss-mapuser (= 1.1.0-cl3u3) [amd64]
+  libnss-mapuser (= 1.1.0-cl3u3) [amd64],
+  tzdata (>= 2025b)
 Depends:
 ## Fundamentals
   ${python3:Depends} (>= 3.10),
