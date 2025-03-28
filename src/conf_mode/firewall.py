@@ -627,7 +627,7 @@ def apply(firewall):
         # Call helper script to Update set contents
         if 'name' in firewall['geoip_updated'] or 'ipv6_name' in firewall['geoip_updated']:
             print('Updating GeoIP. Please wait...')
-            geoip_update(firewall)
+            geoip_update(firewall=firewall)
 
     return None
 
