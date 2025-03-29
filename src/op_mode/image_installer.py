@@ -1007,7 +1007,7 @@ def add_image(image_path: str, vrf: str = None, username: str = '',
             Path(target_config_dir).mkdir(parents=True)
             chown(target_config_dir, group='vyattacfg')
             chmod_2775(target_config_dir)
-            copytree('/opt/vyatta/etc/config/', target_config_dir,
+            copytree('/opt/vyatta/etc/config/', target_config_dir, symlinks=True,
                      copy_function=copy_preserve_owner, dirs_exist_ok=True)
         else:
             Path(target_config_dir).mkdir(parents=True)
