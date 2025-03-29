@@ -223,10 +223,10 @@ class TestRSYSLOGService(VyOSUnitTestSHIM.TestCase):
 
             if 'format' in remote_options:
                 if 'include-timezone' in remote_options['format']:
-                    self.assertIn( '        template="SyslogProtocol23Format"', config)
+                    self.assertIn( '        template="RSYSLOG_SyslogProtocol23Format"', config)
 
                 if 'octet-counted' in remote_options['format']:
-                    self.assertIn( '        TCP_Framing="octed-counted"', config)
+                    self.assertIn( '        TCP_Framing="octet-counted"', config)
                 else:
                     self.assertIn( '        TCP_Framing="traditional"', config)
 
