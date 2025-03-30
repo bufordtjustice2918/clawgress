@@ -138,7 +138,7 @@ def show_stp(raw: bool, ifname: typing.Optional[str], detail: bool):
         bridgeDict = _get_stp_data(ifname, bridges, bridgeStatus)
 
         if bridgeDict['bridge_id'][1] == bridgeDict['root_id'][1]:
-            amRoot = " (This bridge is root)"
+            amRoot = " (This bridge is the root)"
 
         print('-' * 80)
         print(f"Bridge interface {bridgeDict['bridge_name']} ({bridgeDict['up_state']}):\n")
