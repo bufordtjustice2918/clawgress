@@ -145,7 +145,7 @@ def show_stp(raw: bool, ifname: typing.Optional[str], detail: bool):
         print(f"Spanning Tree is {bridgeDict['stp_state']}")
         print(f"Bridge ID {bridgeDict['bridge_id'][1]}, Priority {int(bridgeDict['bridge_id'][0], 16)}")
         print(f"Root ID {bridgeDict['root_id'][1]}, Priority {int(bridgeDict['root_id'][0], 16)}{amRoot}")
-        print(f"VLANs are {bridgeDict['vlan_filtering'].capitalize()}, Protocol {bridgeDict['vlan_protocol']}")
+        print(f"VLANs {bridgeDict['vlan_filtering'].capitalize()}, Protocol {bridgeDict['vlan_protocol']}")
         print()
 
         for members in bridgeDict['members']:
