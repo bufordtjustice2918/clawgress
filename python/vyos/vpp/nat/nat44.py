@@ -86,38 +86,34 @@ class Nat44:
             is_add=False,
         )
 
-    # needs to check
     def add_nat44_interface_inside(self):
         """Add NAT44 interface"""
         self.vpp.api.nat44_interface_add_del_feature(
-            flags=1,
+            flags=0x20,
             sw_if_index=self.vpp.get_sw_if_index(self.interface_in),
             is_add=True,
         )
 
-    # needs to check
     def delete_nat44_interface_inside(self):
         """Delete NAT44 interface"""
         self.vpp.api.nat44_interface_add_del_feature(
-            flags=1,
+            flags=0x20,
             sw_if_index=self.vpp.get_sw_if_index(self.interface_in),
             is_add=False,
         )
 
-    # needs to check
     def add_nat44_interface_outside(self):
         """Add NAT44 interface"""
         self.vpp.api.nat44_interface_add_del_feature(
-            flags=0,
+            flags=0x10,
             sw_if_index=self.vpp.get_sw_if_index(self.interface_out),
             is_add=True,
         )
 
-    # needs to check
     def delete_nat44_interface_outside(self):
         """Delete NAT44 interface"""
         self.vpp.api.nat44_interface_add_del_feature(
-            flags=0,
+            flags=0x10,
             sw_if_index=self.vpp.get_sw_if_index(self.interface_out),
             is_add=False,
         )
@@ -149,3 +145,72 @@ class Nat44:
     def enable_ipfix(self):
         """Enable NAT44 IPFIX logging"""
         self.vpp.api.nat44_ei_ipfix_enable_disable(enable=True)
+
+
+class Nat44Static(Nat44):
+    def __init__(self):
+        self.vpp = VPPControl()
+
+    def add_inbound_interface(self, interface_in):
+        self.interface_in = interface_in
+        self.add_nat44_interface_inside()
+
+    def delete_inbound_interface(self, interface_in):
+        self.interface_in = interface_in
+        self.delete_nat44_interface_inside()
+
+    def add_outbound_interface(self, interface_out):
+        self.interface_out = interface_out
+        self.add_nat44_interface_outside()
+
+    def delete_outbound_interface(self, interface_out):
+        self.interface_out = interface_out
+        self.delete_nat44_interface_outside()
+
+    def add_nat44_static_mapping(
+        self,
+        iface_out,
+        local_ip,
+        external_ip,
+        local_port,
+        external_port,
+        protocol,
+        use_iface,
+    ):
+        """Add NAT44 static mapping"""
+        self.vpp.api.nat44_add_del_static_mapping_v2(
+            local_ip_address=local_ip,
+            external_ip_address=external_ip,
+            protocol=protocol,
+            local_port=local_port,
+            external_port=external_port,
+            flags=0x08 if not (protocol or local_port) else 0x00,
+            external_sw_if_index=(
+                self.vpp.get_sw_if_index(iface_out) if use_iface else 0xFFFFFFFF
+            ),
+            is_add=True,
+        )
+
+    def delete_nat44_static_mapping(
+        self,
+        iface_out,
+        local_ip,
+        external_ip,
+        local_port,
+        external_port,
+        protocol,
+        use_iface,
+    ):
+        """Delete NAT44 static mapping"""
+        self.vpp.api.nat44_add_del_static_mapping_v2(
+            local_ip_address=local_ip,
+            external_ip_address=external_ip,
+            protocol=protocol,
+            local_port=local_port,
+            external_port=external_port,
+            flags=0x08 if not (protocol or local_port) else 0x00,
+            external_sw_if_index=(
+                self.vpp.get_sw_if_index(iface_out) if use_iface else 0xFFFFFFFF
+            ),
+            is_add=False,
+        )

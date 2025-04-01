@@ -905,6 +905,111 @@
             </node>
           </children>
         </node>
+        <node name="static" owner="${vyos_conf_scripts_dir}/vpp_nat_static.py">
+          <properties>
+            <help>Static NAT settings</help>
+            <priority>321</priority>
+          </properties>
+          <children>
+            <tagNode name="rule">
+              <properties>
+                <help>Rule number for NAT</help>
+                <valueHelp>
+                  <format>u32</format>
+                  <description>Number of NAT rule</description>
+                </valueHelp>
+              </properties>
+              <children>
+                <node name="destination">
+                  <properties>
+                    <help>NAT external parameters</help>
+                  </properties>
+                  <children>
+                    <leafNode name="address">
+                      <properties>
+                        <help>IP address</help>
+                        <valueHelp>
+                          <format>ipv4</format>
+                          <description>IPv4 address</description>
+                        </valueHelp>
+                        <constraint>
+                          <validator name="ipv4-address"/>
+                        </constraint>
+                      </properties>
+                    </leafNode>
+                    #include <include/port-number.xml.i>
+                  </children>
+                </node>
+                <leafNode name="protocol">
+                  <properties>
+                    <help>Protocol to NAT</help>
+                    <completionHelp>
+                      <list>tcp udp icmp all</list>
+                    </completionHelp>
+                    <valueHelp>
+                      <format>all</format>
+                      <description>All protocols (TCP, UDP, and ICMP)</description>
+                    </valueHelp>
+                    <valueHelp>
+                      <format>icmp</format>
+                      <description>Internet control message protocol</description>
+                    </valueHelp>
+                    <valueHelp>
+                      <format>tcp</format>
+                      <description>Transmission control protocol</description>
+                    </valueHelp>
+                    <valueHelp>
+                      <format>udp</format>
+                      <description>user datagram protocol</description>
+                    </valueHelp>
+                    <constraint>
+                      <regex>(tcp|udp|icmp|all)</regex>
+                    </constraint>
+                  </properties>
+                  <defaultValue>all</defaultValue>
+                </leafNode>
+                <leafNode name="outbound-interface">
+                  <properties>
+                    <help>Outbound interface of NAT traffic</help>
+                    <completionHelp>
+                      <list>any</list>
+                      <script>${vyos_completion_dir}/list_interfaces</script>
+                    </completionHelp>
+                  </properties>
+                </leafNode>
+                <leafNode name="inbound-interface">
+                  <properties>
+                    <help>Inbound interface of NAT traffic</help>
+                    <completionHelp>
+                      <list>any</list>
+                      <script>${vyos_completion_dir}/list_interfaces</script>
+                    </completionHelp>
+                  </properties>
+                </leafNode>
+                <node name="translation">
+                  <properties>
+                    <help>NAT internal parameters</help>
+                  </properties>
+                  <children>
+                    <leafNode name="address">
+                      <properties>
+                        <help>IP address</help>
+                        <valueHelp>
+                          <format>ipv4</format>
+                          <description>IPv4 address</description>
+                        </valueHelp>
+                        <constraint>
+                          <validator name="ipv4-address"/>
+                        </constraint>
+                      </properties>
+                    </leafNode>
+                    #include <include/port-number.xml.i>
+                  </children>
+                </node>
+              </children>
+            </tagNode>
+          </children>
+        </node>
       </children>
     </node>
     <tagNode name="kernel-interfaces" owner="${vyos_conf_scripts_dir}/vpp_kernel-interfaces.py">

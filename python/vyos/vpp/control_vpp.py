@@ -160,6 +160,21 @@ class VPPControl:
                 return iface.sw_if_index
         return None
 
+    @_Decorators.api_call
+    def get_interface_name(self, index: int) -> str | None:
+        """Find interface name by interface index in VPP
+
+        Args:
+            index (int): interface index inside VPP
+
+        Returns:
+            str | None: Interface name or None (if was not found)
+        """
+        for iface in self.__vpp_api_client.api.sw_interface_dump():
+            if iface.sw_if_index == index:
+                return iface.interface_name
+        return None
+
     @_Decorators.check_retval
     @_Decorators.api_call
     def lcp_pair_add(

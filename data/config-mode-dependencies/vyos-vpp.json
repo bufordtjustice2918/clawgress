@@ -11,6 +11,7 @@
         "vpp_interfaces_vxlan": ["vpp_interfaces_vxlan"],
         "vpp_interfaces_xconnect": ["vpp_interfaces_xconnect"],
         "vpp_nat_source": ["vpp_nat_source"],
+        "vpp_nat_static": ["vpp_nat_static"],
         "vpp_kernel_interface": ["vpp_kernel-interfaces"]
     },
     "vpp_interfaces_bonding": {
@@ -49,3 +50,4 @@
         "vpp_kernel_interface": ["vpp_kernel-interfaces"]
     }
 }
+
