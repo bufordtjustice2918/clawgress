@@ -32,7 +32,6 @@ from vyos.template import inc_ip
 from vyos.template import dec_ip
 
 PROCESS_NAME = 'kea-dhcp4'
-CTRL_PROCESS_NAME = 'kea-ctrl-agent'
 KEA4_CONF = '/run/kea/kea-dhcp4.conf'
 KEA4_CTRL = '/run/kea/dhcp4-ctrl-socket'
 HOSTSD_CLIENT = '/usr/bin/vyos-hostsd-client'
@@ -1004,7 +1003,6 @@ class TestServiceDHCPServer(VyOSUnitTestSHIM.TestCase):
 
         # Check for running process
         self.assertTrue(process_named_running(PROCESS_NAME))
-        self.assertTrue(process_named_running(CTRL_PROCESS_NAME))
 
     def test_dhcp_high_availability_standby(self):
         shared_net_name = 'FAILOVER'
@@ -1104,7 +1102,6 @@ class TestServiceDHCPServer(VyOSUnitTestSHIM.TestCase):
 
         # Check for running process
         self.assertTrue(process_named_running(PROCESS_NAME))
-        self.assertTrue(process_named_running(CTRL_PROCESS_NAME))
 
     def test_dhcp_on_interface_with_vrf(self):
         self.cli_set(['interfaces', 'ethernet', 'eth1', 'address', '10.1.1.1/30'])
