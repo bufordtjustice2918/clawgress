@@ -223,3 +223,11 @@ def add_system_version(config_str: str = None, out_file: str = None):
         version_info.write(out_file)
     else:
         sys.stdout.write(version_info.write_string())
+
+
+def append_system_version(file: str):
+    """Append system version data to existing file"""
+    version_info = version_info_from_system()
+    version_info.update_footer()
+    with open(file, 'a') as f:
+        f.write(version_info.write_string())
