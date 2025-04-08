@@ -61,7 +61,7 @@ def verify(config):
     if 'remove' in config:
         return None
 
-    required_keys = {'inbound_interface', 'outbound_interface'}
+    required_keys = {'inside_interface', 'outside_interface'}
     if not all(key in config for key in required_keys):
         missing_keys = required_keys - set(config.keys())
         raise ConfigError(
@@ -83,8 +83,8 @@ def apply(config):
     # Delete NAT source
     if 'effective' in config:
         remove_config = config.get('effective')
-        interface_in = remove_config.get('inbound_interface')
-        interface_out = remove_config.get('outbound_interface')
+        interface_in = remove_config.get('inside_interface')
+        interface_out = remove_config.get('outside_interface')
         translation_address = remove_config.get('translation', {}).get('address')
 
         n = Nat44(interface_in, interface_out, translation_address)
@@ -96,8 +96,8 @@ def apply(config):
         return None
 
     # Add NAT44
-    interface_in = config.get('inbound_interface')
-    interface_out = config.get('outbound_interface')
+    interface_in = config.get('inside_interface')
+    interface_out = config.get('outside_interface')
     translation_address = config.get('translation', {}).get('address')
 
     n = Nat44(interface_in, interface_out, translation_address)

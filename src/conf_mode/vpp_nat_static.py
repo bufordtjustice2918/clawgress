@@ -86,12 +86,12 @@ def get_config(config=None) -> dict:
             expand_nodes=Diff.DELETE | Diff.ADD,
         )
 
-        if 'inbound_interface' in tmp:
-            new, old = diff.get_value_diff(base_rule + ['inbound-interface'])
+        if 'inside_interface' in tmp:
+            new, old = diff.get_value_diff(base_rule + ['inside-interface'])
             in_iface_add.append(new) if new else None
             in_iface_del.append(old) if old else None
-        if 'outbound_interface' in tmp:
-            new, old = diff.get_value_diff(base_rule + ['outbound-interface'])
+        if 'outside_interface' in tmp:
+            new, old = diff.get_value_diff(base_rule + ['outside-interface'])
             out_iface_add.append(new) if new else None
             out_iface_del.append(old) if old else None
 
@@ -120,7 +120,7 @@ def verify(config):
     if 'remove' in config:
         return None
 
-    required_keys = {'inbound_interface', 'outbound_interface'}
+    required_keys = {'inside_interface', 'outside_interface'}
     for rule, rule_config in config['rule'].items():
         missing_keys = required_keys - rule_config.keys()
         if missing_keys:
@@ -128,13 +128,16 @@ def verify(config):
                 f"Required options are missing: {', '.join(missing_keys).replace('_', '-')} in rule {rule}"
             )
 
-        if not rule_config.get('translation', {}).get('address'):
-            raise ConfigError(f'Translation requires address in rule {rule}')
+        if not rule_config.get('local', {}).get('address'):
+            raise ConfigError(f'Local settings require address in rule {rule}')
 
-        has_dest_port = 'port' in rule_config.get('destination', {})
-        has_trans_port = 'port' in rule_config.get('translation', {})
+        if not rule_config.get('external', {}).get('address'):
+            raise ConfigError(f'External settings require address in rule {rule}')
 
-        if not has_trans_port == has_dest_port:
+        has_local_port = 'port' in rule_config.get('local', {})
+        has_external_port = 'port' in rule_config.get('external', {})
+
+        if not has_external_port == has_local_port:
             raise ConfigError(
                 'Source and destination ports must either both be specified, or neither must be specified'
             )
@@ -147,28 +150,22 @@ def generate(config):
 def apply(config):
     n = Nat44Static()
 
-    # Delete inbound interfaces
+    # Delete inside interfaces
     for interface in config['in_iface_del']:
-        n.delete_inbound_interface(interface)
-    # Delete outbound interfaces
+        n.delete_inside_interface(interface)
+    # Delete outside interfaces
     for interface in config['out_iface_del']:
-        n.delete_outbound_interface(interface)
+        n.delete_outside_interface(interface)
     # Delete NAT static mapping rules
     for rule in config['changed_rules']:
         if rule in config.get('effective', {}).get('rule', {}):
             rule_config = config['effective']['rule'][rule]
             n.delete_nat44_static_mapping(
-                iface_out=rule_config.get('outbound_interface'),
-                local_ip=rule_config.get('translation').get('address'),
-                external_ip=rule_config.get('destination', {}).get('address', ''),
-                local_port=int(rule_config.get('translation', {}).get('port', 0)),
-                external_port=int(rule_config.get('destination', {}).get('port', 0)),
+                local_ip=rule_config.get('local').get('address'),
+                external_ip=rule_config.get('external', {}).get('address', ''),
+                local_port=int(rule_config.get('local', {}).get('port', 0)),
+                external_port=int(rule_config.get('external', {}).get('port', 0)),
                 protocol=protocol_map[rule_config.get('protocol', 'all')],
-                use_iface=(
-                    True
-                    if not rule_config.get('destination', {}).get('address')
-                    else False
-                ),
             )
 
     if 'remove' in config:
@@ -177,24 +174,18 @@ def apply(config):
     # Add NAT44 static mapping rules
     n.enable_nat44_ed()
     for interface in config['in_iface_add']:
-        n.add_inbound_interface(interface)
+        n.add_inside_interface(interface)
     for interface in config['out_iface_add']:
-        n.add_outbound_interface(interface)
+        n.add_outside_interface(interface)
     for rule in config['changed_rules']:
         if rule in config.get('rule', {}):
             rule_config = config['rule'][rule]
             n.add_nat44_static_mapping(
-                iface_out=rule_config.get('outbound_interface'),
-                local_ip=rule_config.get('translation').get('address'),
-                external_ip=rule_config.get('destination', {}).get('address', ''),
-                local_port=int(rule_config.get('translation', {}).get('port', 0)),
-                external_port=int(rule_config.get('destination', {}).get('port', 0)),
+                local_ip=rule_config.get('local').get('address'),
+                external_ip=rule_config.get('external', {}).get('address', ''),
+                local_port=int(rule_config.get('local', {}).get('port', 0)),
+                external_port=int(rule_config.get('external', {}).get('port', 0)),
                 protocol=protocol_map[rule_config.get('protocol', 'all')],
-                use_iface=(
-                    True
-                    if not rule_config.get('destination', {}).get('address')
-                    else False
-                ),
             )
 
 

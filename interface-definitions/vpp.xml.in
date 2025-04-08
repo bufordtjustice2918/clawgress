@@ -853,18 +853,18 @@
             <priority>320</priority>
           </properties>
           <children>
-            <leafNode name="inbound-interface">
+            <leafNode name="inside-interface">
               <properties>
-                <help>Inbound interface of NAT traffic</help>
+                <help>NAT inside interface</help>
                 <completionHelp>
                   <list>any</list>
                   <script>${vyos_completion_dir}/list_interfaces</script>
                 </completionHelp>
               </properties>
             </leafNode>
-            <leafNode name="outbound-interface">
+            <leafNode name="outside-interface">
               <properties>
-                <help>Outbound interface of NAT traffic</help>
+                <help>NAT outside interface</help>
                 <completionHelp>
                   <list>any</list>
                   <script>${vyos_completion_dir}/list_interfaces</script>
@@ -920,7 +920,7 @@
                 </valueHelp>
               </properties>
               <children>
-                <node name="destination">
+                <node name="external">
                   <properties>
                     <help>NAT external parameters</help>
                   </properties>
@@ -968,27 +968,25 @@
                   </properties>
                   <defaultValue>all</defaultValue>
                 </leafNode>
-                <leafNode name="outbound-interface">
+                <leafNode name="outside-interface">
                   <properties>
-                    <help>Outbound interface of NAT traffic</help>
+                    <help>NAT outside interface</help>
                     <completionHelp>
-                      <list>any</list>
                       <script>${vyos_completion_dir}/list_interfaces</script>
                     </completionHelp>
                   </properties>
                 </leafNode>
-                <leafNode name="inbound-interface">
+                <leafNode name="inside-interface">
                   <properties>
-                    <help>Inbound interface of NAT traffic</help>
+                    <help>NAT inside interface</help>
                     <completionHelp>
-                      <list>any</list>
                       <script>${vyos_completion_dir}/list_interfaces</script>
                     </completionHelp>
                   </properties>
                 </leafNode>
-                <node name="translation">
+                <node name="local">
                   <properties>
-                    <help>NAT internal parameters</help>
+                    <help>NAT local parameters</help>
                   </properties>
                   <children>
                     <leafNode name="address">
@@ -1006,6 +1004,7 @@
                     #include <include/port-number.xml.i>
                   </children>
                 </node>
+                #include <include/generic-description.xml.i>
               </children>
             </tagNode>
           </children>

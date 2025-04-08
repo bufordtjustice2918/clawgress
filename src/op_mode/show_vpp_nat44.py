@@ -116,27 +116,22 @@ def _get_raw_output_static_rules(vpp_api):
     return rules_list
 
 
-def _get_formatted_output_rules(vpp, rules_list):
+def _get_formatted_output_rules(rules_list):
     data_entries = []
     for rule in rules_list:
-        dest_address = rule.get('external_ip_address')
-        dest_port = rule.get('external_port') or ''
-        trans_address = rule.get('local_ip_address')
-        trans_port = rule.get('local_port') or ''
+        external_address = rule.get('external_ip_address')
+        external_port = rule.get('external_port') or ''
+        local_address = rule.get('local_ip_address')
+        local_port = rule.get('local_port') or ''
         protocol = protocol_map[rule.get('protocol', 0)]
-        dest_sh_if_index = rule.get('external_sw_if_index')
 
-        vpp_if_name = vpp.get_interface_name(dest_sh_if_index)
-        if vpp_if_name:
-            dest_address = vpp_if_name
-
-        values = [dest_address, dest_port, trans_address, trans_port, protocol]
+        values = [external_address, external_port, local_address, local_port, protocol]
         data_entries.append(values)
     headers = [
-        'Des_address/interface',
-        'Dest_port',
-        'Trans_address',
-        'Trans_port',
+        'External address',
+        'External port',
+        'Local address',
+        'Local port',
         'Protocol',
     ]
     out = sorted(data_entries, key=lambda x: x[2])
@@ -170,7 +165,7 @@ def show_static(raw: bool):
         return rules_list
 
     else:
-        return _get_formatted_output_rules(vpp, rules_list)
+        return _get_formatted_output_rules(rules_list)
 
 
 if __name__ == '__main__':

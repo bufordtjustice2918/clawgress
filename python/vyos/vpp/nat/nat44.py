@@ -151,31 +151,24 @@ class Nat44Static(Nat44):
     def __init__(self):
         self.vpp = VPPControl()
 
-    def add_inbound_interface(self, interface_in):
+    def add_inside_interface(self, interface_in):
         self.interface_in = interface_in
         self.add_nat44_interface_inside()
 
-    def delete_inbound_interface(self, interface_in):
+    def delete_inside_interface(self, interface_in):
         self.interface_in = interface_in
         self.delete_nat44_interface_inside()
 
-    def add_outbound_interface(self, interface_out):
+    def add_outside_interface(self, interface_out):
         self.interface_out = interface_out
         self.add_nat44_interface_outside()
 
-    def delete_outbound_interface(self, interface_out):
+    def delete_outside_interface(self, interface_out):
         self.interface_out = interface_out
         self.delete_nat44_interface_outside()
 
     def add_nat44_static_mapping(
-        self,
-        iface_out,
-        local_ip,
-        external_ip,
-        local_port,
-        external_port,
-        protocol,
-        use_iface,
+        self, local_ip, external_ip, local_port, external_port, protocol
     ):
         """Add NAT44 static mapping"""
         self.vpp.api.nat44_add_del_static_mapping_v2(
@@ -185,21 +178,11 @@ class Nat44Static(Nat44):
             local_port=local_port,
             external_port=external_port,
             flags=0x08 if not (protocol or local_port) else 0x00,
-            external_sw_if_index=(
-                self.vpp.get_sw_if_index(iface_out) if use_iface else 0xFFFFFFFF
-            ),
             is_add=True,
         )
 
     def delete_nat44_static_mapping(
-        self,
-        iface_out,
-        local_ip,
-        external_ip,
-        local_port,
-        external_port,
-        protocol,
-        use_iface,
+        self, local_ip, external_ip, local_port, external_port, protocol
     ):
         """Delete NAT44 static mapping"""
         self.vpp.api.nat44_add_del_static_mapping_v2(
@@ -209,8 +192,5 @@ class Nat44Static(Nat44):
             local_port=local_port,
             external_port=external_port,
             flags=0x08 if not (protocol or local_port) else 0x00,
-            external_sw_if_index=(
-                self.vpp.get_sw_if_index(iface_out) if use_iface else 0xFFFFFFFF
-            ),
             is_add=False,
         )
