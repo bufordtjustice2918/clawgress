@@ -356,6 +356,7 @@ def verify_vlan_config(config):
         verify_vrf(vlan)
         verify_mirror_redirect(vlan)
         verify_mtu_parent(vlan, config)
+        verify_mtu_ipv6(vlan)
 
     # 802.1ad (Q-in-Q) VLANs
     for s_vlan_id in config.get('vif_s', {}):
@@ -367,6 +368,7 @@ def verify_vlan_config(config):
         verify_vrf(s_vlan)
         verify_mirror_redirect(s_vlan)
         verify_mtu_parent(s_vlan, config)
+        verify_mtu_ipv6(s_vlan)
 
         for c_vlan_id in s_vlan.get('vif_c', {}):
             c_vlan = s_vlan['vif_c'][c_vlan_id]
@@ -378,6 +380,7 @@ def verify_vlan_config(config):
             verify_mirror_redirect(c_vlan)
             verify_mtu_parent(c_vlan, config)
             verify_mtu_parent(c_vlan, s_vlan)
+            verify_mtu_ipv6(c_vlan)
 
 
 def verify_diffie_hellman_length(file, min_keysize):
