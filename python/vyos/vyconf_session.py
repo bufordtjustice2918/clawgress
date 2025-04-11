@@ -17,6 +17,8 @@
 
 import tempfile
 import shutil
+from functools import wraps
+from typing import Type
 
 from vyos.proto import vyconf_client
 from vyos.migrate import ConfigMigrate
@@ -33,25 +35,44 @@ def output(o):
 
 
 class VyconfSession:
-    def __init__(self, token: str = None):
+    def __init__(self, token: str = None, on_error: Type[Exception] = None):
         if token is None:
             out = vyconf_client.send_request('setup_session')
             self.__token = out.output
         else:
             self.__token = token
 
+        self.on_error = on_error
+
+    @staticmethod
+    def raise_exception(f):
+        @wraps(f)
+        def wrapped(self, *args, **kwargs):
+            if self.on_error is None:
+                return f(self, *args, **kwargs)
+            o, e = f(self, *args, **kwargs)
+            if e:
+                raise self.on_error(o)
+            return o, e
+
+        return wrapped
+
+    @raise_exception
     def set(self, path: list[str]) -> tuple[str, int]:
         out = vyconf_client.send_request('set', token=self.__token, path=path)
         return output(out), out.status
 
+    @raise_exception
     def delete(self, path: list[str]) -> tuple[str, int]:
         out = vyconf_client.send_request('delete', token=self.__token, path=path)
         return output(out), out.status
 
+    @raise_exception
     def commit(self) -> tuple[str, int]:
         out = vyconf_client.send_request('commit', token=self.__token)
         return output(out), out.status
 
+    @raise_exception
     def discard(self) -> tuple[str, int]:
         out = vyconf_client.send_request('discard', token=self.__token)
         return output(out), out.status
@@ -60,6 +81,7 @@ class VyconfSession:
         out = vyconf_client.send_request('session_changed', token=self.__token)
         return not bool(out.status)
 
+    @raise_exception
     def load_config(self, file: str, migrate: bool = False) -> tuple[str, int]:
         # pylint: disable=consider-using-with
         if migrate:
@@ -81,12 +103,14 @@ class VyconfSession:
 
         return output(out), out.status
 
+    @raise_exception
     def save_config(self, file: str, append_version: bool = False) -> tuple[str, int]:
         out = vyconf_client.send_request('save', token=self.__token, location=file)
         if append_version:
             append_system_version(file)
         return output(out), out.status
 
+    @raise_exception
     def show_config(self, path: list[str] = None) -> tuple[str, int]:
         if path is None:
             path = []
