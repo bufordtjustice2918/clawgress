@@ -26,6 +26,36 @@
             </properties>
             <command>${vyos_op_scripts_dir}/interfaces.py show_summary</command>
           </leafNode>
+          <tagNode name="kernel">
+            <properties>
+              <completionHelp>
+                <script>ip -j link show | jq -r '.[].ifname'</script>
+              </completionHelp>
+            </properties>
+            <command>sudo ip -s link show dev $4</command>
+            <children>
+              <leafNode name="json">
+                <properties>
+                  <help>Show system interface in JSON format</help>
+                </properties>
+                <command>ip -j -s -d link show dev $4</command>
+              </leafNode>
+            </children>
+          </tagNode>
+          <node name="kernel">
+            <properties>
+              <help>Show all interfaces on this system</help>
+            </properties>
+            <command>sudo ip -s link show</command>
+            <children>
+              <leafNode name="json">
+                <properties>
+                  <help>Show all interfaces in JSON format</help>
+                </properties>
+                <command>ip -j -s -d link show</command>
+              </leafNode>
+            </children>
+          </node>
         </children>
       </node>
     </children>
