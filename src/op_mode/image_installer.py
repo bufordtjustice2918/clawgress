@@ -74,6 +74,7 @@ MSG_INPUT_CONFIG_FOUND: str = 'An active configuration was found. Would you like
 MSG_INPUT_CONFIG_CHOICE: str = 'The following config files are available for boot:'
 MSG_INPUT_CONFIG_CHOOSE: str = 'Which file would you like as boot config?'
 MSG_INPUT_IMAGE_NAME: str = 'What would you like to name this image?'
+MSG_INPUT_IMAGE_NAME_TAKEN: str = 'There is already an installed image by that name; please choose again'
 MSG_INPUT_IMAGE_DEFAULT: str = 'Would you like to set the new image as the default one for boot?'
 MSG_INPUT_PASSWORD: str = 'Please enter a password for the "vyos" user:'
 MSG_INPUT_PASSWORD_CONFIRM: str = 'Please confirm password for the "vyos" user:'
@@ -984,8 +985,12 @@ def add_image(image_path: str, vrf: str = None, username: str = '',
                 f'Adding image would downgrade image tools to v.{cfg_ver}; disallowed')
 
         if not no_prompt:
+            versions = grub.version_list()
             while True:
                 image_name: str = ask_input(MSG_INPUT_IMAGE_NAME, version_name)
+                if image_name in versions:
+                    print(MSG_INPUT_IMAGE_NAME_TAKEN)
+                    continue
                 if image.validate_name(image_name):
                     break
                 print(MSG_WARN_IMAGE_NAME_WRONG)
