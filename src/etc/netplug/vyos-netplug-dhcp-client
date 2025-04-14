@@ -48,10 +48,13 @@ config = Config()
 interface_path = ['interfaces'] + Section.get_config_path(interface).split()
 
 systemdV4_service = f'dhclient@{interface}.service'
+systemdV6_service = f'dhcp6c@{interface}.service'
 if in_out == 'out':
     # Interface moved state to down
     if is_systemd_service_active(systemdV4_service):
         cmd(f'systemctl stop {systemdV4_service}')
+    if is_systemd_service_active(systemdV6_service):
+        cmd(f'systemctl stop {systemdV6_service}')
 elif in_out == 'in':
     if config.exists_effective(interface_path + ['address']):
         tmp = config.return_effective_values(interface_path + ['address'])
@@ -64,3 +67,5 @@ elif in_out == 'in':
         # we will re-start the service and thus cancel the backoff time.
         if 'dhcp' in tmp:
             cmd(f'systemctl restart {systemdV4_service}')
+        if 'dhcpv6' in tmp:
+            cmd(f'systemctl restart {systemdV6_service}')
