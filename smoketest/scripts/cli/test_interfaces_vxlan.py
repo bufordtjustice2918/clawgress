@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2020-2023 VyOS maintainers and contributors
+# Copyright (C) 2020-2025 VyOS maintainers and contributors
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -25,7 +25,6 @@ from vyos.utils.network import interface_exists
 from vyos.utils.network import get_vxlan_vlan_tunnels
 from vyos.utils.network import get_vxlan_vni_filter
 from vyos.template import is_ipv6
-from vyos import ConfigError
 from base_interfaces_test import BasicInterfaceTest
 
 def convert_to_list(ranges_to_convert):
