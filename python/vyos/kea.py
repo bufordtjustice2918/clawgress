@@ -44,6 +44,7 @@ kea4_options = {
     'wpad_url': 'wpad-url',
     'ipv6_only_preferred': 'v6-only-preferred',
     'captive_portal': 'v4-captive-portal',
+    'capwap_controller': 'capwap-ac-v4',
 }
 
 kea6_options = {
@@ -56,6 +57,7 @@ kea6_options = {
     'nisplus_server': 'nisp-servers',
     'sntp_server': 'sntp-servers',
     'captive_portal': 'v6-captive-portal',
+    'capwap_controller': 'capwap-ac-v6',
 }
 
 kea_ctrl_socket = '/run/kea/dhcp{inet}-ctrl-socket'
