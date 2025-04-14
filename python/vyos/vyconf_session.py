@@ -26,6 +26,9 @@ from vyos.migrate import ConfigMigrate
 from vyos.migrate import ConfigMigrateError
 from vyos.component_version import append_system_version
 from vyos.utils.session import in_config_session
+from vyos.proto.vyconf_proto import Errnum
+from vyos.utils.commit import acquire_commit_lock_file
+from vyos.utils.commit import release_commit_lock_file
 
 
 class VyconfSessionError(Exception):
@@ -138,8 +141,14 @@ class VyconfSession:
     @raise_exception
     @config_mode
     def commit(self) -> tuple[str, int]:
+        lock_fd, out = acquire_commit_lock_file()
+        if lock_fd is None:
+            return out, Errnum.COMMIT_IN_PROGRESS
+
         out = vyconf_client.send_request('commit', token=self.__token)
-        return output(out), out.status
+        release_commit_lock_file(lock_fd)
+
+        return self.output(out), out.status
 
     @raise_exception
     @config_mode

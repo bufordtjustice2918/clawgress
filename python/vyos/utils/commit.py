@@ -15,6 +15,8 @@
 
 # pylint: disable=import-outside-toplevel
 
+from typing import IO
+
 
 def commit_in_progress():
     """Not to be used in normal op mode scripts!"""
@@ -64,3 +66,38 @@ def wait_for_commit_lock():
     # Very synchronous approach to multiprocessing
     while commit_in_progress():
         sleep(1)
+
+
+# For transitional compatibility with the legacy commit locking mechanism,
+# we require a lockf/fcntl (POSIX-type) lock, hence the following in place
+# of vyos.utils.locking
+
+
+def acquire_commit_lock_file() -> tuple[IO, str]:
+    import fcntl
+    from pathlib import Path
+    from vyos.defaults import commit_lock
+
+    try:
+        # pylint: disable=consider-using-with
+        lock_fd = Path(commit_lock).open('w')
+    except IOError as e:
+        out = f'Critical error opening commit lock file {e}'
+        return None, out
+
+    try:
+        fcntl.lockf(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return lock_fd, ''
+    except IOError:
+        out = 'Configuration system locked by another commit in progress'
+        lock_fd.close()
+        return None, out
+
+
+def release_commit_lock_file(file_descr):
+    import fcntl
+
+    if file_descr is None:
+        return
+    fcntl.lockf(file_descr, fcntl.LOCK_UN)
+    file_descr.close()
