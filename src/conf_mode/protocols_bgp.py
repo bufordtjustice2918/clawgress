@@ -413,9 +413,9 @@ def verify(config_dict):
                             verify_route_map(afi_config['route_map'][tmp], bgp)
 
                 if 'route_reflector_client' in afi_config:
-                    peer_group_as = peer_config.get('remote_as')
+                    peer_as = peer_config.get('remote_as')
 
-                    if peer_group_as is None or (peer_group_as != 'internal' and peer_group_as != bgp['system_as']):
+                    if peer_as is not None and (peer_as != 'internal' and peer_as != bgp['system_as']):
                         raise ConfigError('route-reflector-client only supported for iBGP peers')
                     else:
                         if 'peer_group' in peer_config:
