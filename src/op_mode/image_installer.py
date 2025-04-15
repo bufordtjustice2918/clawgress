@@ -24,7 +24,9 @@ from glob import glob
 from sys import exit
 from os import environ
 from os import readlink
-from os import getpid, getppid
+from os import getpid
+from os import getppid
+from json import loads
 from typing import Union
 from urllib.parse import urlparse
 from passlib.hosts import linux_context
@@ -35,15 +37,23 @@ from psutil import disk_partitions
 from vyos.base import Warning
 from vyos.configtree import ConfigTree
 from vyos.remote import download
-from vyos.system import disk, grub, image, compat, raid, SYSTEM_CFG_VER
+from vyos.system import disk
+from vyos.system import grub
+from vyos.system import image
+from vyos.system import compat
+from vyos.system import raid
+from vyos.system import SYSTEM_CFG_VER
+from vyos.system import grub_util
 from vyos.template import render
 from vyos.utils.auth import (
     DEFAULT_PASSWORD,
     EPasswdStrength,
     evaluate_strength
 )
+from vyos.utils.dict import dict_search
 from vyos.utils.io import ask_input, ask_yes_no, select_entry
 from vyos.utils.file import chmod_2775
+from vyos.utils.file import read_file
 from vyos.utils.process import cmd, run, rc_cmd
 from vyos.version import get_version_data
 
@@ -477,6 +487,25 @@ def setup_grub(root_dir: str) -> None:
     render(grub_cfg_menu, grub.TMPL_GRUB_MENU, {})
     render(grub_cfg_options, grub.TMPL_GRUB_OPTS, {})
 
+def get_cli_kernel_options(config_file: str) -> list:
+    config = ConfigTree(read_file(config_file))
+    config_dict = loads(config.to_json())
+    kernel_options = dict_search('system.option.kernel', config_dict)
+    cmdline_options = []
+
+    # XXX: This code path and if statements must be kept in sync with the Kernel
+    # option handling in system_options.py:generate(). This occurance is used
+    # for having the appropriate options passed to GRUB after an image upgrade!
+    if 'disable-mitigations' in kernel_options:
+        cmdline_options.append('mitigations=off')
+    if 'disable-power-saving' in kernel_options:
+        cmdline_options.append('intel_idle.max_cstate=0 processor.max_cstate=1')
+    if 'amd-pstate-driver' in kernel_options:
+        mode = kernel_options['amd-pstate-driver']
+        cmdline_options.append(
+            f'initcall_blacklist=acpi_cpufreq_init amd_pstate={mode}')
+
+    return cmdline_options
 
 def configure_authentication(config_file: str, password: str) -> None:
     """Write encrypted password to config file
@@ -491,10 +520,7 @@ def configure_authentication(config_file: str, password: str) -> None:
     plaintext exposed
     """
     encrypted_password = linux_context.hash(password)
-
-    with open(config_file) as f:
-        config_string = f.read()
-
+    config_string = read_file(config_file)
     config = ConfigTree(config_string)
     config.set([
         'system', 'login', 'user', 'vyos', 'authentication',
@@ -1044,6 +1070,12 @@ def add_image(image_path: str, vrf: str = None, username: str = '',
         grub.version_add(image_name, root_dir)
         if set_as_default:
             grub.set_default(image_name, root_dir)
+
+        cmdline_options = get_cli_kernel_options(
+            f'{target_config_dir}/config.boot')
+        grub_util.update_kernel_cmdline_options(' '.join(cmdline_options),
+                                                root_dir=root_dir,
+                                                version=image_name)
 
     except OSError as e:
         # if no space error, remove image dir and cleanup
