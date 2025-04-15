@@ -21,7 +21,6 @@ from datetime import datetime
 from datetime import timezone
 
 from vyos.template import is_ipv6
-from vyos.template import isc_static_route
 from vyos.template import netmask_from_cidr
 from vyos.utils.dict import dict_search_args
 from vyos.utils.file import file_permissions
@@ -113,22 +112,21 @@ def kea_parse_options(config):
         default_route = ''
 
         if 'default_router' in config:
-            default_route = isc_static_route('0.0.0.0/0', config['default_router'])
+            default_route = f'0.0.0.0/0 - {config["default_router"]}'
 
         routes = [
-            isc_static_route(route, route_options['next_hop'])
+            f'{route} - {route_options["next_hop"]}'
             for route, route_options in config['static_route'].items()
         ]
 
         options.append(
             {
-                'name': 'rfc3442-static-route',
+                'name': 'classless-static-route',
                 'data': ', '.join(
                     routes if not default_route else routes + [default_route]
                 ),
             }
         )
-        options.append({'name': 'windows-static-route', 'data': ', '.join(routes)})
 
     if 'time_zone' in config:
         with open('/usr/share/zoneinfo/' + config['time_zone'], 'rb') as f:
@@ -149,7 +147,7 @@ def kea_parse_options(config):
 
 
 def kea_parse_subnet(subnet, config):
-    out = {'subnet': subnet, 'id': int(config['subnet_id'])}
+    out = {'subnet': subnet, 'id': int(config['subnet_id']), 'user-context': {}}
 
     if 'option' in config:
         out['option-data'] = kea_parse_options(config['option'])
@@ -166,6 +164,9 @@ def kea_parse_subnet(subnet, config):
     if 'lease' in config:
         out['valid-lifetime'] = int(config['lease'])
         out['max-valid-lifetime'] = int(config['lease'])
+
+    if 'ping_check' in config:
+        out['user-context']['enable-ping-check'] = True
 
     if 'range' in config:
         pools = []

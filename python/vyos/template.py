@@ -390,28 +390,6 @@ def compare_netmask(netmask1, netmask2):
     except:
         return False
 
-@register_filter('isc_static_route')
-def isc_static_route(subnet, router):
-    # https://ercpe.de/blog/pushing-static-routes-with-isc-dhcp-server
-    # Option format is:
-    # <netmask>, <network-byte1>, <network-byte2>, <network-byte3>, <router-byte1>, <router-byte2>, <router-byte3>
-    # where bytes with the value 0 are omitted.
-    from ipaddress import ip_network
-    net = ip_network(subnet)
-    # add netmask
-    string = str(net.prefixlen) + ','
-    # add network bytes
-    if net.prefixlen:
-        width = net.prefixlen // 8
-        if net.prefixlen % 8:
-            width += 1
-        string += ','.join(map(str,tuple(net.network_address.packed)[:width])) + ','
-
-    # add router bytes
-    string += ','.join(router.split('.'))
-
-    return string
-
 @register_filter('is_file')
 def is_file(filename):
     if os.path.exists(filename):
@@ -895,7 +873,8 @@ def kea_shared_network_json(shared_networks):
         network = {
             'name': name,
             'authoritative': ('authoritative' in config),
-            'subnet4': []
+            'subnet4': [],
+            'user-context': {}
         }
 
         if 'option' in config:
@@ -906,6 +885,9 @@ def kea_shared_network_json(shared_networks):
 
             if 'bootfile_server' in config['option']:
                 network['next-server'] = config['option']['bootfile_server']
+
+        if 'ping_check' in config:
+            network['user-context']['enable-ping-check'] = True
 
         if 'subnet' in config:
             for subnet, subnet_config in config['subnet'].items():
