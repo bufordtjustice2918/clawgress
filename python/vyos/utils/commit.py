@@ -1,4 +1,4 @@
-# Copyright 2023 VyOS maintainers and contributors <maintainers@vyos.io>
+# Copyright 2023-2025 VyOS maintainers and contributors <maintainers@vyos.io>
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -13,8 +13,11 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library.  If not, see <http://www.gnu.org/licenses/>.
 
+# pylint: disable=import-outside-toplevel
+
+
 def commit_in_progress():
-    """ Not to be used in normal op mode scripts! """
+    """Not to be used in normal op mode scripts!"""
 
     # The CStore backend locks the config by opening a file
     # The file is not removed after commit, so just checking
@@ -36,7 +39,9 @@ def commit_in_progress():
     from vyos.defaults import commit_lock
 
     if getuser() != 'root':
-        raise OSError('This functions needs to be run as root to return correct results!')
+        raise OSError(
+            'This functions needs to be run as root to return correct results!'
+        )
 
     for proc in process_iter():
         try:
@@ -45,7 +50,7 @@ def commit_in_progress():
                 for f in files:
                     if f.path == commit_lock:
                         return True
-        except NoSuchProcess as err:
+        except NoSuchProcess:
             # Process died before we could examine it
             pass
     # Default case
@@ -53,8 +58,9 @@ def commit_in_progress():
 
 
 def wait_for_commit_lock():
-    """ Not to be used in normal op mode scripts! """
+    """Not to be used in normal op mode scripts!"""
     from time import sleep
+
     # Very synchronous approach to multiprocessing
     while commit_in_progress():
         sleep(1)
