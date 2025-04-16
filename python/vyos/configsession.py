@@ -1,4 +1,4 @@
-# Copyright (C) 2019-2024 VyOS maintainers and contributors
+# Copyright (C) 2019-2025 VyOS maintainers and contributors
 #
 # This library is free software; you can redistribute it and/or modify it under the terms of
 # the GNU Lesser General Public License as published by the Free Software Foundation;
@@ -119,6 +119,10 @@ def inject_vyos_env(env):
     env['vyos_prefix'] = '/opt/vyatta'
     env['vyos_sbin_dir'] = '/usr/sbin'
     env['vyos_validators_dir'] = '/usr/libexec/vyos/validators'
+
+    # with the retirement of the Cstore backend, this will remain as the
+    # sole indication of legacy CLI config mode, as checked by VyconfSession
+    env['_OFR_CONFIGURE'] = 'ok'
 
     # if running the vyos-configd daemon, inject the vyshim env var
     if is_systemd_service_running('vyos-configd.service'):
