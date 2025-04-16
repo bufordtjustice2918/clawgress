@@ -15,6 +15,7 @@
 #
 #
 
+import os
 import tempfile
 import shutil
 from functools import wraps
@@ -24,6 +25,7 @@ from vyos.proto import vyconf_client
 from vyos.migrate import ConfigMigrate
 from vyos.migrate import ConfigMigrateError
 from vyos.component_version import append_system_version
+from vyos.utils.session import in_config_session
 
 
 def output(o):
@@ -35,14 +37,35 @@ def output(o):
 
 
 class VyconfSession:
-    def __init__(self, token: str = None, on_error: Type[Exception] = None):
+    def __init__(
+        self, token: str = None, pid: int = None, on_error: Type[Exception] = None
+    ):
+        self.pid = os.getpid() if pid is None else pid
         if token is None:
-            out = vyconf_client.send_request('setup_session')
+            # CLI applications with arg pid=getppid() allow coordination
+            # with the ambient session; other uses (such as ConfigSession)
+            # may default to self pid
+            out = vyconf_client.send_request('session_of_pid', client_pid=self.pid)
+            if out.output is None:
+                out = vyconf_client.send_request('setup_session', client_pid=self.pid)
             self.__token = out.output
         else:
+            out = vyconf_client.send_request(
+                'session_update_pid', token=token, client_pid=self.pid
+            )
+            if out.status:
+                raise ValueError(f'No existing session for token: {token}')
             self.__token = token
 
         self.on_error = on_error
+        self.in_config_session = in_config_session()
+
+    def __del__(self):
+        if not self.in_config_session:
+            self.teardown()
+
+    def teardown(self):
+        vyconf_client.send_request('teardown', token=self.__token)
 
     @staticmethod
     def raise_exception(f):
@@ -116,8 +139,3 @@ class VyconfSession:
             path = []
         out = vyconf_client.send_request('show_config', token=self.__token, path=path)
         return output(out), out.status
-
-    def __del__(self):
-        out = vyconf_client.send_request('teardown', token=self.__token)
-        if out.status:
-            print(f'Could not tear down session {self.__token}: {output(out)}')

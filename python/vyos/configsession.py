@@ -179,26 +179,29 @@ class ConfigSession(object):
             self._vyconf_session = None
 
     def __del__(self):
-        try:
-            output = (
-                subprocess.check_output(
-                    [CLI_SHELL_API, 'teardownSession'], env=self.__session_env
+        if self._vyconf_session is None:
+            try:
+                output = (
+                    subprocess.check_output(
+                        [CLI_SHELL_API, 'teardownSession'], env=self.__session_env
+                    )
+                    .decode()
+                    .strip()
                 )
-                .decode()
-                .strip()
-            )
-            if output:
+                if output:
+                    print(
+                        'cli-shell-api teardownSession output for sesion {0}: {1}'.format(
+                            self.__session_id, output
+                        ),
+                        file=sys.stderr,
+                    )
+            except Exception as e:
                 print(
-                    'cli-shell-api teardownSession output for sesion {0}: {1}'.format(
-                        self.__session_id, output
-                    ),
+                    'Could not tear down session {0}: {1}'.format(self.__session_id, e),
                     file=sys.stderr,
                 )
-        except Exception as e:
-            print(
-                'Could not tear down session {0}: {1}'.format(self.__session_id, e),
-                file=sys.stderr,
-            )
+        else:
+            self._vyconf_session.teardown()
 
     def __run_command(self, cmd_list):
         p = subprocess.Popen(
