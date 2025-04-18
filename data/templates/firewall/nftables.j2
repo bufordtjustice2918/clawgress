@@ -197,6 +197,7 @@ table ip vyos_filter {
         return
     }
 {% endif %}
+}
 
 {% if first_install is not vyos_defined %}
 delete table ip6 vyos_filter
@@ -363,6 +364,7 @@ table ip6 vyos_filter {
         return
     }
 {% endif %}
+}
 
 ## Bridge Firewall
 {% if first_install is not vyos_defined %}
