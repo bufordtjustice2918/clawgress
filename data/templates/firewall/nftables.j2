@@ -180,9 +180,7 @@ table ip vyos_filter {
 {%     endif %}
         return
     }
-{% endif %}
 
-{% if global_options.state_policy.offload is vyos_defined %}
     chain VYOS_STATE_POLICY_FORWARD {
 {%     if global_options.state_policy.offload is vyos_defined %}
         counter flow add @VYOS_FLOWTABLE_{{ global_options.state_policy.offload.offload_target }}
@@ -199,7 +197,6 @@ table ip vyos_filter {
         return
     }
 {% endif %}
-}
 
 {% if first_install is not vyos_defined %}
 delete table ip6 vyos_filter
@@ -349,9 +346,7 @@ table ip6 vyos_filter {
 {%     endif %}
         return
     }
-{% endif %}
 
-{% if global_options.state_policy.offload is vyos_defined %}
     chain VYOS_STATE_POLICY6_FORWARD {
 {%     if global_options.state_policy.offload is vyos_defined %}
         counter flow add @VYOS_FLOWTABLE_{{ global_options.state_policy.offload.offload_target }}
@@ -368,7 +363,6 @@ table ip6 vyos_filter {
         return
     }
 {% endif %}
-}
 
 ## Bridge Firewall
 {% if first_install is not vyos_defined %}
