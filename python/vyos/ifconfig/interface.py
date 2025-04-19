@@ -909,7 +909,10 @@ class Interface(Control):
         tmp = self.get_interface('ipv6_autoconf')
         if tmp == autoconf:
             return None
-        return self.set_interface('ipv6_autoconf', autoconf)
+        rc = self.set_interface('ipv6_autoconf', autoconf)
+        if autoconf == '0':
+            self.flush_ipv6_slaac_addrs()
+        return rc
 
     def add_ipv6_eui64_address(self, prefix):
         """
@@ -1309,6 +1312,34 @@ class Interface(Control):
         cmd = f'{netns_cmd} ip addr flush dev {self.ifname}'
         # flush all addresses
         self._cmd(cmd)
+
+    def flush_ipv6_slaac_addrs(self):
+        """
+        Flush all IPv6 addresses installed in response to router advertisement
+        messages from this interface.
+
+        Will raise an exception on error.
+        """
+        netns = get_interface_namespace(self.ifname)
+        netns_cmd = f'ip netns exec {netns}' if netns else ''
+        tmp = get_interface_address(self.ifname)
+        if 'addr_info' not in tmp:
+            return
+
+        # Parse interface IP addresses. Example data:
+        # {'family': 'inet6', 'local': '2001:db8:1111:0:250:56ff:feb3:38c5',
+        # 'prefixlen': 64, 'scope': 'global', 'dynamic': True,
+        # 'mngtmpaddr': True, 'protocol': 'kernel_ra',
+        # 'valid_life_time': 2591987, 'preferred_life_time': 14387}
+        for addr_info in tmp['addr_info']:
+            if 'protocol' not in addr_info:
+                continue
+            if (addr_info['protocol'] == 'kernel_ra' and
+                addr_info['scope'] == 'global'):
+                # Flush IPv6 addresses installed by router advertisement
+                ra_addr = f"{addr_info['local']}/{addr_info['prefixlen']}"
+                cmd = f'{netns_cmd} ip -6 addr del dev {self.ifname} {ra_addr}'
+                self._cmd(cmd)
 
     def add_to_bridge(self, bridge_dict):
         """
