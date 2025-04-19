@@ -1351,8 +1351,6 @@ class Interface(Control):
         # drop all interface addresses first
         self.flush_addrs()
 
-        ifname = self.ifname
-
         for bridge, bridge_config in bridge_dict.items():
             # add interface to bridge - use Section.klass to get BridgeIf class
             Section.klass(bridge)(bridge, create=True).add_port(self.ifname)
@@ -1368,7 +1366,7 @@ class Interface(Control):
             bridge_vlan_filter = Section.klass(bridge)(bridge, create=True).get_vlan_filter()
 
             if int(bridge_vlan_filter):
-                cur_vlan_ids = get_vlan_ids(ifname)
+                cur_vlan_ids = get_vlan_ids(self.ifname)
                 add_vlan = []
                 native_vlan_id = None
                 allowed_vlan_ids= []
@@ -1391,15 +1389,15 @@ class Interface(Control):
 
                 # Remove redundant VLANs from the system
                 for vlan in list_diff(cur_vlan_ids, add_vlan):
-                    cmd = f'bridge vlan del dev {ifname} vid {vlan} master'
+                    cmd = f'bridge vlan del dev {self.ifname} vid {vlan} master'
                     self._cmd(cmd)
 
                 for vlan in allowed_vlan_ids:
-                    cmd = f'bridge vlan add dev {ifname} vid {vlan} master'
+                    cmd = f'bridge vlan add dev {self.ifname} vid {vlan} master'
                     self._cmd(cmd)
                 # Setting native VLAN to system
                 if native_vlan_id:
-                    cmd = f'bridge vlan add dev {ifname} vid {native_vlan_id} pvid untagged master'
+                    cmd = f'bridge vlan add dev {self.ifname} vid {native_vlan_id} pvid untagged master'
                     self._cmd(cmd)
 
     def set_dhcp(self, enable: bool, vrf_changed: bool=False):
@@ -1478,12 +1476,11 @@ class Interface(Control):
         if enable not in [True, False]:
             raise ValueError()
 
-        ifname = self.ifname
         config_base = directories['dhcp6_client_dir']
-        config_file = f'{config_base}/dhcp6c.{ifname}.conf'
-        script_file = f'/etc/wide-dhcpv6/dhcp6c.{ifname}.script' # can not live under /run b/c of noexec mount option
-        systemd_override_file = f'/run/systemd/system/dhcp6c@{ifname}.service.d/10-override.conf'
-        systemd_service = f'dhcp6c@{ifname}.service'
+        config_file = f'{config_base}/dhcp6c.{self.ifname}.conf'
+        script_file = f'/etc/wide-dhcpv6/dhcp6c.{self.ifname}.script' # can not live under /run b/c of noexec mount option
+        systemd_override_file = f'/run/systemd/system/dhcp6c@{self.ifname}.service.d/10-override.conf'
+        systemd_service = f'dhcp6c@{self.ifname}.service'
 
         # Rendered client configuration files require additional settings
         config = deepcopy(self.config)
