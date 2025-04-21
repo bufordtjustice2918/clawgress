@@ -346,11 +346,12 @@ def _format_kernel_data(data, detail):
         has_global = False
 
         for ip in interface['addr_info']:
-            if ip.get('scope') == 'global':
+            if ip.get('scope') in ('global', 'host'):
                 has_global = True
                 local = ip.get('local', '-')
                 prefixlen = ip.get('prefixlen', '')
                 ip_list.append(f"{local}/{prefixlen}")
+
 
         # If no global IP address, add '-'; indicates no IP address on interface
         if not has_global:
