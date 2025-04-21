@@ -32,13 +32,21 @@
                 <script>ip -j link show | jq -r '.[].ifname'</script>
               </completionHelp>
             </properties>
-            <command>sudo ip -s link show dev $4</command>
+            <command>${vyos_op_scripts_dir}/interfaces.py show_kernel --intf-name=$4</command>
+            <children>
+              <leafNode name="detail">
+                <properties>
+                  <help>Show system interface in JSON format</help>
+                </properties>
+                <command>${vyos_op_scripts_dir}/interfaces.py show_kernel --intf-name=$4 --detail</command>
+              </leafNode>
+            </children>
             <children>
               <leafNode name="json">
                 <properties>
                   <help>Show system interface in JSON format</help>
                 </properties>
-                <command>ip -j -s -d link show dev $4</command>
+                <command>${vyos_op_scripts_dir}/interfaces.py show_kernel --intf-name=$4 --raw</command>
               </leafNode>
             </children>
           </tagNode>
@@ -46,13 +54,19 @@
             <properties>
               <help>Show all interfaces on this system</help>
             </properties>
-            <command>sudo ip -s link show</command>
+            <command>${vyos_op_scripts_dir}/interfaces.py show_kernel</command>
             <children>
+              <leafNode name="detail">
+                <properties>
+                  <help>Show all interfaces in JSON format</help>
+                </properties>
+                <command>${vyos_op_scripts_dir}/interfaces.py show_kernel --detail</command>
+              </leafNode>
               <leafNode name="json">
                 <properties>
                   <help>Show all interfaces in JSON format</help>
                 </properties>
-                <command>ip -j -s -d link show</command>
+                <command>${vyos_op_scripts_dir}/interfaces.py show_kernel --raw</command>
               </leafNode>
             </children>
           </node>
