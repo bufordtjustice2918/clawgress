@@ -95,6 +95,14 @@ class TestContainer(VyOSUnitTestSHIM.TestCase):
         tmp = cmd(f'sudo podman exec -it {cont_name} sysctl kernel.msgmax')
         self.assertEqual(tmp, 'kernel.msgmax = 4096')
 
+    def test_log_driver(self):
+        self.cli_set(base_path + ['log-driver', 'journald'])
+
+        self.cli_commit()
+
+        tmp = cmd('podman info --format "{{ .Host.LogDriver }}"')
+        self.assertEqual(tmp, 'journald')
+
     def test_name_server(self):
         cont_name = 'dns-test'
         net_name = 'net-test'
