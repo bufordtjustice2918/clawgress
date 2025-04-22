@@ -626,6 +626,23 @@ def get_vlan_ids(interface):
 
     return vlan_ids
 
+def get_vlans_ids_and_range(interface):
+    vlan_ids = set()
+
+    vlan_filter_status = json.loads(cmd(f'bridge -j -d vlan show dev {interface}'))
+
+    if vlan_filter_status is not None:
+        for interface_status in vlan_filter_status:
+            for vlan_entry in interface_status.get("vlans", []):
+                start = vlan_entry["vlan"]
+                end = vlan_entry.get("vlanEnd")
+                if end:
+                    vlan_ids.add(f"{start}-{end}")
+                else:
+                    vlan_ids.add(str(start))
+
+    return vlan_ids
+
 def get_accel_dict(config, base, chap_secrets, with_pki=False):
     """
     Common utility function to retrieve and mangle the Accel-PPP configuration
