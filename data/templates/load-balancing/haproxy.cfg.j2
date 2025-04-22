@@ -53,6 +53,20 @@ defaults
 # Frontend
 {% if service is vyos_defined %}
 {%     for front, front_config in service.items() %}
+
+{%         if front_config.redirect_http_to_https is vyos_defined %}
+frontend {{ front }}-http
+    mode http
+{%             if front_config.listen_address is vyos_defined %}
+{%                 for address in front_config.listen_address %}
+    bind {{ address | bracketize_ipv6 }}:80
+{%                 endfor %}
+{%             else %}
+    bind [::]:80 v4v6
+{%             endif %}
+    redirect scheme https code 301 if !{ ssl_fc }
+{%         endif %}
+
 frontend {{ front }}
 {%         set ssl_front = [] %}
 {%         if front_config.ssl.certificate is vyos_defined and front_config.ssl.certificate is iterable %}
@@ -67,9 +81,6 @@ frontend {{ front }}
 {%             endfor %}
 {%         else %}
     bind [::]:{{ front_config.port }} v4v6 {{ ssl_directive }} {{ ssl_front | join(' ') }}
-{%         endif %}
-{%         if front_config.redirect_http_to_https is vyos_defined %}
-    http-request redirect scheme https unless { ssl_fc }
 {%         endif %}
 {%         if front_config.logging is vyos_defined %}
 {%             for facility, facility_config in front_config.logging.facility.items() %}
