@@ -72,7 +72,7 @@ def verify(lb):
             raise ConfigError(f'"{front} service port" must be configured!')
 
         # Check if bind address:port are used by another service
-        tmp_address = front_config.get('address', '0.0.0.0')
+        tmp_address = front_config.get('address', None)
         tmp_port = front_config['port']
         if check_port_availability(tmp_address, int(tmp_port), 'tcp') is not True and \
                 not is_listen_port_bind_service(int(tmp_port), 'haproxy'):
