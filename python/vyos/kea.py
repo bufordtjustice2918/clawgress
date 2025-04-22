@@ -20,6 +20,7 @@ import socket
 from datetime import datetime
 from datetime import timezone
 
+from vyos import ConfigError
 from vyos.template import is_ipv6
 from vyos.template import netmask_from_cidr
 from vyos.utils.dict import dict_search_args
@@ -221,6 +222,9 @@ def kea_parse_subnet(subnet, config):
             reservations.append(reservation)
         out['reservations'] = reservations
 
+    if 'dynamic_dns_update' in config:
+        out.update(kea_parse_ddns_settings(config['dynamic_dns_update']))
+
     return out
 
 
@@ -350,6 +354,54 @@ def kea6_parse_subnet(subnet, config):
 
     return out
 
+def kea_parse_tsig_algo(algo_spec):
+    translate = {
+        'md5': 'HMAC-MD5',
+        'sha1': 'HMAC-SHA1',
+        'sha224': 'HMAC-SHA224',
+        'sha256': 'HMAC-SHA256',
+        'sha384': 'HMAC-SHA384',
+        'sha512': 'HMAC-SHA512'
+    }
+    if algo_spec not in translate:
+        raise ConfigError(f'Unsupported TSIG algorithm: {algo_spec}')
+    return translate[algo_spec]
+
+def kea_parse_enable_disable(value):
+    return True if value == 'enable' else False
+
+def kea_parse_ddns_settings(config):
+    data = {}
+
+    if send_updates := config.get('send_updates'):
+        data['ddns-send-updates'] = kea_parse_enable_disable(send_updates)
+
+    if override_client_update := config.get('override_client_update'):
+        data['ddns-override-client-update'] = kea_parse_enable_disable(override_client_update)
+
+    if override_no_update := config.get('override_no_update'):
+        data['ddns-override-no-update'] = kea_parse_enable_disable(override_no_update)
+
+    if update_on_renew := config.get('update_on_renew'):
+        data['ddns-update-on-renew'] = kea_parse_enable_disable(update_on_renew)
+
+    if conflict_resolution := config.get('conflict_resolution'):
+        data['ddns-use-conflict-resolution'] = kea_parse_enable_disable(conflict_resolution)
+
+    if 'replace_client_name' in config:
+        data['ddns-replace-client-name'] = config['replace_client_name']
+    if 'generated_prefix' in config:
+        data['ddns-generated-prefix'] = config['generated_prefix']
+    if 'qualifying_suffix' in config:
+        data['ddns-qualifying-suffix'] = config['qualifying_suffix']
+    if 'ttl_percent' in config:
+        data['ddns-ttl-percent'] = int(config['ttl_percent']) / 100
+    if 'hostname_char_set' in config:
+        data['hostname-char-set'] = config['hostname_char_set']
+    if 'hostname_char_replacement' in config:
+        data['hostname-char-replacement'] = config['hostname_char_replacement']
+
+    return data
 
 def _ctrl_socket_command(inet, command, args=None):
     path = kea_ctrl_socket.format(inet=inet)
