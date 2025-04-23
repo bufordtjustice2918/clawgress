@@ -145,19 +145,11 @@ def generate(wireguard):
 def apply(wireguard):
     check_kmod('wireguard')
 
-    if 'rebuild_required' in wireguard or 'deleted' in wireguard:
-        wg = WireGuardIf(**wireguard)
-        # WireGuard only supports peer removal based on the configured public-key,
-        # by deleting the entire interface this is the shortcut instead of parsing
-        # out all peers and removing them one by one.
-        #
-        # Peer reconfiguration will always come with a short downtime while the
-        # WireGuard interface is recreated (see below)
-        wg.remove()
+    wg = WireGuardIf(**wireguard)
 
-    # Create the new interface if required
-    if 'deleted' not in wireguard:
-        wg = WireGuardIf(**wireguard)
+    if 'deleted' in wireguard:
+        wg.remove()
+    else:
         wg.update(wireguard)
 
     domain_resolver_usage = '/run/use-vyos-domain-resolver-interfaces-wireguard-' + wireguard['ifname']
