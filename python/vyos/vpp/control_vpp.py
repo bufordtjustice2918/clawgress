@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2023 VyOS Inc.
+# Copyright (C) 2023-2025 VyOS Inc.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -438,6 +438,54 @@ class VPPControl:
             if iface.interface_name == ifname:
                 return iface.interface_dev_type
         return None
+
+    @_Decorators.api_call
+    def enable_disable_nat44_forwarding(self, enable: bool) -> None:
+        """Enable/disable NAT44 forwarding
+
+        Args:
+            enable (bool): True if enable, False if disable
+        """
+        self.__vpp_api_client.api.nat44_forwarding_enable_disable(enable=enable)
+
+    @_Decorators.api_call
+    def set_nat_timeouts(
+        self, icmp: int, udp: int, tcp_established: int, tcp_transitory: int
+    ) -> None:
+        """Set NAT timeouts
+
+        Args:
+            tcp_established (int): TCP established timeout
+            tcp_transitory (int): TCP transitory timeout
+            udp (int): UDP timeout
+            icmp (int): ICMP timeout
+        """
+        self.__vpp_api_client.api.nat_set_timeouts(
+            icmp=icmp,
+            udp=udp,
+            tcp_established=tcp_established,
+            tcp_transitory=tcp_transitory,
+        )
+
+    @_Decorators.api_call
+    def set_nat44_session_limit(self, session_limit: int) -> None:
+        """Set NAT44 session limit
+
+        Args:
+            session_limit (int): Maximum number of sessions per thread
+        """
+        self.__vpp_api_client.api.nat44_set_session_limit(
+            session_limit=session_limit,
+        )
+
+    @_Decorators.api_call
+    def set_nat_workers(self, workers: int) -> None:
+        """Set NAT44 session limit
+
+        Args:
+            workers (int): Bitmask of workers list
+        """
+        self.__vpp_api_client.api.nat_set_workers(worker_mask=workers)
 
     @property
     def connected(self) -> bool:

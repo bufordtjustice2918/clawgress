@@ -136,10 +136,8 @@ def get_config(config=None):
             set_dependents('ethernet', conf, removed_iface)
 
     # NAT dependency
-    if conf.exists(['vpp', 'nat44', 'source']):
-        set_dependents('vpp_nat_source', conf)
-    if conf.exists(['vpp', 'nat44', 'static']):
-        set_dependents('vpp_nat_static', conf)
+    if conf.exists(['vpp', 'nat44']):
+        set_dependents('vpp_nat', conf)
 
     if not conf.exists(base):
         return {
@@ -424,6 +422,7 @@ def verify(config):
                                 'Only one multipoint GRE tunnel is allowed from the same source address'
                             )
 
+    workers = 0
     if 'cpu' in config['settings']:
         if (
             'corelist_workers' in config['settings']['cpu']
@@ -495,6 +494,22 @@ def verify(config):
 
                 if not all(el in cpus_available for el in all_core_numbers):
                     raise ConfigError('"cpu corelist-workers" is not correct')
+
+                workers = len(all_core_numbers)
+
+    if 'workers' in config['settings']['nat44']:
+        nat_workers = []
+        for worker_range in config['settings']['nat44']['workers']:
+            worker_numbers = worker_range.split('-')
+            if int(worker_numbers[0]) > int(worker_numbers[-1]):
+                raise ConfigError(
+                    f'Range for "nat44 workers {worker_range}" is not correct'
+                )
+            nat_workers.extend(
+                range(int(worker_numbers[0]), int(worker_numbers[-1]) + 1)
+            )
+        if not all(el in list(range(workers)) for el in nat_workers):
+            raise ConfigError('"nat44 workers" is not correct')
 
     verify_memory(config['settings'])
     if 'host_resources' in config['settings']:
@@ -715,6 +730,31 @@ def apply(config):
 
         # Syncronize routes via LCP
         vpp_control.lcp_resync()
+
+        # NAT44 settings
+        nat44_settings = config['settings'].get('nat44', {})
+
+        enable_forwarding = True
+        if 'no_forwarding' in nat44_settings:
+            enable_forwarding = False
+        vpp_control.enable_disable_nat44_forwarding(enable_forwarding)
+
+        vpp_control.set_nat_timeouts(
+            icmp=int(nat44_settings.get('timeout').get('icmp')),
+            udp=int(nat44_settings.get('timeout').get('udp')),
+            tcp_established=int(nat44_settings.get('timeout').get('tcp_established')),
+            tcp_transitory=int(nat44_settings.get('timeout').get('tcp_transitory')),
+        )
+
+        vpp_control.set_nat44_session_limit(int(nat44_settings.get('session_limit')))
+
+        if nat44_settings.get('workers'):
+            bitmask = 0
+            for worker_range in nat44_settings['workers']:
+                worker_numbers = worker_range.split('-')
+                for wid in range(int(worker_numbers[0]), int(worker_numbers[-1]) + 1):
+                    bitmask |= 1 << wid
+            vpp_control.set_nat_workers(bitmask)
 
     # Save persistent config
     if 'persist_config' in config and config['persist_config']:

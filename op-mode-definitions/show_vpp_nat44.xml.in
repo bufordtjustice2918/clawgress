@@ -27,6 +27,18 @@
                 </properties>
                 <command>sudo ${vyos_op_scripts_dir}/show_vpp_nat44.py show_summary</command>
               </node>
+              <node name="addresses">
+                <properties>
+                  <help>Show VPP NAT44 pool addresses</help>
+                </properties>
+                <command>sudo ${vyos_op_scripts_dir}/show_vpp_nat44.py show_addresses</command>
+              </node>
+              <node name="interfaces">
+                <properties>
+                  <help>Show VPP NAT44 interfaces</help>
+                </properties>
+                <command>sudo ${vyos_op_scripts_dir}/show_vpp_nat44.py show_interfaces</command>
+              </node>
             </children>
           </node>
         </children>

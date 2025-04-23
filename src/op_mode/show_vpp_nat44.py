@@ -33,6 +33,15 @@ protocol_map = {
     17: 'udp',
 }
 
+# NAT flags
+flags_map = {
+    'twice-nat': 0x01,
+    'self-twice-nat': 0x02,
+    'out2in-only': 0x04,
+    'out': 0x10,
+    'in': 0x20,
+}
+
 
 def _verify(func):
     """Decorator checks if config for VPP NAT44 exists"""
@@ -48,6 +57,16 @@ def _verify(func):
         return func(*args, **kwargs)
 
     return _wrapper
+
+
+def decode_bitmask(bitmask: int) -> list:
+    """Decode a bitmask into a list of flag names"""
+    return [name for name, value in flags_map.items() if bitmask & value]
+
+
+def _get_raw_output(data_dump):
+    data = [json.loads(json.dumps(d._asdict(), default=str)) for d in data_dump]
+    return data
 
 
 def _get_raw_output_sessions(vpp_api):
@@ -108,12 +127,30 @@ def _get_formatted_output_sessions(sessions_list):
         print('\n')
 
 
-def _get_raw_output_static_rules(vpp_api):
-    nat_static_dump = vpp_api.nat44_static_mapping_dump()
-    rules_list = [
-        json.loads(json.dumps(rule._asdict(), default=str)) for rule in nat_static_dump
-    ]
-    return rules_list
+def _get_formatted_output_addresses(addresses):
+    twice_nat_address = []
+    translation_address = []
+    for address_info in addresses:
+        address = address_info.get('ip_address')
+        if address_info.get('flags') & flags_map['twice-nat']:
+            twice_nat_address.append(address)
+        else:
+            translation_address.append(address)
+
+    print('NAT44 pool addresses:')
+    for addr in translation_address:
+        print(f' {addr}')
+    print('NAT44 twice-nat pool addresses:')
+    for addr in twice_nat_address:
+        print(f' {addr}')
+
+
+def _get_formatted_output_interfaces(vpp, interfaces):
+    print('NAT44 interfaces:')
+    for interface in interfaces:
+        name = vpp.get_interface_name(interface['sw_if_index'])
+        iface_type = decode_bitmask(interface['flags'])
+        print(f'  {name} {" ".join(iface_type)}')
 
 
 def _get_formatted_output_rules(rules_list):
@@ -124,8 +161,16 @@ def _get_formatted_output_rules(rules_list):
         local_address = rule.get('local_ip_address')
         local_port = rule.get('local_port') or ''
         protocol = protocol_map[rule.get('protocol', 0)]
+        options = ' '.join(decode_bitmask(rule.get('flags')))
 
-        values = [external_address, external_port, local_address, local_port, protocol]
+        values = [
+            external_address,
+            external_port,
+            local_address,
+            local_port,
+            protocol,
+            options,
+        ]
         data_entries.append(values)
     headers = [
         'External address',
@@ -133,6 +178,7 @@ def _get_formatted_output_rules(rules_list):
         'Local address',
         'Local port',
         'Protocol',
+        'Options',
     ]
     out = sorted(data_entries, key=lambda x: x[2])
     return tabulate(out, headers=headers, tablefmt='simple')
@@ -159,13 +205,40 @@ def show_summary(raw: bool):
 @_verify
 def show_static(raw: bool):
     vpp = VPPControl()
-    rules_list: list[dict] = _get_raw_output_static_rules(vpp.api)
+    nat_static_dump = vpp.api.nat44_static_mapping_dump()
+    rules_list: list[dict] = _get_raw_output(nat_static_dump)
 
     if raw:
         return rules_list
 
     else:
         return _get_formatted_output_rules(rules_list)
+
+
+@_verify
+def show_addresses(raw: bool):
+    vpp = VPPControl()
+    addresses_dump = vpp.api.nat44_address_dump()
+    addresses: list[dict] = _get_raw_output(addresses_dump)
+
+    if raw:
+        return addresses
+
+    else:
+        return _get_formatted_output_addresses(addresses)
+
+
+@_verify
+def show_interfaces(raw: bool):
+    vpp = VPPControl()
+    interfaces_dump = vpp.api.nat44_interface_dump()
+    interfaces: list[dict] = _get_raw_output(interfaces_dump)
+
+    if raw:
+        return interfaces
+
+    else:
+        return _get_formatted_output_interfaces(vpp, interfaces)
 
 
 if __name__ == '__main__':
