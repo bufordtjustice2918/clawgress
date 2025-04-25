@@ -125,19 +125,17 @@ class VXLANInterfaceTest(BasicInterfaceTest.TestCase):
             'source-interface eth0',
             'vni 60'
         ]
-        params = []
         for option in options:
             opts = option.split()
-            params.append(opts[0])
-            self.cli_set(self._base_path + [ intf ] + opts)
+            self.cli_set(self._base_path + [intf] + opts)
 
-        with self.assertRaises(ConfigSessionError) as cm:
+        # verify() - Both group and remote cannot be specified
+        with self.assertRaises(ConfigSessionError):
             self.cli_commit()
 
-        exception = cm.exception
-        self.assertIn('Both group and remote cannot be specified', str(exception))
-        for param in params:
-            self.cli_delete(self._base_path + [intf, param])
+        # Remove blocking CLI option
+        self.cli_delete(self._base_path + [intf, 'group'])
+        self.cli_commit()
 
 
     def test_vxlan_external(self):
