@@ -504,6 +504,8 @@ def get_cli_kernel_options(config_file: str) -> list:
         mode = kernel_options['amd-pstate-driver']
         cmdline_options.append(
             f'initcall_blacklist=acpi_cpufreq_init amd_pstate={mode}')
+    if 'quiet' in kernel_options:
+        cmdline_options.append('quiet')
 
     return cmdline_options
 
