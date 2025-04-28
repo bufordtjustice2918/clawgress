@@ -64,8 +64,18 @@ frontend {{ front }}-http
 {%             else %}
     bind [::]:80 v4v6
 {%             endif %}
-    redirect scheme https code 301 if !{ ssl_fc }
+{%             if front_config.ssl.acme_certificate is vyos_defined %}
+    acl acme_acl path_beg /.well-known/acme-challenge/
+    use_backend certbot_{{ front }}_backend if acme_acl
+{%             endif %}
+    redirect scheme https code 301 if !acme_acl
 {%         endif %}
+
+{%         if front_config.ssl.acme_certificate is vyos_defined %}
+backend certbot_{{ front }}_backend
+    server fe_{{ front }}_acme 127.0.0.1:65080
+{%         endif %}
+
 
 frontend {{ front }}
 {%         set ssl_front = [] %}
@@ -248,6 +258,5 @@ backend {{ back }}
 {%         if back_config.timeout.server is vyos_defined %}
     timeout server {{ back_config.timeout.server }}s
 {%         endif %}
-
 {%     endfor %}
 {% endif %}
