@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2023-2024 VyOS maintainers and contributors
+# Copyright (C) 2023-2025 VyOS maintainers and contributors
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -65,7 +65,7 @@ def verify(lb):
         return None
 
     if 'backend' not in lb or 'service' not in lb:
-        raise ConfigError(f'"service" and "backend" must be configured!')
+        raise ConfigError('Both "service" and "backend" must be configured!')
 
     for front, front_config in lb['service'].items():
         if 'port' not in front_config:
@@ -76,7 +76,7 @@ def verify(lb):
         tmp_port = front_config['port']
         if check_port_availability(tmp_address, int(tmp_port), 'tcp') is not True and \
                 not is_listen_port_bind_service(int(tmp_port), 'haproxy'):
-            raise ConfigError(f'"TCP" port "{tmp_port}" is used by another service')
+            raise ConfigError(f'TCP port "{tmp_port}" is used by another service')
 
         if 'http_compression' in front_config:
             if front_config['mode'] != 'http':
@@ -89,12 +89,12 @@ def verify(lb):
         if 'http_check' in back_config:
             http_check = back_config['http_check']
             if 'expect' in http_check and 'status' in http_check['expect'] and 'string' in http_check['expect']:
-                raise ConfigError(f'"expect status" and "expect string" can not be configured together!')
+                raise ConfigError('"expect status" and "expect string" can not be configured together!')
 
         if 'health_check' in back_config:
             if back_config['mode'] != 'tcp':
                 raise ConfigError(f'backend "{back}" can only be configured with {back_config["health_check"]} ' +
-                                  f'health-check whilst in TCP mode!')
+                                  'health-check whilst in TCP mode!')
             if 'http_check' in back_config:
                 raise ConfigError(f'backend "{back}" cannot be configured with both http-check and health-check!')
 
@@ -198,7 +198,6 @@ def apply(lb):
         call(f'systemctl stop {systemd_service}')
     else:
         call(f'systemctl reload-or-restart {systemd_service}')
-
     return None
 
 
