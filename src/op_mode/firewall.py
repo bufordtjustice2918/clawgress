@@ -18,12 +18,16 @@ import argparse
 import ipaddress
 import json
 import re
+from signal import signal, SIGPIPE, SIG_DFL
 import tabulate
 import textwrap
 
 from vyos.config import Config
 from vyos.utils.process import cmd
 from vyos.utils.dict import dict_search_args
+
+signal(SIGPIPE, SIG_DFL)
+
 
 def get_config_node(conf, node=None, family=None, hook=None, priority=None):
     if node == 'nat':
