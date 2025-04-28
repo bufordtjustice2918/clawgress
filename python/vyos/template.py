@@ -150,6 +150,8 @@ def render(
     # As we are opening the file with 'w', we are performing the rendering before
     # calling open() to not accidentally erase the file if rendering fails
     rendered = render_to_string(template, content, formater, location)
+    # Remove any trailing character and always add a new line at the end
+    rendered = rendered.rstrip() + "\n"
 
     # Write to file
     with open(destination, "w") as file:
