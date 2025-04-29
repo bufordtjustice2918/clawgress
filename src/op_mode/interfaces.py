@@ -309,12 +309,12 @@ def _get_kernel_data(raw, ifname = None, detail = False):
     if ifname:
         # Check if the interface exists
         if not interface_exists(ifname):
-            raise vyos.opmode.Error(f"{ifname} does not exist!")
-        int_name = f' dev {ifname}'
+            raise vyos.opmode.IncorrectValue(f"{ifname} does not exist!")
+        int_name = f'dev {ifname}'
     else:
         int_name = ''
 
-    kernel_interface = json.loads(cmd(f'ip -j -d -s address show{int_name}'))
+    kernel_interface = json.loads(cmd(f'ip -j -d -s address show {int_name}'))
 
     # Return early if raw
     if raw:
