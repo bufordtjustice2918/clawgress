@@ -833,10 +833,10 @@
                     <help>UDP timeout</help>
                     <valueHelp>
                       <format>u32</format>
-                      <description>Timeout in seconds (default: 60)</description>
+                      <description>Timeout in seconds (default: 300)</description>
                     </valueHelp>
                   </properties>
-                  <defaultValue>60</defaultValue>
+                  <defaultValue>300</defaultValue>
                 </leafNode>
               </children>
             </node>
@@ -930,6 +930,129 @@
               </properties>
               <defaultValue>0</defaultValue>
             </leafNode>
+          </children>
+        </node>
+      </children>
+    </node>
+    <node name="nat">
+      <properties>
+        <help>Network Address Translation (NAT) settings</help>
+      </properties>
+      <children>
+        <node name="cgnat" owner="${vyos_conf_scripts_dir}/vpp_nat_cgnat.py">
+          <properties>
+            <help>Carrier-grade NAT (CGNAT)</help>
+            <priority>321</priority>
+          </properties>
+          <children>
+            <node name="interface">
+              <properties>
+                <help>CGNAT interface setting</help>
+              </properties>
+              <children>
+                <leafNode name="inside">
+                  <properties>
+                    <help>CGNAT inside interface</help>
+                    <completionHelp>
+                      <script>${vyos_completion_dir}/list_interfaces</script>
+                    </completionHelp>
+                    <multi/>
+                  </properties>
+                </leafNode>
+                <leafNode name="outside">
+                  <properties>
+                    <help>CGNAT outside interface</help>
+                    <completionHelp>
+                      <script>${vyos_completion_dir}/list_interfaces</script>
+                    </completionHelp>
+                    <multi/>
+                  </properties>
+                </leafNode>
+              </children>
+            </node>
+            <tagNode name="rule">
+              <properties>
+                <help>Rule number for CGNAT</help>
+                <valueHelp>
+                  <format>u32</format>
+                  <description>Number of rule</description>
+                </valueHelp>
+              </properties>
+              <children>
+                <leafNode name="inside-prefix">
+                  <properties>
+                    <help>Inside IPv4 prefix</help>
+                    <valueHelp>
+                      <format>ipv4net</format>
+                      <description>IPv4 prefix</description>
+                    </valueHelp>
+                    <constraint>
+                      <validator name="ipv4-prefix"/>
+                    </constraint>
+                  </properties>
+                </leafNode>
+                <leafNode name="outside-prefix">
+                  <properties>
+                    <help>Outside IPv4 prefix</help>
+                    <valueHelp>
+                      <format>ipv4net</format>
+                      <description>IPv4 prefix</description>
+                    </valueHelp>
+                    <constraint>
+                      <validator name="ipv4-prefix"/>
+                    </constraint>
+                  </properties>
+                </leafNode>
+                #include <include/generic-description.xml.i>
+              </children>
+            </tagNode>
+            <node name="timeout">
+              <properties>
+                <help>Timeouts for CGNAT sessions</help>
+              </properties>
+              <children>
+                <leafNode name="icmp">
+                  <properties>
+                    <help>ICMP timeout</help>
+                    <valueHelp>
+                      <format>u32</format>
+                      <description>Timeout in seconds (default: 60)</description>
+                    </valueHelp>
+                  </properties>
+                  <defaultValue>60</defaultValue>
+                </leafNode>
+                <leafNode name="tcp-established">
+                  <properties>
+                    <help>TCP established timeout</help>
+                    <valueHelp>
+                      <format>u32</format>
+                      <description>TCP established timeout in seconds (default: 7440)</description>
+                    </valueHelp>
+                  </properties>
+                  <defaultValue>7440</defaultValue>
+                </leafNode>
+                <leafNode name="tcp-transitory">
+                  <properties>
+                    <help>TCP transitory timeout</help>
+                    <valueHelp>
+                      <format>u32</format>
+                      <description>Timeout in seconds (default: 240)</description>
+                    </valueHelp>
+                  </properties>
+                  <defaultValue>240</defaultValue>
+                </leafNode>
+                <leafNode name="udp">
+                  <properties>
+                    <help>UDP timeout</help>
+                    <valueHelp>
+                      <format>u32</format>
+                      <description>Timeout in seconds (default: 300)</description>
+                    </valueHelp>
+                  </properties>
+                  <defaultValue>300</defaultValue>
+                </leafNode>
+              </children>
+            </node>
           </children>
         </node>
       </children>

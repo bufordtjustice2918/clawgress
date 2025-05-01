@@ -186,7 +186,11 @@ def verify(config):
                     raise ConfigError(
                         f'{interface} must be a VPP interface for "address-pool translation interface"'
                     )
-                iface_address = get_interface_address(interface).get('addr_info', [])[0].get('local')
+                iface_address = (
+                    get_interface_address(interface)
+                    .get('addr_info', [])[0]
+                    .get('local')
+                )
                 addresses_translation.append(iface_address)
 
         if 'twice_nat' in address_pool:
@@ -211,7 +215,11 @@ def verify(config):
                     raise ConfigError(
                         f'{interface} must be a VPP interface for "address-pool twice-nat interface"'
                     )
-                iface_address = get_interface_address(interface).get('addr_info', [])[0].get('local')
+                iface_address = (
+                    get_interface_address(interface)
+                    .get('addr_info', [])[0]
+                    .get('local')
+                )
                 addresses_twice_nat.append(iface_address)
 
     if 'static' in config:

@@ -138,6 +138,8 @@ def get_config(config=None):
     # NAT dependency
     if conf.exists(['vpp', 'nat44']):
         set_dependents('vpp_nat', conf)
+    if conf.exists(['vpp', 'nat', 'cgnat']):
+        set_dependents('vpp_nat_cgnat', conf)
 
     if not conf.exists(base):
         return {
