@@ -1,21 +1,21 @@
 <!-- include start from qos/tcp-flags.xml.i -->
-<node name="tcp">
+<leafNode name="tcp">
   <properties>
     <help>TCP Flags matching</help>
+    <completionHelp>
+      <list>ack syn</list>
+    </completionHelp>
+    <valueHelp>
+      <format>ack</format>
+      <description>Match TCP ACK</description>
+    </valueHelp>
+    <valueHelp>
+      <format>syn</format>
+      <description>Match TCP SYN</description>
+    </valueHelp>
+    <constraint>
+      <regex>(ack|syn)</regex>
+    </constraint>
   </properties>
-  <children>
-    <leafNode name="ack">
-      <properties>
-        <help>Match TCP ACK</help>
-        <valueless/>
-      </properties>
-    </leafNode>
-    <leafNode name="syn">
-      <properties>
-        <help>Match TCP SYN</help>
-        <valueless/>
-      </properties>
-    </leafNode>
-  </children>
-</node>
+</leafNode>
 <!-- include end -->
