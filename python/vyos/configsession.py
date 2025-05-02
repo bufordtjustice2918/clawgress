@@ -22,9 +22,9 @@ from vyos.defaults import directories
 from vyos.utils.process import is_systemd_service_running
 from vyos.utils.dict import dict_to_paths
 from vyos.utils.boot import boot_configuration_complete
+from vyos.utils.backend import vyconf_backend
 from vyos.vyconf_session import VyconfSession
 
-vyconf_backend = False
 
 CLI_SHELL_API = '/bin/cli-shell-api'
 SET = '/opt/vyatta/sbin/my_set'
@@ -173,7 +173,7 @@ class ConfigSession(object):
 
         self.__run_command([CLI_SHELL_API, 'setupSession'])
 
-        if vyconf_backend and boot_configuration_complete():
+        if vyconf_backend() and boot_configuration_complete():
             self._vyconf_session = VyconfSession(on_error=ConfigSessionError)
         else:
             self._vyconf_session = None
