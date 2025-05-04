@@ -39,7 +39,8 @@ directories = {
   'completion_dir' : f'{base_dir}/completion',
   'ca_certificates' : '/usr/local/share/ca-certificates/vyos',
   'ppp_nexthop_dir' : '/run/ppp_nexthop',
-  'proto_path' : '/usr/share/vyos/vyconf'
+  'proto_path' : '/usr/share/vyos/vyconf',
+  'vyconf_session_dir' : f'{base_dir}/vyconf/session'
 }
 
 systemd_services = {

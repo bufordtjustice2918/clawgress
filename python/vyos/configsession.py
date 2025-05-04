@@ -169,13 +169,16 @@ class ConfigSession(object):
         for k, v in env_list:
             session_env[k] = v
 
+        session_env['CONFIGSESSION_PID'] = str(session_id)
+
         self.__session_env = session_env
         self.__session_env['COMMIT_VIA'] = app
 
         self.__run_command([CLI_SHELL_API, 'setupSession'])
 
         if vyconf_backend() and boot_configuration_complete():
-            self._vyconf_session = VyconfSession(on_error=ConfigSessionError)
+            self._vyconf_session = VyconfSession(pid=session_id,
+                                                 on_error=ConfigSessionError)
         else:
             self._vyconf_session = None
 

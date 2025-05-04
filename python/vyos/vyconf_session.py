@@ -83,6 +83,12 @@ class VyconfSession:
         out = vyconf_client.send_request('session_changed', token=self.__token)
         return not bool(out.status)
 
+    def get_config(self):
+        out = vyconf_client.send_request('get_config', token=self.__token)
+        if out.status:
+            raise VyconfSessionError(self.output(out))
+        return out.output
+
     @staticmethod
     def config_mode(f):
         @wraps(f)
