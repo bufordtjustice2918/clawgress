@@ -19,6 +19,7 @@ import os
 from sys import argv
 from sys import exit
 
+from vyos.base import Message
 from vyos.config import Config
 from vyos.config import config_dict_merge
 from vyos.configdep import set_dependents
@@ -231,7 +232,7 @@ def get_config(config=None):
 
                         path = search['path']
                         path_str = ' '.join(path + found_path).replace('_','-')
-                        print(f'PKI: Updating config: {path_str} {item_name}')
+                        Message(f'Updating configuration: "{path_str} {item_name}"')
 
                         if path[0] == 'interfaces':
                             ifname = found_path[0]
@@ -528,7 +529,7 @@ def generate(pki):
             if not ca_cert_present:
                 tmp = dict_search_args(pki, 'ca', f'{autochain_prefix}{cert}', 'certificate')
                 if not bool(tmp) or tmp != cert_chain_base64:
-                    print(f'Adding/replacing automatically imported CA certificate for "{cert}" ...')
+                    Message(f'Add/replace automatically imported CA certificate for "{cert}"...')
                     add_cli_node(['pki', 'ca', f'{autochain_prefix}{cert}', 'certificate'], value=cert_chain_base64)
 
     return None
