@@ -29,6 +29,7 @@ from vyos.configdiff import Diff
 from vyos.configdiff import get_config_diff
 from vyos.defaults import directories
 from vyos.defaults import internal_ports
+from vyos.defaults import systemd_services
 from vyos.pki import encode_certificate
 from vyos.pki import is_ca_certificate
 from vyos.pki import load_certificate
@@ -48,6 +49,7 @@ from vyos.utils.network import check_port_availability
 from vyos.utils.process import call
 from vyos.utils.process import cmd
 from vyos.utils.process import is_systemd_service_active
+from vyos.utils.process import is_systemd_service_running
 from vyos import ConfigError
 from vyos import airbag
 airbag.enable()
@@ -133,7 +135,8 @@ def certbot_request(name: str, config: dict, dry_run: bool=True):
           f'{domains}'
     # When ACME is used behind a reverse proxy, we always bind to localhost
     # whatever the CLI listen-address is configured for.
-    if 'used_by' in config and 'haproxy' in config['used_by']:
+    if ('haproxy' in dict_search('used_by', config) and
+        is_systemd_service_running(systemd_services['haproxy'])):
         tmp += f' --http-01-address 127.0.0.1 --http-01-port {internal_ports["certbot_haproxy"]}'
     elif 'listen_address' in config:
         tmp += f' --http-01-address {config["listen_address"]}'

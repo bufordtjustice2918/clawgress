@@ -19,6 +19,7 @@ import os
 from sys import exit
 from shutil import rmtree
 
+from vyos.defaults import systemd_services
 from vyos.config import Config
 from vyos.configverify import verify_pki_certificate
 from vyos.configverify import verify_pki_ca_certificate
@@ -39,7 +40,6 @@ airbag.enable()
 
 load_balancing_dir = '/run/haproxy'
 load_balancing_conf_file = f'{load_balancing_dir}/haproxy.cfg'
-systemd_service = 'haproxy.service'
 systemd_override = '/run/systemd/system/haproxy.service.d/10-override.conf'
 
 def get_config(config=None):
@@ -191,11 +191,11 @@ def generate(lb):
     return None
 
 def apply(lb):
+    action = 'stop'
+    if lb:
+        action = 'reload-or-restart'
     call('systemctl daemon-reload')
-    if not lb:
-        call(f'systemctl stop {systemd_service}')
-    else:
-        call(f'systemctl reload-or-restart {systemd_service}')
+    call(f'systemctl {action} {systemd_services["haproxy"]}')
     return None
 
 

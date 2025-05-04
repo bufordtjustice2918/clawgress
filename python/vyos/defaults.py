@@ -43,6 +43,7 @@ directories = {
 }
 
 systemd_services = {
+    'haproxy' : 'haproxy.service',
     'syslog' : 'syslog.service',
     'snmpd' : 'snmpd.service',
 }
