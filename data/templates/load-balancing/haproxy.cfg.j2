@@ -53,8 +53,8 @@ defaults
 # Frontend
 {% if service is vyos_defined %}
 {%     for front, front_config in service.items() %}
-
 {%         if front_config.redirect_http_to_https is vyos_defined %}
+{%             set certbot_backend_name = 'certbot_' ~ front ~ '_backend' %}
 frontend {{ front }}-http
     mode http
 {%             if front_config.listen_address is vyos_defined %}
@@ -64,18 +64,13 @@ frontend {{ front }}-http
 {%             else %}
     bind [::]:80 v4v6
 {%             endif %}
-{%             if front_config.ssl.acme_certificate is vyos_defined %}
     acl acme_acl path_beg /.well-known/acme-challenge/
-    use_backend certbot_{{ front }}_backend if acme_acl
-{%             endif %}
+    use_backend {{ certbot_backend_name }} if acme_acl
     redirect scheme https code 301 if !acme_acl
-{%         endif %}
 
-{%         if front_config.ssl.acme_certificate is vyos_defined %}
-backend certbot_{{ front }}_backend
-    server fe_{{ front }}_acme 127.0.0.1:65080
+backend {{ certbot_backend_name }}
+    server acme_{{ front }} 127.0.0.1:{{ get_default_port('certbot_haproxy') }}
 {%         endif %}
-
 
 frontend {{ front }}
 {%         set ssl_front = [] %}

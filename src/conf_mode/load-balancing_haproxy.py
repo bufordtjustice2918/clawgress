@@ -22,7 +22,6 @@ from shutil import rmtree
 from vyos.config import Config
 from vyos.configverify import verify_pki_certificate
 from vyos.configverify import verify_pki_ca_certificate
-from vyos.defaults import internal_ports
 from vyos.utils.dict import dict_search
 from vyos.utils.process import call
 from vyos.utils.network import check_port_availability
@@ -58,14 +57,6 @@ def get_config(config=None):
                               no_tag_node_value_mangle=True,
                               with_recursive_defaults=True,
                               with_pki=True)
-
-    lb['certbot_port'] = internal_ports['certbot_haproxy']
-
-    if 'service' in lb:
-        for front, front_config in lb['service'].items():
-            for cert in dict_search('ssl.certificate', front_config) or []:
-                if dict_search(f'pki.certificate.{cert}.acme', lb):
-                    lb['service'][front]['ssl'].update({'acme_certificate': {}})
 
     return lb
 
