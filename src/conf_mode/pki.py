@@ -413,27 +413,35 @@ def verify(pki):
         for search in sync_search:
             for key in search['keys']:
                 changed_key = sync_translate[key]
-
                 if changed_key not in pki['changed']:
                     continue
-
                 for item_name in pki['changed'][changed_key]:
                     node_present = False
                     if changed_key == 'openvpn':
                         node_present = dict_search_args(pki, 'openvpn', 'shared_secret', item_name)
                     else:
                         node_present = dict_search_args(pki, changed_key, item_name)
+                    # If the node is still present, we can skip the check
+                    # as we are not deleting it
+                    if node_present:
+                        continue
 
-                    if not node_present:
-                        search_dict = dict_search_args(pki['system'], *search['path'])
+                    search_dict = dict_search_args(pki['system'], *search['path'])
+                    if not search_dict:
+                        continue
 
-                        if not search_dict:
-                            continue
-
-                        for found_name, found_path in dict_search_recursive(search_dict, key):
-                            if found_name == item_name:
-                                path_str = " ".join(search['path'] + found_path)
-                                raise ConfigError(f'PKI object "{item_name}" still in use by "{path_str}"')
+                    for found_name, found_path in dict_search_recursive(search_dict, key):
+                        # Check if the name matches either by string compare, or beeing
+                        # part of a list
+                        if ((isinstance(found_name, str) and found_name == item_name) or
+                            (isinstance(found_name, list) and item_name in found_name)):
+                            # We do not support _ in CLI paths - this is only a convenience
+                            # as we mangle all - to _, now it's time to reverse this!
+                            path_str = ' '.join(search['path'] + found_path).replace('_','-')
+                            object = changed_key.replace('_','-')
+                            tmp = f'Embedded PKI {object} with name "{item_name}" is still '\
+                                  f'in use by CLI path "{path_str}"'
+                            raise ConfigError(tmp)
 
     return None
 
