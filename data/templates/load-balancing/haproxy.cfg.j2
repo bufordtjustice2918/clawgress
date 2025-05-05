@@ -50,6 +50,10 @@ defaults
     errorfile 503 /etc/haproxy/errors/503.http
     errorfile 504 /etc/haproxy/errors/504.http
 
+# Default ACME backend
+backend buildin_acme_certbot
+    server localhost 127.0.0.1:{{ get_default_port('certbot_haproxy') }}
+
 # Frontend
 {% if service is vyos_defined %}
 {%     for front, front_config in service.items() %}
@@ -65,11 +69,8 @@ frontend {{ front }}-http
     bind [::]:80 v4v6
 {%             endif %}
     acl acme_acl path_beg /.well-known/acme-challenge/
-    use_backend {{ certbot_backend_name }} if acme_acl
+    use_backend buildin_acme_certbot if acme_acl
     redirect scheme https code 301 if !acme_acl
-
-backend {{ certbot_backend_name }}
-    server acme_{{ front }} 127.0.0.1:{{ get_default_port('certbot_haproxy') }}
 {%         endif %}
 
 frontend {{ front }}

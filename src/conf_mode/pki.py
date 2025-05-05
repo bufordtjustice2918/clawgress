@@ -133,13 +133,19 @@ def certbot_request(name: str, config: dict, dry_run: bool=True):
           f'--standalone --agree-tos --no-eff-email --expand --server {config["url"]} '\
           f'--email {config["email"]} --key-type rsa --rsa-key-size {config["rsa_key_size"]} '\
           f'{domains}'
+
+    listen_address = None
+    if 'listen_address' in config:
+        listen_address = config['listen_address']
+
     # When ACME is used behind a reverse proxy, we always bind to localhost
     # whatever the CLI listen-address is configured for.
     if ('haproxy' in dict_search('used_by', config) and
-        is_systemd_service_running(systemd_services['haproxy'])):
+        is_systemd_service_running(systemd_services['haproxy']) and
+        not check_port_availability(listen_address, 80)):
         tmp += f' --http-01-address 127.0.0.1 --http-01-port {internal_ports["certbot_haproxy"]}'
-    elif 'listen_address' in config:
-        tmp += f' --http-01-address {config["listen_address"]}'
+    elif listen_address:
+        tmp += f' --http-01-address {listen_address}'
 
     # verify() does not need to actually request a cert but only test for plausability
     if dry_run:

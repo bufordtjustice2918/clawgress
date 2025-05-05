@@ -603,13 +603,13 @@ class TestLoadBalancingReverseProxy(VyOSUnitTestSHIM.TestCase):
         self.assertIn('mode http', config[frontend_name])
         self.assertIn('bind [::]:80 v4v6', config[frontend_name])
         self.assertIn('acl acme_acl path_beg /.well-known/acme-challenge/', config[frontend_name])
-        self.assertIn(f'use_backend certbot_{haproxy_service_name}_backend if acme_acl', config[frontend_name])
+        self.assertIn('use_backend buildin_acme_certbot if acme_acl', config[frontend_name])
         self.assertIn('redirect scheme https code 301 if !acme_acl', config[frontend_name])
 
-        backend_name = f'backend certbot_{haproxy_service_name}_backend'
+        backend_name = 'backend buildin_acme_certbot'
         self.assertIn(backend_name, config.keys())
         port = get_default_port('certbot_haproxy')
-        self.assertIn(f'server acme_https_front 127.0.0.1:{port}', config[backend_name])
+        self.assertIn(f'server localhost 127.0.0.1:{port}', config[backend_name])
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
