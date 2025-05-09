@@ -24,6 +24,7 @@ from vyos.utils.dict import dict_to_paths
 from vyos.utils.boot import boot_configuration_complete
 from vyos.utils.backend import vyconf_backend
 from vyos.vyconf_session import VyconfSession
+from vyos.base import Warning as Warn
 
 
 CLI_SHELL_API = '/bin/cli-shell-api'
@@ -201,6 +202,10 @@ class ConfigSession(object):
                     file=sys.stderr,
                 )
         else:
+            if self._vyconf_session.session_changed():
+                Warn('Exiting with uncommitted changes')
+                self._vyconf_session.discard()
+            self._vyconf_session.exit_config_mode()
             self._vyconf_session.teardown()
 
     def __run_command(self, cmd_list):
