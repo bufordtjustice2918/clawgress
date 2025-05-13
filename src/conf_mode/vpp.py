@@ -141,6 +141,10 @@ def get_config(config=None):
     if conf.exists(['vpp', 'nat', 'cgnat']):
         set_dependents('vpp_nat_cgnat', conf)
 
+    # ACL dependency
+    if conf.exists(['vpp', 'acl']):
+        set_dependents('vpp_acl', conf)
+
     if not conf.exists(base):
         return {
             'removed_ifaces': removed_ifaces,

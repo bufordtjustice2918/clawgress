@@ -942,7 +942,7 @@
         <node name="cgnat" owner="${vyos_conf_scripts_dir}/vpp_nat_cgnat.py">
           <properties>
             <help>Carrier-grade NAT (CGNAT)</help>
-            <priority>321</priority>
+            <priority>331</priority>
           </properties>
           <children>
             <node name="interface">
@@ -1060,7 +1060,7 @@
     <node name="nat44" owner="${vyos_conf_scripts_dir}/vpp_nat.py">
       <properties>
         <help>NAT44</help>
-        <priority>320</priority>
+        <priority>330</priority>
       </properties>
       <children>
         <node name="interface">
@@ -1259,6 +1259,256 @@
                   </properties>
                 </leafNode>
                 #include <include/generic-description.xml.i>
+              </children>
+            </tagNode>
+          </children>
+        </node>
+      </children>
+    </node>
+    <node name="acl" owner="${vyos_conf_scripts_dir}/vpp_acl.py">
+      <properties>
+        <help>Access Control Lists (ACLs)</help>
+        <priority>332</priority>
+      </properties>
+      <children>
+        <node name="ip">
+          <properties>
+            <help>Access Control List by IPv4/IPv6</help>
+          </properties>
+          <children>
+            <tagNode name="tag-name">
+              <properties>
+                <help>ACL tag name</help>
+                <valueHelp>
+                  <format>txt</format>
+                  <description>Tag name</description>
+                </valueHelp>
+              </properties>
+              <children>
+                #include <include/generic-description.xml.i>
+                <tagNode name="rule">
+                  <properties>
+                    <help>Rule number for Access control element (ACE)</help>
+                    <valueHelp>
+                      <format>u32</format>
+                      <description>Number of ACE</description>
+                    </valueHelp>
+                    <constraint>
+                      <validator name="numeric" argument="--range 1-4294967295"/>
+                    </constraint>
+                    <constraintErrorMessage>Rule number must be between 1 and 4294967295</constraintErrorMessage>
+                  </properties>
+                  <children>
+                    #include <include/generic-description.xml.i>
+                    <leafNode name="action">
+                      <properties>
+                        <help>Rule action</help>
+                        <completionHelp>
+                          <list>permit deny permit-reflect</list>
+                        </completionHelp>
+                        <valueHelp>
+                          <format>permit</format>
+                          <description>Permit matching traffic</description>
+                        </valueHelp>
+                        <valueHelp>
+                          <format>deny</format>
+                          <description>Deny matching traffic</description>
+                        </valueHelp>
+                        <valueHelp>
+                          <format>permit-reflect</format>
+                          <description>Permit the matching outbound traffic and allow the reverse traffic</description>
+                        </valueHelp>
+                        <constraint>
+                          <regex>(permit|deny|permit-reflect)</regex>
+                        </constraint>
+                      </properties>
+                    </leafNode>
+                    <node name="source">
+                      <properties>
+                        <help>Source parameters</help>
+                      </properties>
+                      <children>
+                        #include <include/vpp/acl_prefix.xml.i>
+                        #include <include/vpp/acl_port_range.xml.i>
+                      </children>
+                    </node>
+                    <node name="destination">
+                      <properties>
+                        <help>Destination parameters</help>
+                      </properties>
+                      <children>
+                        #include <include/vpp/acl_prefix.xml.i>
+                        #include <include/vpp/acl_port_range.xml.i>
+                      </children>
+                    </node>
+                    <leafNode name="protocol">
+                      <properties>
+                        <help>Protocol</help>
+                        <completionHelp>
+                          <script>${vyos_completion_dir}/list_protocols.sh</script>
+                          <list>all</list>
+                        </completionHelp>
+                        <valueHelp>
+                          <format>all</format>
+                          <description>All IP protocols</description>
+                        </valueHelp>
+                        <valueHelp>
+                          <format>&lt;protocol&gt;</format>
+                          <description>IP protocol name</description>
+                        </valueHelp>
+                        <constraint>
+                          <validator name="ip-protocol"/>
+                        </constraint>
+                      </properties>
+                      <defaultValue>all</defaultValue>
+                    </leafNode>
+                    <node name="tcp-flags">
+                      <properties>
+                        <help>TCP flags</help>
+                      </properties>
+                      <children>
+                        #include <include/vpp/acl_tcp_flags.xml.i>
+                        <node name="not">
+                          <properties>
+                            <help>Match flags not set</help>
+                          </properties>
+                          <children>
+                            #include <include/vpp/acl_tcp_flags.xml.i>
+                          </children>
+                        </node>
+                      </children>
+                    </node>
+                  </children>
+                </tagNode>
+              </children>
+            </tagNode>
+            <tagNode name="interface">
+              <properties>
+                <help>Apply an ACL to an interface</help>
+                <completionHelp>
+                  <script>${vyos_completion_dir}/list_interfaces</script>
+                </completionHelp>
+              </properties>
+              <children>
+                <node name="input">
+                  <properties>
+                    <help>Input direction</help>
+                  </properties>
+                  <children>
+                    #include <include/vpp/acl_common_interface_ip_rule.xml.i>
+                  </children>
+                </node>
+                <node name="output">
+                  <properties>
+                    <help>Output direction</help>
+                  </properties>
+                  <children>
+                    #include <include/vpp/acl_common_interface_ip_rule.xml.i>
+                  </children>
+                </node>
+              </children>
+            </tagNode>
+          </children>
+        </node>
+        <node name="macip">
+          <properties>
+            <help>Access Control List by mac address</help>
+          </properties>
+          <children>
+            <tagNode name="tag-name">
+              <properties>
+                <help>ACL tag name</help>
+                <valueHelp>
+                  <format>txt</format>
+                  <description>ACL name</description>
+                </valueHelp>
+              </properties>
+              <children>
+                #include <include/generic-description.xml.i>
+                <tagNode name="rule">
+                  <properties>
+                    <help>Rule number for Access control element (ACE)</help>
+                    <valueHelp>
+                      <format>u32</format>
+                      <description>Number of ACE</description>
+                    </valueHelp>
+                    <constraint>
+                      <validator name="numeric" argument="--range 1-4294967295"/>
+                    </constraint>
+                    <constraintErrorMessage>Rule number must be between 1 and 4294967295</constraintErrorMessage>
+                  </properties>
+                  <children>
+                    #include <include/generic-description.xml.i>
+                    <leafNode name="action">
+                      <properties>
+                        <help>Rule action</help>
+                        <completionHelp>
+                          <list>permit deny</list>
+                        </completionHelp>
+                        <valueHelp>
+                          <format>permit</format>
+                          <description>Permit matching traffic</description>
+                        </valueHelp>
+                        <valueHelp>
+                          <format>deny</format>
+                          <description>Deny matching traffic</description>
+                        </valueHelp>
+                        <constraint>
+                          <regex>(permit|deny)</regex>
+                        </constraint>
+                      </properties>
+                    </leafNode>
+                    #include <include/vpp/acl_prefix.xml.i>
+                    <leafNode name="prefix">
+                      <properties>
+                        <help>Source IP prefix</help>
+                      </properties>
+                    </leafNode>
+                    <leafNode name="mac-address">
+                      <properties>
+                        <help>Source MAC address</help>
+                        <valueHelp>
+                          <format>macaddr</format>
+                          <description>MAC address</description>
+                        </valueHelp>
+                        <constraint>
+                          <validator name="mac-address"/>
+                        </constraint>
+                      </properties>
+                    </leafNode>
+                    <leafNode name="mac-mask">
+                      <properties>
+                        <help>Source MAC mask (default ff:ff:ff:ff:ff:ff)</help>
+                        <valueHelp>
+                          <format>macaddr</format>
+                          <description>MAC mask</description>
+                        </valueHelp>
+                        <constraint>
+                          <validator name="mac-address"/>
+                        </constraint>
+                      </properties>
+                      <defaultValue>ff:ff:ff:ff:ff:ff</defaultValue>
+                    </leafNode>
+                  </children>
+                </tagNode>
+              </children>
+            </tagNode>
+            <tagNode name="interface">
+              <properties>
+                <help>Apply an ACL to an input interface</help>
+                <completionHelp>
+                  <script>${vyos_completion_dir}/list_interfaces</script>
+                </completionHelp>
+              </properties>
+              <children>
+                <leafNode name="tag-name">
+                  <properties>
+                    <help>ACL tag name</help>
+                    <completionHelp>
+                      <path>vpp acl macip tag-name</path>
+                    </completionHelp>
+                  </properties>
+                </leafNode>
               </children>
             </tagNode>
           </children>

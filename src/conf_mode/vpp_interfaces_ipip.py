@@ -109,6 +109,16 @@ def get_config(config=None) -> dict:
             if iface in config.get('vpp_kernel_interfaces'):
                 set_dependents('vpp_kernel_interface', conf, iface)
 
+    # NAT dependency
+    if conf.exists(['vpp', 'nat44']):
+        set_dependents('vpp_nat', conf)
+    if conf.exists(['vpp', 'nat', 'cgnat']):
+        set_dependents('vpp_nat_cgnat', conf)
+
+    # ACL dependency
+    if conf.exists(['vpp', 'acl']):
+        set_dependents('vpp_acl', conf)
+
     config['ifname'] = ifname
 
     return config
