@@ -20,6 +20,7 @@ from pathlib import Path
 
 from psutil import virtual_memory
 from pyroute2 import IPRoute
+from vpp_papi import VPPIOError, VPPValueError
 
 from vyos import ConfigError
 from vyos import airbag
@@ -588,6 +589,34 @@ def generate(config):
     return None
 
 
+def initialize_interface(iface, driver, iface_config) -> None:
+    # DPDK - rescan PCI to use a proper driver
+    if driver == 'dpdk' and iface_config['original_driver'] not in not_pci_drv:
+        control_host.pci_rescan(iface_config['dev_id'])
+        # rename to the proper name
+        iface_new_name: str = control_host.get_eth_name(iface_config['dev_id'])
+        control_host.rename_iface(iface_new_name, iface)
+
+    # XDP - rename an interface, disable promisc and XDP
+    if driver == 'xdp':
+        control_host.set_promisc(f'defunct_{iface}', 'off')
+        control_host.rename_iface(f'defunct_{iface}', iface)
+        control_host.xdp_remove(iface)
+
+    # Rename Mellanox NIC to a normal name
+    try:
+        if control_host.get_eth_driver(f'defunct_{iface}') == 'mlx5_core':
+            control_host.rename_iface(f'defunct_{iface}', iface)
+    except FileNotFoundError:
+        pass
+
+    # Replace a driver with original for VMBus interfaces and rename it
+    if driver == 'dpdk' and iface_config['original_driver'] in override_drivers:
+        control_host.override_driver(iface_config['bus_id'], iface_config['dev_id'])
+        iface_new_name: str = control_host.get_eth_name(iface_config['dev_id'])
+        control_host.rename_iface(iface_new_name, iface)
+
+
 def apply(config):
     # Open persistent config
     # It is required for operations with interfaces
@@ -618,52 +647,11 @@ def apply(config):
 
     # Initialize interfaces removed from VPP
     for iface in config.get('removed_ifaces', []):
-        # DPDK - rescan PCI to use a proper driver
-        if (
-            iface['driver'] == 'dpdk'
-            and config['persist_config'][iface['iface_name']]['original_driver']
-            not in not_pci_drv
-        ):
-            control_host.pci_rescan(
-                config['persist_config'][iface['iface_name']]['dev_id']
-            )
-            # rename to the proper name
-            iface_new_name: str = control_host.get_eth_name(
-                config['persist_config'][iface['iface_name']]['dev_id']
-            )
-            control_host.rename_iface(iface_new_name, iface['iface_name'])
-        # XDP - rename an interface , disable promisc and XDP
-        if iface['driver'] == 'xdp':
-            control_host.set_promisc(f'defunct_{iface["iface_name"]}', 'off')
-            control_host.rename_iface(
-                f'defunct_{iface["iface_name"]}', iface['iface_name']
-            )
-            control_host.xdp_remove(iface['iface_name'])
-        # Rename Mellanox NIC to a normal name
-        try:
-            if (
-                control_host.get_eth_driver(f'defunct_{iface["iface_name"]}')
-                == 'mlx5_core'
-            ):
-                control_host.rename_iface(
-                    f'defunct_{iface["iface_name"]}', iface['iface_name']
-                )
-        except FileNotFoundError:
-            pass
-        # Replace a driver with original for VMBus interfaces and rename it
-        if (
-            iface['driver'] == 'dpdk'
-            and config['persist_config'][iface['iface_name']]['original_driver']
-            in override_drivers
-        ):
-            control_host.override_driver(
-                config['persist_config'][iface['iface_name']]['bus_id'],
-                config['persist_config'][iface['iface_name']]['dev_id'],
-            )
-            iface_new_name: str = control_host.get_eth_name(
-                config['persist_config'][iface['iface_name']]['dev_id']
-            )
-            control_host.rename_iface(iface_new_name, iface['iface_name'])
+        initialize_interface(
+            iface['iface_name'],
+            iface['driver'],
+            config['persist_config'][iface['iface_name']],
+        )
 
         # Remove what is not in the config anymore
         if iface['iface_name'] not in config.get('settings', {}).get('interface', {}):
@@ -673,94 +661,116 @@ def apply(config):
         # connect to VPP
         # must be performed multiple attempts because API is not available
         # immediately after the service restart
-        vpp_control = VPPControl(attempts=20, interval=500)
-        # preconfigure LCP plugin
-        if 'ignore_kernel_routes' in config.get('settings', {}).get('lcp', {}):
-            vpp_control.cli_cmd('lcp param route-no-paths off')
-        else:
-            vpp_control.cli_cmd('lcp param route-no-paths on')
-        # add interfaces
-        iproute = IPRoute()
-        for iface, iface_config in config['settings']['interface'].items():
-            # promisc option for DPDK interfaces
-            if iface_config['driver'] == 'dpdk':
-                if 'promisc' in iface_config['dpdk_options']:
-                    if_index = vpp_control.get_sw_if_index(iface)
-                    vpp_control.api.sw_interface_set_promisc(
-                        sw_if_index=if_index, promisc_on=True
+        try:
+            vpp_control = VPPControl(attempts=20, interval=500)
+
+            # preconfigure LCP plugin
+            if 'ignore_kernel_routes' in config.get('settings', {}).get('lcp', {}):
+                vpp_control.cli_cmd('lcp param route-no-paths off')
+            else:
+                vpp_control.cli_cmd('lcp param route-no-paths on')
+            # add interfaces
+            iproute = IPRoute()
+            for iface, iface_config in config['settings']['interface'].items():
+                # promisc option for DPDK interfaces
+                if iface_config['driver'] == 'dpdk':
+                    if 'promisc' in iface_config['dpdk_options']:
+                        if_index = vpp_control.get_sw_if_index(iface)
+                        vpp_control.api.sw_interface_set_promisc(
+                            sw_if_index=if_index, promisc_on=True
+                        )
+                # add XDP interfaces
+                if iface_config['driver'] == 'xdp':
+                    control_host.rename_iface(iface, f'defunct_{iface}')
+                    vpp_control.xdp_iface_create(
+                        host_if=f'defunct_{iface}',
+                        name=iface,
+                        **iface_config['xdp_api_params'],
                     )
-            # add XDP interfaces
-            if iface_config['driver'] == 'xdp':
-                control_host.rename_iface(iface, f'defunct_{iface}')
-                vpp_control.xdp_iface_create(
-                    host_if=f'defunct_{iface}',
-                    name=iface,
-                    **iface_config['xdp_api_params'],
+                    # replicate MAC address of a real interface
+                    real_mac = control_host.get_eth_mac(f'defunct_{iface}')
+                    vpp_control.set_iface_mac(iface, real_mac)
+                    if 'promisc' in iface_config['xdp_options']:
+                        control_host.set_promisc(f'defunct_{iface}', 'on')
+                    control_host.set_status(f'defunct_{iface}', 'up')
+                # Rename Mellanox interfaces to hide them and create LCP properly
+                if (
+                    iface in Section.interfaces()
+                    and control_host.get_eth_driver(iface) == 'mlx5_core'
+                ):
+                    control_host.rename_iface(iface, f'defunct_{iface}')
+                    control_host.set_status(f'defunct_{iface}', 'up')
+                # Create lcp
+                if iface not in Section.interfaces():
+                    vpp_control.lcp_pair_add(iface, iface)
+
+                # For unknown reasons, if multiple interfaces later try to be
+                # initialized by configuration scripts, some of them may stuck
+                # in an endless UP/DOWN loop
+                # We found two workarounds - pause initialization (requires
+                # main code modifications).
+                # And this one
+                dev_index = iproute.link_lookup(ifname=iface)[0]
+                iproute.link('set', index=dev_index, state='up')
+
+                # Set rx-mode. Should be configured after interface state set to UP
+                rx_mode = iface_config.get('rx_mode')
+                if rx_mode:
+                    # to hardware side
+                    vpp_control.iface_rxmode(iface, rx_mode)
+                    # to kernel side
+                    lcp_name = vpp_control.lcp_pair_find(vpp_name_hw=iface).get(
+                        'vpp_name_kernel'
+                    )
+                    vpp_control.iface_rxmode(lcp_name, rx_mode)
+
+            # Syncronize routes via LCP
+            vpp_control.lcp_resync()
+
+            # NAT44 settings
+            nat44_settings = config['settings'].get('nat44', {})
+
+            enable_forwarding = True
+            if 'no_forwarding' in nat44_settings:
+                enable_forwarding = False
+            vpp_control.enable_disable_nat44_forwarding(enable_forwarding)
+
+            vpp_control.set_nat_timeouts(
+                icmp=int(nat44_settings.get('timeout').get('icmp')),
+                udp=int(nat44_settings.get('timeout').get('udp')),
+                tcp_established=int(
+                    nat44_settings.get('timeout').get('tcp_established')
+                ),
+                tcp_transitory=int(nat44_settings.get('timeout').get('tcp_transitory')),
+            )
+
+            vpp_control.set_nat44_session_limit(
+                int(nat44_settings.get('session_limit'))
+            )
+
+            if nat44_settings.get('workers'):
+                bitmask = 0
+                for worker_range in nat44_settings['workers']:
+                    worker_numbers = worker_range.split('-')
+                    for wid in range(
+                        int(worker_numbers[0]), int(worker_numbers[-1]) + 1
+                    ):
+                        bitmask |= 1 << wid
+                vpp_control.set_nat_workers(bitmask)
+
+        except (VPPIOError, VPPValueError) as e:
+            # if cannot connect to VPP or an error occurred then
+            # we need to stop vpp service and initialize interfaces
+            call(f'systemctl stop {service_name}.service')
+            for iface, iface_config in config['settings']['interface'].items():
+                initialize_interface(
+                    iface, iface_config['driver'], config['persist_config'][iface]
                 )
-                # replicate MAC address of a real interface
-                real_mac = control_host.get_eth_mac(f'defunct_{iface}')
-                vpp_control.set_iface_mac(iface, real_mac)
-                if 'promisc' in iface_config['xdp_options']:
-                    control_host.set_promisc(f'defunct_{iface}', 'on')
-                control_host.set_status(f'defunct_{iface}', 'up')
-            # Rename Mellanox interfaces to hide them and create LCP properly
-            if (
-                iface in Section.interfaces()
-                and control_host.get_eth_driver(iface) == 'mlx5_core'
-            ):
-                control_host.rename_iface(iface, f'defunct_{iface}')
-                control_host.set_status(f'defunct_{iface}', 'up')
-            # Create lcp
-            if iface not in Section.interfaces():
-                vpp_control.lcp_pair_add(iface, iface)
 
-            # For unknown reasons, if multiple interfaces later try to be
-            # initialized by configuration scripts, some of them may stuck
-            # in an endless UP/DOWN loop
-            # We found two workarounds - pause initialization (requires
-            # main code modifications).
-            # And this one
-            dev_index = iproute.link_lookup(ifname=iface)[0]
-            iproute.link('set', index=dev_index, state='up')
-
-            # Set rx-mode. Should be configured after interface state set to UP
-            rx_mode = iface_config.get('rx_mode')
-            if rx_mode:
-                # to hardware side
-                vpp_control.iface_rxmode(iface, rx_mode)
-                # to kernel side
-                lcp_name = vpp_control.lcp_pair_find(vpp_name_hw=iface).get(
-                    'vpp_name_kernel'
-                )
-                vpp_control.iface_rxmode(lcp_name, rx_mode)
-
-        # Syncronize routes via LCP
-        vpp_control.lcp_resync()
-
-        # NAT44 settings
-        nat44_settings = config['settings'].get('nat44', {})
-
-        enable_forwarding = True
-        if 'no_forwarding' in nat44_settings:
-            enable_forwarding = False
-        vpp_control.enable_disable_nat44_forwarding(enable_forwarding)
-
-        vpp_control.set_nat_timeouts(
-            icmp=int(nat44_settings.get('timeout').get('icmp')),
-            udp=int(nat44_settings.get('timeout').get('udp')),
-            tcp_established=int(nat44_settings.get('timeout').get('tcp_established')),
-            tcp_transitory=int(nat44_settings.get('timeout').get('tcp_transitory')),
-        )
-
-        vpp_control.set_nat44_session_limit(int(nat44_settings.get('session_limit')))
-
-        if nat44_settings.get('workers'):
-            bitmask = 0
-            for worker_range in nat44_settings['workers']:
-                worker_numbers = worker_range.split('-')
-                for wid in range(int(worker_numbers[0]), int(worker_numbers[-1]) + 1):
-                    bitmask |= 1 << wid
-            vpp_control.set_nat_workers(bitmask)
+            raise ConfigError(
+                f'An error occurred: {e}. '
+                'VPP service will be restarted with the previous configuration'
+            )
 
     # Save persistent config
     if 'persist_config' in config and config['persist_config']:
