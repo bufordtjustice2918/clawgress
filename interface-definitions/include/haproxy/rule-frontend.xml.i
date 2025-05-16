@@ -32,15 +32,15 @@
       <children>
         <leafNode name="redirect-location">
           <properties>
-            <help>Set URL location</help>
+            <help>Set path location</help>
             <valueHelp>
               <format>url</format>
-              <description>Set URL location</description>
+              <description>Set path location</description>
             </valueHelp>
             <constraint>
               <regex>^\/[\w\-.\/]+$</regex>
             </constraint>
-            <constraintErrorMessage>Incorrect URL format</constraintErrorMessage>
+            <constraintErrorMessage>Incorrect path format</constraintErrorMessage>
           </properties>
         </leafNode>
         <leafNode name="backend">
