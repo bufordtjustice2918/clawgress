@@ -416,6 +416,21 @@ def is_wireguard_key_pair(private_key: str, public_key:str) -> bool:
     else:
         return False
 
+def get_wireguard_peers(ifname: str) -> list:
+    """
+    Return list of configured Wireguard peers for interface
+    :param ifname: Interface name
+    :type ifname: str
+    :return: list of public keys
+    :rtype: list
+    """
+    if not interface_exists(ifname):
+        return []
+
+    from vyos.utils.process import cmd
+    peers = cmd(f'wg show {ifname} peers')
+    return peers.splitlines()
+
 def is_subnet_connected(subnet, primary=False):
     """
     Verify is the given IPv4/IPv6 subnet is connected to any interface on this
