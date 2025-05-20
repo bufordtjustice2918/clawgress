@@ -38,7 +38,7 @@
               <description>Set URL location</description>
             </valueHelp>
             <constraint>
-              <regex>^\/[\w\-.\/]+$</regex>
+              <regex>\/[\w\-.\/]+</regex>
             </constraint>
             <constraintErrorMessage>Incorrect URL format</constraintErrorMessage>
           </properties>
@@ -93,7 +93,7 @@
               <description>Begin URL</description>
             </valueHelp>
             <constraint>
-              <regex>^\/[\w\-.\/]+$</regex>
+              <regex>\/[\w\-.\/]+</regex>
             </constraint>
             <constraintErrorMessage>Incorrect URL format</constraintErrorMessage>
             <multi/>
@@ -107,7 +107,7 @@
               <description>End URL</description>
             </valueHelp>
             <constraint>
-              <regex>^\/[\w\-.\/]+$</regex>
+              <regex>\/[\w\-.\/]+</regex>
             </constraint>
             <constraintErrorMessage>Incorrect URL format</constraintErrorMessage>
             <multi/>
@@ -121,7 +121,7 @@
               <description>Exactly URL</description>
             </valueHelp>
             <constraint>
-              <regex>^\/[\w\-.\/]+$</regex>
+              <regex>\/[\w\-.\/]+</regex>
             </constraint>
             <constraintErrorMessage>Incorrect URL format</constraintErrorMessage>
             <multi/>
