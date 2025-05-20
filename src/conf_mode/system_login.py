@@ -345,6 +345,17 @@ def apply(login):
                        user_config, permission=0o600,
                        formater=lambda _: _.replace("&quot;", '"'),
                        user=user, group='users')
+
+                principals_file = f'{home_dir}/.ssh/authorized_principals'
+                if dict_search('authentication.principal', user_config):
+                    render(principals_file, 'login/authorized_principals.j2',
+                           user_config, permission=0o600,
+                           formater=lambda _: _.replace("&quot;", '"'),
+                           user=user, group='users')
+                else:
+                    if os.path.exists(principals_file):
+                        os.unlink(principals_file)
+
             except Exception as e:
                 raise ConfigError(f'Adding user "{user}" raised exception: "{e}"')
 
@@ -420,7 +431,7 @@ def apply(login):
     # Enable/disable Google authenticator
     cmd('pam-auth-update --disable mfa-google-authenticator')
     if enable_otp:
-        cmd(f'pam-auth-update --enable mfa-google-authenticator')
+        cmd('pam-auth-update --enable mfa-google-authenticator')
 
     return None
 

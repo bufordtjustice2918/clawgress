@@ -112,11 +112,17 @@ RekeyLimit {{ rekey.data }}M {{ rekey.time + 'M' if rekey.time is vyos_defined }
 {% endif %}
 
 {% if trusted_user_ca_key is vyos_defined %}
+# Specifies a file containing public keys of certificate authorities that are
+# trusted to sign user certificates for authentication
 TrustedUserCAKeys /etc/ssh/trusted_user_ca_key
-{% endif %}
 
-{% if trusted_user_ca_key is vyos_defined and trusted_user_ca_key.bind_user is vyos_defined %}
-AuthorizedPrincipalsFile /etc/ssh/authorized_principals/%u
-{% elif trusted_user_ca_key is vyos_defined %}
-AuthorizedPrincipalsFile none
+# The default is "none", i.e. not to use a principals file - in this case, the
+# username of the user must appear in a certificate's principals list for it
+# to be accepted. ".ssh/authorized_principals" means a per-user configuration,
+# relative to $HOME.
+{%     set filename = 'none' %}
+{%     if trusted_user_ca_key.has_principals is vyos_defined %}
+{%         set filename = '.ssh/authorized_principals' %}
+{%     endif %}
+AuthorizedPrincipalsFile {{ filename }}
 {% endif %}
