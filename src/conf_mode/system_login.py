@@ -375,14 +375,15 @@ def apply(login):
                     chown(home_dir, user=user, recursive=True)
 
             # Generate 2FA/MFA One-Time-Pad configuration
+            google_auth_file = f'{home_dir}/.google_authenticator'
             if dict_search('authentication.otp.key', user_config):
                 enable_otp = True
-                render(f'{home_dir}/.google_authenticator', 'login/pam_otp_ga.conf.j2',
+                render(google_auth_file, 'login/pam_otp_ga.conf.j2',
                        user_config, permission=0o400, user=user, group='users')
             else:
                 # delete configuration as it's not enabled for the user
-                if os.path.exists(f'{home_dir}/.google_authenticator'):
-                    os.remove(f'{home_dir}/.google_authenticator')
+                if os.path.exists(google_auth_file):
+                    os.unlink(google_auth_file)
 
             # Lock/Unlock local user account
             lock_unlock = '--unlock'
@@ -395,6 +396,22 @@ def apply(login):
             try:
                 # Disable user to prevent re-login
                 call(f'usermod -s /sbin/nologin {user}')
+
+                home_dir = getpwnam(user).pw_dir
+                # Remove SSH authorized keys file
+                authorized_keys_file = f'{home_dir}/.ssh/authorized_keys'
+                if os.path.exists(authorized_keys_file):
+                    os.unlink(authorized_keys_file)
+
+                # Remove SSH authorized principals file
+                principals_file = f'{home_dir}/.ssh/authorized_principals'
+                if os.path.exists(principals_file):
+                    os.unlink(principals_file)
+
+                # Remove Google Authenticator file
+                google_auth_file = f'{home_dir}/.google_authenticator'
+                if os.path.exists(google_auth_file):
+                    os.unlink(google_auth_file)
 
                 # Logout user if he is still logged in
                 if user in list(set([tmp[0] for tmp in users()])):

@@ -53,6 +53,10 @@ internal_ports = {
     'certbot_haproxy' : 65080, # Certbot running behing haproxy
 }
 
+config_files = {
+    'sshd_user_ca' : '/run/sshd/trusted_user_ca',
+}
+
 config_status = '/tmp/vyos-config-status'
 api_config_state = '/run/http-api-state'
 frr_debug_enable = '/tmp/vyos.frr.debug'
@@ -69,8 +73,8 @@ config_default = os.path.join(directories['data'], 'config.boot.default')
 
 rt_symbolic_names = {
   # Standard routing tables for Linux & reserved IDs for VyOS
-  'default': 253, # Confusingly, a final fallthru, not the default. 
-  'main': 254,    # The actual global table used by iproute2 unless told otherwise. 
+  'default': 253, # Confusingly, a final fallthru, not the default.
+  'main': 254,    # The actual global table used by iproute2 unless told otherwise.
   'local': 255,   # Special kernel loopback table.
 }
 
