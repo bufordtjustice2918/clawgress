@@ -64,6 +64,10 @@ sync_search = [
         'path': ['service', 'https'],
     },
     {
+        'keys': ['ca_certificate'],
+        'path': ['service', 'ssh'],
+    },
+    {
         'keys': ['certificate', 'ca_certificate'],
         'path': ['interfaces', 'ethernet'],
     },

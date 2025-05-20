@@ -26,6 +26,8 @@ from time import sleep
 
 from vyos.base import Warning
 from vyos.config import Config
+from vyos.configdep import set_dependents
+from vyos.configdep import call_dependents
 from vyos.configverify import verify_vrf
 from vyos.template import render
 from vyos.template import is_ipv4
@@ -129,6 +131,7 @@ def get_config(config=None):
                                                  max_uid=MIN_TACACS_UID) + cli_users
         login['tacacs_min_uid'] = MIN_TACACS_UID
 
+    set_dependents('ssh', conf)
     return login
 
 def verify(login):
@@ -433,6 +436,7 @@ def apply(login):
     if enable_otp:
         cmd('pam-auth-update --enable mfa-google-authenticator')
 
+    call_dependents()
     return None
 
 
