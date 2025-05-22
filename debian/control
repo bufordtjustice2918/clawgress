@@ -4,7 +4,7 @@ Priority: extra
 Maintainer: VyOS Package Maintainers <maintainers@vyos.net>
 Build-Depends: debhelper (>= 9),
   quilt,
-  libpcre3-dev,
+  libpcre2-dev,
   libffi-dev
 Standards-Version: 3.9.6
 
