@@ -148,6 +148,7 @@ class VyconfSession:
 
         pre_out, _ = call_commit_hooks('pre')
         out = vyconf_client.send_request('commit', token=self.__token)
+        os.environ['COMMIT_STATUS'] = 'FAILURE' if out.status else 'SUCCESS'
         post_out, _ = call_commit_hooks('post')
 
         release_commit_lock_file(lock_fd)
