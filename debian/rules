@@ -22,8 +22,7 @@ override_dh_auto_install:
 	cp $(OCAML_DIR)/share/vyconf/vyconf.proto $(DIR)/$(VYCONF_DATA)
 	cp $(OCAML_DIR)/share/vyconf/vyconfd.conf $(DIR)/$(VYCONF_DEF)
 	cp $(OCAML_DIR)/bin/vyconfd $(DIR)/$(VYCONF)
-	cp $(OCAML_DIR)/bin/vy_set $(DIR)/$(VYCONF)
-	cp $(OCAML_DIR)/bin/vy_delete $(DIR)/$(VYCONF)
+	cp $(OCAML_DIR)/bin/vyconf_cli $(DIR)/$(VYCONF)
 	#
 	mkdir -p $(DIR)/usr/lib
 	cp _build/libvyosconfig.so $(DIR)/usr/lib/libvyosconfig.so.0
