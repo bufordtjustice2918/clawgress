@@ -20,11 +20,15 @@
 import argparse
 import sys
 import os
+import grp
 
 from vyos.configsession import ConfigSession
 from vyos.config import Config
 from vyos.configdiff import get_config_diff
 from vyos.xml_ref import is_leaf
+
+
+CFG_GROUP = 'vyattacfg'
 
 
 def type_str_to_list(value):
@@ -57,39 +61,52 @@ except ValueError:
     sys.exit('nonexistent path: neither allowed nor useful')
 
 test = Config()
-if not test.in_session():
-    sys.exit('reset_section not available outside of a config session')
+in_session = test.in_session()
 
-diff = get_config_diff(test)
-if not diff.is_node_changed(path):
-    # No discrepancies at path after commit, hence no error to revert.
-    sys.exit()
+if in_session:
+    if reload:
+        sys.exit('reset_section reload not available inside of a config session')
 
-del diff
+    diff = get_config_diff(test)
+    if not diff.is_node_changed(path):
+        # No discrepancies at path after commit, hence no error to revert.
+        sys.exit()
+
+    del diff
+else:
+    if not reload:
+        sys.exit('reset_section rollback not available outside of a config session')
+
 del test
 
 
 session_id = int(pid) if pid else os.getppid()
 
-# check hint left by vyshim when ConfigError is from apply stage
-hint_name = f'/tmp/apply_{session_id}'
-if not os.path.exists(hint_name):
-    # no apply error; exit
-    sys.exit()
-else:
-    # cleanup hint and continue with reset
-    os.unlink(hint_name)
+if in_session:
+    # check hint left by vyshim when ConfigError is from apply stage
+    hint_name = f'/tmp/apply_{session_id}'
+    if not os.path.exists(hint_name):
+        # no apply error; exit
+        sys.exit()
+    else:
+        # cleanup hint and continue with reset
+        os.unlink(hint_name)
 
-session = ConfigSession(session_id, shared=True)
+cfg_group = grp.getgrnam(CFG_GROUP)
+os.setgid(cfg_group.gr_gid)
+os.umask(0o002)
+
+shared = not bool(reload)
+
+session = ConfigSession(session_id, shared=shared)
 
 session_env = session.get_session_env()
 config = Config(session_env)
 
-effective = not bool(reload)
+d = config.get_config_dict(path, effective=True, get_first_key=True)
 
-d = config.get_config_dict(path, effective=effective, get_first_key=True)
-
-session.discard()
+if in_session:
+    session.discard()
 
 session.delete(path)
 session.commit()
@@ -99,4 +116,5 @@ if not d:
     sys.exit()
 
 session.set_section(path, d)
-session.commit()
+out = session.commit()
+print(out)
