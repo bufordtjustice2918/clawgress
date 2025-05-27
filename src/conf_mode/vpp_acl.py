@@ -147,6 +147,10 @@ def get_config(config=None) -> dict:
         with_recursive_defaults=True,
     )
 
+    if not conf.exists(['vpp']):
+        config['remove_vpp'] = True
+        return config
+
     # Get effective config as we need full dictionary for deletion
     effective_config = conf.get_config_dict(
         base,
@@ -190,7 +194,7 @@ def get_config(config=None) -> dict:
 
 
 def verify(config):
-    if 'remove' in config:
+    if 'remove' in config or 'remove_vpp' in config:
         return None
 
     for acl_type in ['ip', 'macip']:
@@ -319,6 +323,9 @@ def generate(config):
 
 
 def apply(config):
+    if 'remove_vpp' in config:
+        return None
+
     acl = Acl()
 
     if 'effective' in config:

@@ -47,6 +47,10 @@ def get_config(config=None) -> dict:
         with_defaults=True,
     )
 
+    if not conf.exists(['vpp']):
+        config['remove_vpp'] = True
+        return config
+
     # Get effective config as we need full dicitonary per interface delete
     if __name__ == '__main__':
         effective_config = conf.get_config_dict(
@@ -81,7 +85,7 @@ def get_config(config=None) -> dict:
 
 
 def verify(config):
-    if 'remove' in config:
+    if 'remove' in config or 'remove_vpp' in config:
         return None
 
     # Interface must exists before it is configured
@@ -96,6 +100,9 @@ def generate(config):
 
 
 def apply(config):
+    if 'remove_vpp' in config:
+        return None
+
     ifname = config.get('ifname')
     i = Interface(ifname)
     # update/remove addresses

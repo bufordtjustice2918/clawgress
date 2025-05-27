@@ -53,6 +53,10 @@ def get_config(config=None) -> dict:
         with_recursive_defaults=True,
     )
 
+    if not conf.exists(['vpp']):
+        config['remove_vpp'] = True
+        return config
+
     # Get effective config as we need full dicitonary per interface delete
     effective_config = conf.get_config_dict(
         base + [ifname],
@@ -87,7 +91,7 @@ def get_config(config=None) -> dict:
 
 
 def verify(config):
-    if 'remove' in config:
+    if 'remove' in config or 'remove_vpp' in config:
         return None
 
     # Check if interface exists in vpp before adding to bridge-domain
@@ -122,6 +126,9 @@ def generate(config):
 
 
 def apply(config):
+    if 'remove_vpp' in config:
+        return None
+
     ifname = config.get('ifname')
     # vxlan10 in the vpp is vxlan_tunnel10
     interface_transform_filter = ('geneve', 'vxlan')

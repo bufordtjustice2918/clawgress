@@ -55,6 +55,10 @@ def get_config(config=None) -> dict:
         with_recursive_defaults=True,
     )
 
+    if not conf.exists(['vpp']):
+        config['remove_vpp'] = True
+        return config
+
     # Get effective config as we need full dictionary for deletion
     effective_config = conf.get_config_dict(
         base,
@@ -131,7 +135,7 @@ def convert_range_to_list_ips(address_range) -> list:
 
 
 def verify(config):
-    if 'remove' in config:
+    if 'remove' in config or 'remove_vpp' in config:
         return None
 
     if 'interface' not in config:
@@ -329,6 +333,9 @@ def generate(config):
 
 
 def apply(config):
+    if 'remove_vpp' in config:
+        return None
+
     n = Nat44()
 
     if 'remove' in config:

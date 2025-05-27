@@ -41,6 +41,10 @@ def get_config(config=None) -> dict:
         no_tag_node_value_mangle=True,
     )
 
+    if not conf.exists(['vpp']):
+        config['remove_vpp'] = True
+        return config
+
     # Get effective config as we need full dictionary to delete
     effective_config = conf.get_config_dict(
         base,
@@ -91,7 +95,7 @@ def get_config(config=None) -> dict:
 
 
 def verify(config):
-    if 'remove' in config:
+    if 'remove' in config or 'remove_vpp' in config:
         return None
 
     if 'interface' not in config:
@@ -142,6 +146,9 @@ def generate(config):
 
 
 def apply(config):
+    if 'remove_vpp' in config:
+        return None
+
     cgnat = Det44()
 
     if 'remove' in config:
