@@ -68,6 +68,7 @@ GENERATE = ['/opt/vyatta/bin/vyatta-op-cmd-wrapper', 'generate']
 SHOW = ['/opt/vyatta/bin/vyatta-op-cmd-wrapper', 'show']
 RESET = ['/opt/vyatta/bin/vyatta-op-cmd-wrapper', 'reset']
 REBOOT = ['/opt/vyatta/bin/vyatta-op-cmd-wrapper', 'reboot']
+RENEW = ['/opt/vyatta/bin/vyatta-op-cmd-wrapper', 'renew']
 POWEROFF = ['/opt/vyatta/bin/vyatta-op-cmd-wrapper', 'poweroff']
 OP_CMD_ADD = ['/opt/vyatta/bin/vyatta-op-cmd-wrapper', 'add']
 OP_CMD_DELETE = ['/opt/vyatta/bin/vyatta-op-cmd-wrapper', 'delete']
@@ -382,6 +383,10 @@ class ConfigSession(object):
 
     def reset(self, path):
         out = self.__run_command(RESET + path)
+        return out
+
+    def renew(self, path):
+        out = self.__run_command(RENEW + path)
         return out
 
     def poweroff(self, path):

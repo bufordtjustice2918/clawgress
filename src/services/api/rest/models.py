@@ -251,6 +251,20 @@ class RebootModel(ApiModel):
         }
 
 
+class RenewModel(ApiModel):
+    op: StrictStr
+    path: List[StrictStr]
+
+    class Config:
+        json_schema_extra = {
+            'example': {
+                'key': 'id_key',
+                'op': 'renew',
+                'path': ['op', 'mode', 'path'],
+            }
+        }
+
+
 class ResetModel(ApiModel):
     op: StrictStr
     path: List[StrictStr]
