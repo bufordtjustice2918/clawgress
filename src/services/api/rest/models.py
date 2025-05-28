@@ -134,6 +134,7 @@ class RetrieveModel(ApiModel):
 class ConfigFileModel(ApiModel):
     op: StrictStr
     file: StrictStr = None
+    string: StrictStr = None
 
     class Config:
         json_schema_extra = {
@@ -141,6 +142,7 @@ class ConfigFileModel(ApiModel):
                 'key': 'id_key',
                 'op': 'save | load',
                 'file': 'filename',
+                'string': 'config_string'
             }
         }
 

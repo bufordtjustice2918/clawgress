@@ -510,8 +510,12 @@ def config_file_op(data: ConfigFileModel, background_tasks: BackgroundTasks):
         elif op == 'load':
             if data.file:
                 path = data.file
+            elif data.string:
+                path = '/tmp/config.file'
+                with open(path, 'w') as f:
+                    f.write(data.string)
             else:
-                return error(400, 'Missing required field "file"')
+                return error(400, 'Missing required field "file | string"')
 
             session.migrate_and_load_config(path)
 
