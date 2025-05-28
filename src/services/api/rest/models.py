@@ -140,7 +140,7 @@ class ConfigFileModel(ApiModel):
         json_schema_extra = {
             'example': {
                 'key': 'id_key',
-                'op': 'save | load',
+                'op': 'save | load | merge',
                 'file': 'filename',
                 'string': 'config_string'
             }

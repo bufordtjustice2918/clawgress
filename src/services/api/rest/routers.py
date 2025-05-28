@@ -507,7 +507,7 @@ def config_file_op(data: ConfigFileModel, background_tasks: BackgroundTasks):
             else:
                 path = '/config/config.boot'
             msg = session.save_config(path)
-        elif op == 'load':
+        elif op in ('load', 'merge'):
             if data.file:
                 path = data.file
             elif data.string:
@@ -517,7 +517,11 @@ def config_file_op(data: ConfigFileModel, background_tasks: BackgroundTasks):
             else:
                 return error(400, 'Missing required field "file | string"')
 
-            session.migrate_and_load_config(path)
+            match op:
+                case 'load':
+                    session.migrate_and_load_config(path)
+                case 'merge':
+                    session.merge_config(path)
 
             config = Config(session_env=env)
             d = get_config_diff(config)
