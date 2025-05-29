@@ -36,6 +36,7 @@ DISCARD = '/opt/vyatta/sbin/my_discard'
 SHOW_CONFIG = ['/bin/cli-shell-api', 'showConfig']
 LOAD_CONFIG = ['/bin/cli-shell-api', 'loadFile']
 MIGRATE_LOAD_CONFIG = ['/usr/libexec/vyos/vyos-load-config.py']
+MERGE_CONFIG = ['/usr/libexec/vyos/vyos-merge-config.py']
 SAVE_CONFIG = ['/usr/libexec/vyos/vyos-save-config.py']
 INSTALL_IMAGE = [
     '/usr/libexec/vyos/op_mode/image_installer.py',
@@ -336,6 +337,14 @@ class ConfigSession(object):
             out = self.__run_command(MIGRATE_LOAD_CONFIG + [file_path])
         else:
             out, _ = self._vyconf_session.load_config(file=file_path, migrate=True)
+
+        return out
+
+    def merge_config(self, file_path):
+        if self._vyconf_session is None:
+            out = self.__run_command(MERGE_CONFIG + [file_path])
+        else:
+            out, _ = 'unimplemented'
 
         return out
 
