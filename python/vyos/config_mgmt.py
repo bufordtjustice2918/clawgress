@@ -144,7 +144,7 @@ class ConfigMgmt:
             ['system', 'config-management'],
             key_mangling=('-', '_'),
             get_first_key=True,
-            with_defaults=True,
+            with_recursive_defaults=True,
         )
 
         self.max_revisions = int(d.get('commit_revisions', 0))
