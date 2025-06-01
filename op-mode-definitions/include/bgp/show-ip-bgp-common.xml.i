@@ -81,12 +81,7 @@
           </properties>
           <command>${vyos_op_scripts_dir}/vtysh_wrapper.sh $@</command>
           <children>
-            <leafNode name="advertised-routes">
-              <properties>
-                <help>Show routes advertised to a BGP neighbor</help>
-              </properties>
-              <command>${vyos_op_scripts_dir}/vtysh_wrapper.sh $@</command>
-            </leafNode>
+            #include <include/bgp/advertised-routes.xml.i>
             <leafNode name="prefix-counts">
               <properties>
                 <help>Show detailed prefix count information</help>
