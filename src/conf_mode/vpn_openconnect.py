@@ -79,7 +79,7 @@ def verify(ocserv):
     # Check accounting
     if "accounting" in ocserv:
         if "mode" in ocserv["accounting"] and "radius" in ocserv["accounting"]["mode"]:
-            if not origin["accounting"]['radius']['server']:
+            if not ocserv["accounting"]['radius']['server']:
                 raise ConfigError('OpenConnect accounting mode radius requires at least one RADIUS server')
             if "authentication" not in ocserv or "mode" not in ocserv["authentication"]:
                 raise ConfigError('Accounting depends on OpenConnect authentication configuration')
