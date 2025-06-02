@@ -106,7 +106,7 @@ def verify(ocserv):
                         users_wo_key = []
                         for user, user_config in ocserv["authentication"]["local_users"]["username"].items():
                             # User has no OTP key defined
-                            if dict_search('otp.key', user_config) == None:
+                            if dict_search('otp.key', user_config) is None:
                                 users_wo_key.append(user)
                         if users_wo_key:
                             raise ConfigError(f'OTP enabled, but no OTP key is configured for these users:\n{users_wo_key}')
@@ -114,7 +114,7 @@ def verify(ocserv):
                     if "password" in ocserv["authentication"]["mode"]["local"] or "otp" not in ocserv["authentication"]["mode"]["local"]:
                         users_wo_pswd = []
                         for user in ocserv["authentication"]["local_users"]["username"]:
-                            if not "password" in ocserv["authentication"]["local_users"]["username"][user]:
+                            if "password" not in ocserv["authentication"]["local_users"]["username"][user]:
                                 users_wo_pswd.append(user)
                         if users_wo_pswd:
                             raise ConfigError(f'password required for users:\n{users_wo_pswd}')
@@ -194,7 +194,7 @@ def generate(ocserv):
                         otp_type = "HOTP/T" + otp_interval
                     ocserv["authentication"]["local_users"]["username"][user]["otp"]["token_tmpl"] = otp_type + "/" + otp_length
         # if there is a password, generate hash
-        if "password" in ocserv["authentication"]["mode"]["local"] or not "otp" in ocserv["authentication"]["mode"]["local"]:
+        if "password" in ocserv["authentication"]["mode"]["local"] or "otp" not in ocserv["authentication"]["mode"]["local"]:
             if "local_users" in ocserv["authentication"]:
                 for user in ocserv["authentication"]["local_users"]["username"]:
                     ocserv["authentication"]["local_users"]["username"][user]["hash"] = get_hash(ocserv["authentication"]["local_users"]["username"][user]["password"])
