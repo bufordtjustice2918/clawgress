@@ -82,25 +82,13 @@
           <command>${vyos_op_scripts_dir}/vtysh_wrapper.sh $@</command>
           <children>
             #include <include/bgp/advertised-routes.xml.i>
-            <leafNode name="prefix-counts">
-              <properties>
-                <help>Show detailed prefix count information</help>
-              </properties>
-              <command>${vyos_op_scripts_dir}/vtysh_wrapper.sh $@</command>
-            </leafNode>
-            <leafNode name="filtered-routes">
-              <properties>
-                <help>Show the filtered routes from neighbor</help>
-              </properties>
-              <command>${vyos_op_scripts_dir}/vtysh_wrapper.sh $@</command>
-            </leafNode>
+            #include <include/bgp/dampened-routes.xml.i>
+            #include <include/bgp/filtered-routes.xml.i>
+            #include <include/bgp/flap-statistics.xml.i>
+            #include <include/bgp/prefix-counts.xml.i>
+            #include <include/bgp/received.xml.i>
             #include <include/bgp/received-routes.xml.i>
-            <leafNode name="routes">
-              <properties>
-                <help>Show routes learned from neighbor</help>
-              </properties>
-              <command>${vyos_op_scripts_dir}/vtysh_wrapper.sh $@</command>
-            </leafNode>
+            #include <include/bgp/routes.xml.i>
           </children>
         </tagNode>
         <leafNode name="paths">
