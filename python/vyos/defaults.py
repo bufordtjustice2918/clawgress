@@ -82,3 +82,5 @@ rt_global_vrf = rt_symbolic_names['main']
 rt_global_table = rt_symbolic_names['main']
 
 vyconfd_conf = '/etc/vyos/vyconfd.conf'
+
+DEFAULT_COMMIT_CONFIRM_MINUTES = 10
