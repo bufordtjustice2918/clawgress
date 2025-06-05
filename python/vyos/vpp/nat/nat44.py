@@ -215,6 +215,15 @@ class Nat44:
             is_add=False,
         )
 
+    def set_nat_timeouts(self, icmp, udp, tcp_established, tcp_transitory):
+        """Set NAT timeouts"""
+        self.vpp.api.nat_set_timeouts(
+            icmp=icmp,
+            udp=udp,
+            tcp_established=tcp_established,
+            tcp_transitory=tcp_transitory,
+        )
+
     def enable_ipfix(self):
         """Enable NAT44 IPFIX logging"""
         self.vpp.api.nat44_ei_ipfix_enable_disable(enable=True)

@@ -1373,13 +1373,11 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         self.assertIn(f'{exclude_local_addr}:{exclude_local_port} vrf 0', out)
 
         # Check timeouts
-        # skipped due to https://vyos.dev/T7515
-        #
-        # _, out = rc_cmd('sudo vppctl show nat44 ei timeouts')
-        # self.assertIn(f'udp timeout: {timeout_udp}sec', out)
-        # self.assertIn(f'tcp established timeout: {timeout_tcp_est}sec', out)
-        # self.assertIn(f'tcp transitory timeout: {timeout_tcp_trans}sec', out)
-        # self.assertIn(f'icmp timeout: {timeout_icmp}sec', out)
+        _, out = rc_cmd('sudo vppctl show nat timeouts')
+        self.assertIn(f'udp timeout: {timeout_udp}sec', out)
+        self.assertIn(f'tcp-established timeout: {timeout_tcp_est}sec', out)
+        self.assertIn(f'tcp-transitory timeout: {timeout_tcp_trans}sec', out)
+        self.assertIn(f'icmp timeout: {timeout_icmp}sec', out)
 
         # Summary
         _, out = rc_cmd('sudo vppctl show nat44 summary')

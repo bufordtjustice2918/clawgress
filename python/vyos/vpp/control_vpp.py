@@ -449,25 +449,6 @@ class VPPControl:
         self.__vpp_api_client.api.nat44_forwarding_enable_disable(enable=enable)
 
     @_Decorators.api_call
-    def set_nat_timeouts(
-        self, icmp: int, udp: int, tcp_established: int, tcp_transitory: int
-    ) -> None:
-        """Set NAT timeouts
-
-        Args:
-            tcp_established (int): TCP established timeout
-            tcp_transitory (int): TCP transitory timeout
-            udp (int): UDP timeout
-            icmp (int): ICMP timeout
-        """
-        self.__vpp_api_client.api.nat_set_timeouts(
-            icmp=icmp,
-            udp=udp,
-            tcp_established=tcp_established,
-            tcp_transitory=tcp_transitory,
-        )
-
-    @_Decorators.api_call
     def set_nat44_session_limit(self, session_limit: int) -> None:
         """Set NAT44 session limit
 
