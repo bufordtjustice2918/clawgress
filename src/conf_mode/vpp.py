@@ -745,13 +745,6 @@ def apply(config):
             enable_forwarding = False
         vpp_control.enable_disable_nat44_forwarding(enable_forwarding)
 
-        vpp_control.set_nat_timeouts(
-            icmp=int(nat44_settings.get('timeout').get('icmp')),
-            udp=int(nat44_settings.get('timeout').get('udp')),
-            tcp_established=int(nat44_settings.get('timeout').get('tcp_established')),
-            tcp_transitory=int(nat44_settings.get('timeout').get('tcp_transitory')),
-        )
-
         vpp_control.set_nat44_session_limit(int(nat44_settings.get('session_limit')))
 
         if nat44_settings.get('workers'):

@@ -104,6 +104,14 @@ def get_config(config=None) -> dict:
         }
     )
 
+    if conf.exists(['vpp', 'settings', 'nat44', 'timeout']):
+        timeouts = conf.get_config_dict(
+            ['vpp', 'settings', 'nat44', 'timeout'],
+            key_mangling=('-', '_'),
+            with_defaults=True,
+        )
+        config.update(timeouts)
+
     if effective_config:
         config.update({'effective': effective_config})
 
@@ -453,6 +461,13 @@ def apply(config):
                 port=int(rule_config.get('local_port', 0)),
                 interface=rule_config.get('external_interface'),
             )
+    if 'timeout' in config:
+        n.set_nat_timeouts(
+            icmp=int(config.get('timeout').get('icmp')),
+            udp=int(config.get('timeout').get('udp')),
+            tcp_established=int(config.get('timeout').get('tcp_established')),
+            tcp_transitory=int(config.get('timeout').get('tcp_transitory')),
+        )
 
 
 if __name__ == '__main__':
