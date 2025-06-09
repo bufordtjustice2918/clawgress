@@ -6,7 +6,7 @@
         <properties>
           <help>Update Suricata</help>
         </properties>
-        <command>if test -f /run/suricata/suricata.yaml; then suricata-update --suricata-conf /run/suricata/suricata.yaml; systemctl restart suricata; else echo "Service Suricata not configured"; fi </command>
+        <command>${vyos_op_scripts_dir}/update_suricata.sh</command>
       </node>
     </children>
   </node>
