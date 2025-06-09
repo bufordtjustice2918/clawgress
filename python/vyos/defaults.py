@@ -84,3 +84,7 @@ rt_global_table = rt_symbolic_names['main']
 vyconfd_conf = '/etc/vyos/vyconfd.conf'
 
 DEFAULT_COMMIT_CONFIRM_MINUTES = 10
+
+commit_hooks = {'pre': '/etc/commit/pre-hooks.d',
+                'post': '/etc/commit/post-hooks.d'
+               }
