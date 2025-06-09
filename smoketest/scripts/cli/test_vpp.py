@@ -1269,6 +1269,120 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         config = read_file(VPP_CONF)
         self.assertIn('interface ipip', config)
 
+    def test_16_vpp_cgnat(self):
+        base_cgnat = base_path + ['nat', 'cgnat']
+        iface_out = 'eth0'
+        iface_inside = 'eth1'
+        timeout_udp = '150'
+        timeout_icmp = '30'
+        timeout_tcp_est = '600'
+        timeout_tcp_trans = '120'
+        inside_prefix = '100.64.0.0/24'
+        outside_prefix = '192.0.2.1/32'
+
+        self.cli_set(base_path + ['settings', 'interface', iface_out, 'driver', driver])
+        self.cli_set(base_cgnat + ['interface', 'inside', iface_inside])
+        self.cli_set(base_cgnat + ['interface', 'outside', iface_out])
+        self.cli_set(base_cgnat + ['rule', '100', 'inside-prefix', inside_prefix])
+        self.cli_set(base_cgnat + ['rule', '100', 'outside-prefix', outside_prefix])
+        self.cli_set(base_cgnat + ['timeout', 'icmp', timeout_icmp])
+        self.cli_set(base_cgnat + ['timeout', 'tcp-established', timeout_tcp_est])
+        self.cli_set(base_cgnat + ['timeout', 'tcp-transitory', timeout_tcp_trans])
+        self.cli_set(base_cgnat + ['timeout', 'udp', timeout_udp])
+        self.cli_commit()
+
+        # Check interfaces
+        _, out = rc_cmd('sudo vppctl show det44 interfaces')
+        self.assertIn(f'{iface_inside} in', out)
+        self.assertIn(f'{iface_out} out', out)
+
+        # Check mappings
+        _, out = rc_cmd('sudo vppctl show det44 mappings')
+        self.assertIn(inside_prefix, out)
+        self.assertIn(outside_prefix, out)
+
+        # Check timeouts
+        _, out = rc_cmd('sudo vppctl show det44 timeouts')
+        self.assertIn(f'udp timeout: {timeout_udp}sec', out)
+        self.assertIn(f'tcp established timeout: {timeout_tcp_est}sec', out)
+        self.assertIn(f'tcp transitory timeout: {timeout_tcp_trans}sec', out)
+        self.assertIn(f'icmp timeout: {timeout_icmp}sec', out)
+
+    def test_17_vpp_nat(self):
+        base_nat = base_path + ['nat44']
+        base_nat_settings = base_path + ['settings', 'nat44']
+        exclude_local_addr = '100.64.0.52'
+        exclude_local_port = '22'
+        iface_out = 'eth0'
+        iface_inside = 'eth1'
+        timeout_udp = '150'
+        timeout_icmp = '30'
+        timeout_tcp_est = '600'
+        timeout_tcp_trans = '120'
+        translation_pool = '192.0.2.1-192.0.2.2'
+        static_ext_addr = '192.0.2.55'
+        static_local_addr = '100.64.0.55'
+        sess_limit = '64000'
+
+        self.cli_set(base_path + ['settings', 'interface', iface_out, 'driver', driver])
+        self.cli_set(base_nat + ['interface', 'inside', iface_inside])
+        self.cli_set(base_nat + ['interface', 'outside', iface_out])
+        self.cli_set(
+            base_nat + ['address-pool', 'translation', 'address', translation_pool]
+        )
+        self.cli_set(
+            base_nat + ['exclude', 'rule', '100', 'local-address', exclude_local_addr]
+        )
+        self.cli_set(
+            base_nat + ['exclude', 'rule', '100', 'local-port', exclude_local_port]
+        )
+        self.cli_set(
+            base_nat + ['static', 'rule', '100', 'external', 'address', static_ext_addr]
+        )
+        self.cli_set(
+            base_nat + ['static', 'rule', '100', 'local', 'address', static_local_addr]
+        )
+
+        self.cli_set(base_nat_settings + ['no-forwarding'])
+        self.cli_set(base_nat_settings + ['session-limit', sess_limit])
+        self.cli_set(base_nat_settings + ['timeout', 'icmp', timeout_icmp])
+        self.cli_set(
+            base_nat_settings + ['timeout', 'tcp-established', timeout_tcp_est]
+        )
+        self.cli_set(
+            base_nat_settings + ['timeout', 'tcp-transitory', timeout_tcp_trans]
+        )
+        self.cli_set(base_nat_settings + ['timeout', 'udp', timeout_udp])
+        self.cli_commit()
+
+        # Check addresses
+        _, out = rc_cmd('sudo vppctl show nat44 addresses')
+        self.assertIn(translation_pool.split('-')[0], out)
+        self.assertIn(translation_pool.split('-')[1], out)
+
+        # Check interfaces
+        _, out = rc_cmd('sudo vppctl show nat44 interfaces')
+        self.assertIn(f'{iface_inside} in', out)
+        self.assertIn(f'{iface_out} out', out)
+
+        # Check mappings
+        _, out = rc_cmd('sudo vppctl show nat44 static mappings')
+        self.assertIn(
+            f'local {static_local_addr} external {static_ext_addr} vrf 0', out
+        )
+        self.assertIn(f'{exclude_local_addr}:{exclude_local_port} vrf 0', out)
+
+        # Check timeouts
+        _, out = rc_cmd('sudo vppctl show nat timeouts')
+        self.assertIn(f'udp timeout: {timeout_udp}sec', out)
+        self.assertIn(f'tcp-established timeout: {timeout_tcp_est}sec', out)
+        self.assertIn(f'tcp-transitory timeout: {timeout_tcp_trans}sec', out)
+        self.assertIn(f'icmp timeout: {timeout_icmp}sec', out)
+
+        # Summary
+        _, out = rc_cmd('sudo vppctl show nat44 summary')
+        self.assertIn(f'max translations per thread: {sess_limit} fib 0', out)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
