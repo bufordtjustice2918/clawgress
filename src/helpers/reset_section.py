@@ -29,6 +29,7 @@ from vyos.xml_ref import is_leaf
 
 
 CFG_GROUP = 'vyattacfg'
+DEBUG = False
 
 
 def type_str_to_list(value):
@@ -58,7 +59,10 @@ try:
     if is_leaf(path):
         sys.exit('path is leaf node: neither allowed nor useful')
 except ValueError:
-    sys.exit('nonexistent path: neither allowed nor useful')
+    if DEBUG:
+        sys.exit('nonexistent path: neither allowed nor useful')
+    else:
+        sys.exit()
 
 test = Config()
 in_session = test.in_session()
