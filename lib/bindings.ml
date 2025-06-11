@@ -7,6 +7,7 @@ open Commitd_client
 
 module CT = Config_tree
 module CD = Config_diff
+module TA = Tree_alg
 module CM = Commit
 module VC = Vycall_client
 
@@ -247,7 +248,18 @@ let tree_union c_ptr_l c_ptr_r =
         let ct_ret = CD.tree_union ct_l ct_r in
         Ctypes.Root.create ct_ret
     with
-        CD.Nonexistent_child -> error_message := "Nonexistent child"; Ctypes.null
+        | TA.Nonexistent_child -> error_message := "Nonexistent child"; Ctypes.null
+        | TA.Incompatible_union -> error_message := "Trees must have equivalent root"; Ctypes.null
+
+let tree_merge destructive c_ptr_l c_ptr_r =
+    let ct_l = Root.get c_ptr_l in
+    let ct_r = Root.get c_ptr_r in
+    try
+        let ct_ret = CD.tree_merge ~destructive:destructive ct_l ct_r in
+        Ctypes.Root.create ct_ret
+    with
+        | TA.Nonexistent_child -> error_message := "Nonexistent child"; Ctypes.null
+        | TA.Incompatible_union -> error_message := "Trees must have equivalent root"; Ctypes.null
 
 let reference_tree_to_json internal_cache from_dir to_file =
     try
@@ -304,6 +316,7 @@ struct
   let () = I.internal "diff_tree" (string @-> (ptr void) @-> (ptr void) @-> returning (ptr void)) diff_tree
   let () = I.internal "show_diff" (bool @-> string @-> (ptr void) @-> (ptr void) @-> returning string) show_diff
   let () = I.internal "tree_union" ((ptr void) @-> (ptr void) @-> returning (ptr void)) tree_union
+  let () = I.internal "tree_merge" (bool @-> (ptr void) @-> (ptr void) @-> returning (ptr void)) tree_merge
   let () = I.internal "reference_tree_to_json" (string @-> string @-> string @-> returning int) reference_tree_to_json
   let () = I.internal "mask_tree" ((ptr void) @-> (ptr void) @-> returning (ptr void)) mask_tree
 end
