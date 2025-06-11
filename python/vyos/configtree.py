@@ -499,6 +499,28 @@ def union(left, right, libpath=LIBPATH):
     return tree
 
 
+def merge(left, right, destructive=False, libpath=LIBPATH):
+    if left is None:
+        left = ConfigTree(config_string='\n')
+    if right is None:
+        right = ConfigTree(config_string='\n')
+    if not (isinstance(left, ConfigTree) and isinstance(right, ConfigTree)):
+        raise TypeError('Arguments must be instances of ConfigTree')
+
+    __lib = cdll.LoadLibrary(libpath)
+    __tree_merge = __lib.tree_merge
+    __tree_merge.argtypes = [c_bool, c_void_p, c_void_p]
+    __tree_merge.restype = c_void_p
+    __get_error = __lib.get_error
+    __get_error.argtypes = []
+    __get_error.restype = c_char_p
+
+    res = __tree_merge(destructive, left._get_config(), right._get_config())
+    tree = ConfigTree(address=res)
+
+    return tree
+
+
 def mask_inclusive(left, right, libpath=LIBPATH):
     if not (isinstance(left, ConfigTree) and isinstance(right, ConfigTree)):
         raise TypeError('Arguments must be instances of ConfigTree')
