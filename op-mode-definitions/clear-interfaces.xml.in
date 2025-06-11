@@ -16,17 +16,6 @@
             </properties>
             <command>${vyos_op_scripts_dir}/interfaces.py clear_counters</command>
           </node>
-          <tagNode name="connection">
-            <properties>
-              <help>Bring connection-oriented network interface down and up</help>
-              <completionHelp>
-                <path>interfaces pppoe</path>
-                <path>interfaces sstpc</path>
-                <path>interfaces wwan</path>
-              </completionHelp>
-            </properties>
-            <command>${vyos_op_scripts_dir}/connect_disconnect.py --connect --disconnect --interface "$3"</command>
-          </tagNode>
           <node name="bonding">
             <properties>
               <help>Clear Bonding interface information</help>
