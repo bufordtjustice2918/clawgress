@@ -143,5 +143,10 @@ class TestKernelModules(unittest.TestCase):
             tmp = re.findall(f'{option}=3', self._config_data)
             self.assertTrue(tmp)
 
+    def test_inotify_stackfs(self):
+        for option in ['CONFIG_INOTIFY_USER', 'CONFIG_INOTIFY_STACKFS']:
+            tmp = re.findall(f'{option}=y', self._config_data)
+            self.assertTrue(tmp)
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
