@@ -53,6 +53,10 @@ def get_config(config=None) -> dict:
         with_recursive_defaults=True,
     )
 
+    if not conf.exists(['vpp']):
+        config['remove_vpp'] = True
+        return config
+
     # Get effective config as we need full dicitonary per interface delete
     effective_config = conf.get_config_dict(
         base + [ifname],
@@ -85,7 +89,7 @@ def get_config(config=None) -> dict:
 
 
 def verify(config):
-    if 'remove' in config:
+    if 'remove' in config or 'remove_vpp' in config:
         return None
 
     # Xconnect requires 2 members
@@ -110,6 +114,9 @@ def generate(config):
 
 
 def apply(config):
+    if 'remove_vpp' in config:
+        return None
+
     ifname = config.get('ifname')
 
     # Delete xconnect

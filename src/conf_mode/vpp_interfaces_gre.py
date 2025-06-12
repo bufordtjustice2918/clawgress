@@ -65,6 +65,10 @@ def get_config(config=None) -> dict:
         with_recursive_defaults=True,
     )
 
+    if not conf.exists(['vpp']):
+        config['remove_vpp'] = True
+        return config
+
     # Get effective config as we need full dicitonary per interface delete
     effective_config = conf.get_config_dict(
         base + [ifname],
@@ -125,6 +129,10 @@ def get_config(config=None) -> dict:
 
 
 def verify(config):
+    # No need to verify anything if vpp is removed
+    if 'remove_vpp' in config:
+        return None
+
     # Verify that removed kernel interface is not used in 'vpp kernel-interfaces'.
     # vpp interfaces gre greX kernel-interface vpp-tunX
     # vpp kernel-interface vpp-tunX
@@ -167,6 +175,9 @@ def generate(config):
 
 
 def apply(config):
+    if 'remove_vpp' in config:
+        return None
+
     ifname = config.get('ifname')
     # Delete interface
     if 'effective' in config:

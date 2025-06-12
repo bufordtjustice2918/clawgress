@@ -3,6 +3,7 @@ After=
 After=vyos-router.service
 ConditionPathExists=
 ConditionPathExists=/run/vpp/vpp.conf
+OnFailure=vpp-failure-handler.service
 
 [Service]
 EnvironmentFile=
@@ -10,5 +11,4 @@ ExecStart=
 ExecStart=/usr/bin/vpp -c /run/vpp/vpp.conf
 WorkingDirectory=
 WorkingDirectory=/run/vpp
-Restart=always
-RestartSec=10
+Restart=no
