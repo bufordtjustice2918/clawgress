@@ -693,6 +693,7 @@ def apply(config):
                     if 'promisc' in iface_config['xdp_options']:
                         control_host.set_promisc(f'defunct_{iface}', 'on')
                     control_host.set_status(f'defunct_{iface}', 'up')
+                    control_host.flush_ip(f'defunct_{iface}')
                 # Rename Mellanox interfaces to hide them and create LCP properly
                 if (
                     iface in Section.interfaces()
@@ -700,6 +701,7 @@ def apply(config):
                 ):
                     control_host.rename_iface(iface, f'defunct_{iface}')
                     control_host.set_status(f'defunct_{iface}', 'up')
+                    control_host.flush_ip(f'defunct_{iface}')
                 # Create lcp
                 if iface not in Section.interfaces():
                     vpp_control.lcp_pair_add(iface, iface)

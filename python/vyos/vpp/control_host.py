@@ -21,6 +21,8 @@ from re import fullmatch as re_fullmatch
 from subprocess import run
 from time import sleep
 
+from pyroute2 import IPRoute
+
 from vyos.vpp.utils import EthtoolGDrvinfo
 
 
@@ -361,3 +363,13 @@ def set_status(iface_name: str, status: str) -> None:
         status (str): status - "up" or "down"
     """
     run(['ip', 'link', 'set', iface_name, status])
+
+
+def flush_ip(iface_name: str) -> None:
+    """Flush IP addresses from an interface
+
+    Args:
+        iface_name (str): name of an interface
+    """
+    iproute = IPRoute()
+    iproute.flush_addr(label=iface_name)
