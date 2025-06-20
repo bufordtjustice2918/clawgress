@@ -18,17 +18,20 @@ from typing import Union
 from typing import Iterator
 from dataclasses import dataclass
 from dataclasses import field
+from dataclasses import fields
 from itertools import filterfalse
 
 
 @dataclass
 class NodeData:
+    # pylint: disable=too-many-instance-attributes
     name: str = ''
     node_type: str = 'node'
     help_text: str = ''
     comp_help: dict[str, list] = field(default_factory=dict)
     command: str = ''
     path: list[str] = field(default_factory=list)
+    file: str = ''
     children: list[tuple] = field(default_factory=list)
 
 
@@ -99,6 +102,10 @@ def match_tuple_paths(
     return list(filter(lambda p: key_names(p) == path, paths))
 
 
+def get_node_data(d: dict) -> NodeData:
+    return d.get(('__node_data', None), {})
+
+
 def get_node_data_at_path(d: dict, tpath):
     if not tpath:
         return {}
@@ -109,7 +116,22 @@ def get_node_data_at_path(d: dict, tpath):
         d = d.get(tpath[0], {})
         tpath = tpath[1:]
 
-    return d.get(('__node_data', None), {})
+    return get_node_data(d)
+
+
+def node_data_difference(a: NodeData, b: NodeData):
+    out = ''
+    for fld in fields(NodeData):
+        if fld.name in ('children', 'file'):
+            continue
+        a_fld = getattr(a, fld.name)
+        b_fld = getattr(b, fld.name)
+        if a_fld != b_fld:
+            out += f'prev: {a.file} {a.path} {fld.name}: {a_fld}\n'
+            out += f'new:  {b.file} {b.path} {fld.name}: {b_fld}\n'
+            out += '\n'
+
+    return out
 
 
 class OpXml:

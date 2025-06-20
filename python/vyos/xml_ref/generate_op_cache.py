@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
 import io
 import re
 import sys
@@ -35,6 +36,8 @@ from op_definition import OpKey  # pylint: disable=unused-import # noqa: F401
 from op_definition import OpData  # pylint: disable=unused-import # noqa: F401
 from op_definition import key_name
 from op_definition import key_type
+from op_definition import node_data_difference
+from op_definition import get_node_data
 
 _here = dirname(__file__)
 
@@ -93,6 +96,7 @@ def translate_op_script(s: str) -> str:
 
 
 def compare_keys(a, b):
+    # pylint: disable=too-many-return-statements
     match key_type(a), key_type(b):
         case None, None:
             if key_name(a) == key_name(b):
@@ -127,7 +131,7 @@ def sort_op_data(obj):
 
 
 def insert_node(
-    n: Element, d: dict, path: list[str] = None, parent: NodeData = None
+    n: Element, d: dict, path: list[str] = None, parent: NodeData = None, file: str = ''
 ) -> None:
     # pylint: disable=too-many-locals,too-many-branches,too-many-statements
     prop: OptElement = n.find('properties')
@@ -185,6 +189,7 @@ def insert_node(
     cur_node_data.help_text = help_text
     cur_node_data.command = command_text
     cur_node_data.path = path
+    cur_node_data.file = file
 
     value = {('__node_data', None): cur_node_data}
     key = (name, node_type)
@@ -194,26 +199,24 @@ def insert_node(
     if parent and key not in parent.children:
         parent.children.append(key)
 
-    if (
-        CHECK_XML_CONSISTENCY
-        and cur_value[('__node_data', None)] != value[('__node_data', None)]
-    ):
-        err_buf.write(
-            f"prev: {cur_value[('__node_data', None)]}; new: {value[('__node_data', None)]}\n"
-        )
+    if CHECK_XML_CONSISTENCY:
+        out = node_data_difference(get_node_data(cur_value), get_node_data(value))
+        if out:
+            err_buf.write(out)
 
     if children is not None:
         inner_nodes = children.iterfind('*')
         for inner_n in inner_nodes:
             inner_path = path[:]
-            insert_node(inner_n, d[key], inner_path, cur_node_data)
+            insert_node(inner_n, d[key], inner_path, cur_node_data, file)
 
 
 def parse_file(file_path, d):
     tree = ET.parse(file_path)
     root = tree.getroot()
+    file = os.path.basename(file_path)
     for n in root.iterfind('*'):
-        insert_node(n, d)
+        insert_node(n, d, file=file)
 
 
 def main():
