@@ -134,6 +134,36 @@ def node_data_difference(a: NodeData, b: NodeData):
     return out
 
 
+def collapse(d: OpData, acc: dict = None) -> dict:
+    if acc is None:
+        acc = {}
+    if not isinstance(d, dict):
+        return d
+    for k, v in d.items():
+        if isinstance(k, tuple):
+            # reduce
+            name = key_name(k)
+            if name != '__node_data':
+                new_data = get_node_data(v)
+                if name in list(acc.keys()):
+                    prev_data = acc[name].get('__node_data', {})
+                    if prev_data:
+                        out = f'prev: {prev_data.file} {prev_data.path}\n'
+                    else:
+                        out = '\n'
+                    out += f'new: {new_data.file} {new_data.path}\n'
+                    print(out)
+                else:
+                    acc[name] = {}
+                    acc[name]['__node_data'] = new_data
+                    acc[name].update(collapse(v))
+        else:
+            name = k
+            acc[name] = v
+
+    return acc
+
+
 class OpXml:
     def __init__(self):
         self.op_ref = {}

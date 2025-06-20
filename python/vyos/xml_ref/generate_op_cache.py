@@ -38,6 +38,7 @@ from op_definition import key_name
 from op_definition import key_type
 from op_definition import node_data_difference
 from op_definition import get_node_data
+from op_definition import collapse
 
 _here = dirname(__file__)
 
@@ -235,6 +236,11 @@ def main():
         action='store_true',
         help='check consistency of node data across files',
     )
+    parser.add_argument(
+        '--check-path-ambiguity',
+        action='store_true',
+        help='attempt to reduce to unique paths, reporting if error',
+    )
 
     args = vars(parser.parse_args())
 
@@ -250,6 +256,11 @@ def main():
         parse_file(fname, d)
 
     d = sort_op_data(d)
+
+    if args['check_path_ambiguity']:
+        # when the following passes with no output, return value will be
+        # the full dictionary indexed by str, not tuple
+        _ = collapse(d)
 
     with open(op_ref_cache, 'w') as f:
         f.write('from vyos.xml_ref.op_definition import NodeData\n')
