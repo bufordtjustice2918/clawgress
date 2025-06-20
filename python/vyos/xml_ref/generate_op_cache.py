@@ -186,7 +186,7 @@ def insert_node(
     cur_node_data.command = command_text
     cur_node_data.path = path
 
-    value = {('node_data', None): cur_node_data}
+    value = {('__node_data', None): cur_node_data}
     key = (name, node_type)
 
     cur_value = d.setdefault(key, value)
@@ -196,10 +196,10 @@ def insert_node(
 
     if (
         CHECK_XML_CONSISTENCY
-        and cur_value[('node_data', None)] != value[('node_data', None)]
+        and cur_value[('__node_data', None)] != value[('__node_data', None)]
     ):
         err_buf.write(
-            f"prev: {cur_value[('node_data', None)]}; new: {value[('node_data', None)]}\n"
+            f"prev: {cur_value[('__node_data', None)]}; new: {value[('__node_data', None)]}\n"
         )
 
     if children is not None:

@@ -81,7 +81,7 @@ def tuple_paths(d: dict) -> Iterator[list[tuple]]:
             if not d:
                 yield path
             for k, v in d.items():
-                if isinstance(k, tuple) and key_name(k) != 'node_data':
+                if isinstance(k, tuple) and key_name(k) != '__node_data':
                     for r in func(v, path + [k]):
                         yield r
                 else:
@@ -109,7 +109,7 @@ def get_node_data_at_path(d: dict, tpath):
         d = d.get(tpath[0], {})
         tpath = tpath[1:]
 
-    return d.get(('node_data', None), {})
+    return d.get(('__node_data', None), {})
 
 
 class OpXml:
@@ -132,7 +132,7 @@ class OpXml:
 
     @staticmethod
     def get_node_data_func(k, v):
-        if key_name(k) == 'node_data':
+        if key_name(k) == '__node_data':
             return v
         return None
 
