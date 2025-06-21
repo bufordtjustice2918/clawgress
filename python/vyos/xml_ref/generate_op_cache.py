@@ -19,6 +19,7 @@ import io
 import re
 import sys
 import glob
+import json
 import atexit
 
 from argparse import ArgumentParser
@@ -48,6 +49,7 @@ from defaults import directories  # noqa: E402
 
 
 op_ref_cache = abspath(join(_here, 'op_cache.py'))
+op_ref_json = abspath(join(_here, 'op_cache.json'))
 
 OptElement: TypeAlias = Optional[Element]
 
@@ -241,6 +243,11 @@ def main():
         action='store_true',
         help='attempt to reduce to unique paths, reporting if error',
     )
+    parser.add_argument(
+        '--select',
+        type=str,
+        help='limit cache to a subset of XML files: "power_ctl | multicast-group | ..."',
+    )
 
     args = vars(parser.parse_args())
 
@@ -252,15 +259,27 @@ def main():
 
     d = {}
 
+    select = args['select']
+    if select:
+        select = [item.strip() for item in select.split('|')]
+
     for fname in sorted(glob.glob(f'{xml_dir}/*.xml')):
-        parse_file(fname, d)
+        file = os.path.basename(fname)
+        if not select or os.path.splitext(file)[0] in select:
+            parse_file(fname, d)
 
     d = sort_op_data(d)
 
     if args['check_path_ambiguity']:
-        # when the following passes with no output, return value will be
-        # the full dictionary indexed by str, not tuple
-        _ = collapse(d)
+        # when the following passes without error, return value will be the
+        # full dictionary indexed by str, not tuple
+        res, out, err = collapse(d)
+        if not err:
+            with open(op_ref_json, 'w') as f:
+                json.dump(res, f, indent=2)
+        else:
+            print('Found the following duplicate paths:\n')
+            print(out)
 
     with open(op_ref_cache, 'w') as f:
         f.write('from vyos.xml_ref.op_definition import NodeData\n')

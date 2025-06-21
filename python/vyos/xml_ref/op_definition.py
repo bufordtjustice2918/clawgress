@@ -19,6 +19,7 @@ from typing import Iterator
 from dataclasses import dataclass
 from dataclasses import field
 from dataclasses import fields
+from dataclasses import asdict
 from itertools import filterfalse
 
 
@@ -134,34 +135,43 @@ def node_data_difference(a: NodeData, b: NodeData):
     return out
 
 
-def collapse(d: OpData, acc: dict = None) -> dict:
+def collapse(d: OpData, acc: dict = None) -> tuple[dict, str, bool]:
+    err = False
+    inner_err = False
+    out = ''
+    inner_out = ''
     if acc is None:
         acc = {}
     if not isinstance(d, dict):
         return d
     for k, v in d.items():
         if isinstance(k, tuple):
-            # reduce
             name = key_name(k)
             if name != '__node_data':
                 new_data = get_node_data(v)
                 if name in list(acc.keys()):
+                    err = True
                     prev_data = acc[name].get('__node_data', {})
                     if prev_data:
-                        out = f'prev: {prev_data.file} {prev_data.path}\n'
+                        out += f'prev: {prev_data["file"]} {prev_data["path"]}\n'
                     else:
-                        out = '\n'
-                    out += f'new: {new_data.file} {new_data.path}\n'
-                    print(out)
+                        out += '\n'
+                    out += f'new: {new_data.file} {new_data.path}\n\n'
                 else:
                     acc[name] = {}
-                    acc[name]['__node_data'] = new_data
-                    acc[name].update(collapse(v))
+                    acc[name]['__node_data'] = asdict(new_data)
+                    inner, o, e = collapse(v)
+                    inner_err |= e
+                    inner_out += o
+                    acc[name].update(inner)
         else:
             name = k
             acc[name] = v
 
-    return acc
+    err |= inner_err
+    out += inner_out
+
+    return acc, out, err
 
 
 class OpXml:
