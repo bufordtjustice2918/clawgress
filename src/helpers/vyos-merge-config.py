@@ -2,10 +2,6 @@
 
 # Copyright VyOS maintainers and contributors <maintainers@vyos.io>
 #
-# This library is free software; you can redistribute it and/or
-# modify it under the terms of the GNU Lesser General Public
-# License as published by the Free Software Foundation; either
-# version 2.1 of the License, or (at your option) any later version.
 #
 # This library is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -15,94 +11,92 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
 import sys
+import shlex
 import tempfile
-import vyos.defaults
-import vyos.remote
+import argparse
 
+from vyos.defaults import directories
+from vyos.remote import get_remote_config
 from vyos.config import Config
 from vyos.configtree import ConfigTree
+from vyos.configtree import mask_inclusive
+from vyos.configtree import merge
 from vyos.migrate import ConfigMigrate
 from vyos.migrate import ConfigMigrateError
-from vyos.utils.process import cmd
-from vyos.utils.process import DEVNULL
+from vyos.load_config import load_explicit
 
-if (len(sys.argv) < 2):
-    print("Need config file name to merge.")
-    print("Usage: merge <config file> [config path]")
-    sys.exit(0)
 
-file_name = sys.argv[1]
+parser = argparse.ArgumentParser()
+parser.add_argument('config_file', help='config file to merge from')
+parser.add_argument(
+    '--destructive', action='store_true', help='replace values with those of merge file'
+)
+parser.add_argument('--paths', nargs='+', help='only merge from listed paths')
+parser.add_argument(
+    '--migrate', action='store_true', help='migrate config file before merge'
+)
 
-configdir = vyos.defaults.directories['config']
+args = parser.parse_args()
+
+file_name = args.config_file
+paths = [shlex.split(s) for s in args.paths] if args.paths else []
+
+configdir = directories['config']
 
 protocols = ['scp', 'sftp', 'http', 'https', 'ftp', 'tftp']
 
-if any(x in file_name for x in protocols):
-    config_file = vyos.remote.get_remote_config(file_name)
-    if not config_file:
-        sys.exit("No config file by that name.")
+if any(file_name.startswith(f'{x}://') for x in protocols):
+    file_path = get_remote_config(file_name)
+    if not file_path:
+        sys.exit(f'No such file {file_name}')
 else:
-    canonical_path = "{0}/{1}".format(configdir, file_name)
-    first_err = None
-    try:
-        with open(canonical_path, 'r') as f:
-            config_file = f.read()
-    except Exception as err:
-        first_err = err
-        try:
-            with open(file_name, 'r') as f:
-                config_file = f.read()
-        except Exception as err:
-            print(first_err)
-            print(err)
-            sys.exit(1)
+    if os.path.isfile(file_name):
+        file_path = file_name
+    else:
+        file_path = os.path.join(configdir, file_name)
+        if not os.path.isfile(file_path):
+            sys.exit(f'No such file {file_name}')
 
-with tempfile.NamedTemporaryFile() as file_to_migrate:
-    with open(file_to_migrate.name, 'w') as fd:
-        fd.write(config_file)
-
-    config_migrate = ConfigMigrate(file_to_migrate.name)
+if args.migrate:
+    migrate = ConfigMigrate(file_path)
     try:
-        config_migrate.run()
+        migrate.run()
     except ConfigMigrateError as e:
         sys.exit(e)
 
-merge_config_tree = ConfigTree(config_file)
+with open(file_path) as f:
+    merge_str = f.read()
 
-effective_config = Config()
-effective_config_tree = effective_config._running_config
+merge_ct = ConfigTree(merge_str)
 
-effective_cmds = effective_config_tree.to_commands()
-merge_cmds = merge_config_tree.to_commands()
+if paths:
+    mask = ConfigTree('')
+    for p in paths:
+        mask.set(p)
 
-effective_cmd_list = effective_cmds.splitlines()
-merge_cmd_list =  merge_cmds.splitlines()
+    merge_ct = mask_inclusive(merge_ct, mask)
 
-effective_cmd_set = set(effective_cmd_list)
-add_cmds = [ cmd for cmd in merge_cmd_list if cmd not in effective_cmd_set ]
+config = Config()
+session_ct = config.get_config_tree()
 
-path = None
-if (len(sys.argv) > 2):
-    path = sys.argv[2:]
-    if (not effective_config_tree.exists(path) and not
-            merge_config_tree.exists(path)):
-        print("path {} does not exist in either effective or merge"
-              " config; will use root.".format(path))
-        path = None
-    else:
-        path = " ".join(path)
+merge_res = merge(session_ct, merge_ct, destructive=args.destructive)
 
-if path:
-    add_cmds = [ cmd for cmd in add_cmds if path in cmd ]
+if config.vyconf_session is not None:
+    with tempfile.NamedTemporaryFile() as merged_file:
+        with open(merged_file, 'w') as f:
+            f.write(merge_res.to_string())
 
-for add in add_cmds:
-    try:
-        cmd(f'/opt/vyatta/sbin/my_{add}', shell=True, stderr=DEVNULL)
-    except OSError as err:
-        print(err)
+        out, err = config.vyconf_session.load_config(merged_file)
+        if err:
+            sys.exit(out)
+        print(out)
+else:
+    load_explicit(merge_res)
 
-if effective_config.session_changed():
+
+if config.session_changed():
     print("Merge complete. Use 'commit' to make changes effective.")
 else:
-    print("No configuration changes to commit.")
+    print('No configuration changes to commit.')
