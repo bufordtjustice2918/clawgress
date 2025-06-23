@@ -84,11 +84,10 @@ session_ct = config.get_config_tree()
 merge_res = merge(session_ct, merge_ct, destructive=args.destructive)
 
 if config.vyconf_session is not None:
-    with tempfile.NamedTemporaryFile() as merged_file:
-        with open(merged_file, 'w') as f:
-            f.write(merge_res.to_string())
+    with tempfile.NamedTemporaryFile() as merged_cache:
+        merge_res.write_cache(merged_cache.name)
 
-        out, err = config.vyconf_session.load_config(merged_file)
+        out, err = config.vyconf_session.load_config(merged_cache.name, cached=True)
         if err:
             sys.exit(out)
         print(out)

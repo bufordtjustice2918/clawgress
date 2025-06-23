@@ -163,7 +163,9 @@ class VyconfSession:
 
     @raise_exception
     @config_mode
-    def load_config(self, file: str, migrate: bool = False) -> tuple[str, int]:
+    def load_config(
+        self, file: str, migrate: bool = False, cached: bool = False
+    ) -> tuple[str, int]:
         # pylint: disable=consider-using-with
         if migrate:
             tmp = tempfile.NamedTemporaryFile()
@@ -178,7 +180,9 @@ class VyconfSession:
         else:
             tmp = ''
 
-        out = vyconf_client.send_request('load', token=self.__token, location=file)
+        out = vyconf_client.send_request(
+            'load', token=self.__token, location=file, cached=cached
+        )
         if tmp:
             tmp.close()
 
