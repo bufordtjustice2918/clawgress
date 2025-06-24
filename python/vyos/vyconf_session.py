@@ -189,6 +189,33 @@ class VyconfSession:
         return self.output(out), out.status
 
     @raise_exception
+    @config_mode
+    def merge_config(
+        self, file: str, migrate: bool = False, destructive: bool = False
+    ) -> tuple[str, int]:
+        # pylint: disable=consider-using-with
+        if migrate:
+            tmp = tempfile.NamedTemporaryFile()
+            shutil.copy2(file, tmp.name)
+            config_migrate = ConfigMigrate(tmp.name)
+            try:
+                config_migrate.run()
+            except ConfigMigrateError as e:
+                tmp.close()
+                return repr(e), 1
+            file = tmp.name
+        else:
+            tmp = ''
+
+        out = vyconf_client.send_request(
+            'merge', token=self.__token, location=file, destructive=destructive
+        )
+        if tmp:
+            tmp.close()
+
+        return self.output(out), out.status
+
+    @raise_exception
     def save_config(self, file: str, append_version: bool = False) -> tuple[str, int]:
         out = vyconf_client.send_request('save', token=self.__token, location=file)
         if append_version:

@@ -14,7 +14,6 @@
 import os
 import sys
 import shlex
-import tempfile
 import argparse
 
 from vyos.defaults import directories
@@ -52,8 +51,9 @@ if any(file_name.startswith(f'{x}://') for x in protocols):
     if not file_path:
         sys.exit(f'No such file {file_name}')
 else:
-    if os.path.isfile(file_name):
-        file_path = file_name
+    full_path = os.path.realpath(file_name)
+    if os.path.isfile(full_path):
+        file_path = full_path
     else:
         file_path = os.path.join(configdir, file_name)
         if not os.path.isfile(file_path):
@@ -79,19 +79,18 @@ if paths:
     merge_ct = mask_inclusive(merge_ct, mask)
 
 config = Config()
-session_ct = config.get_config_tree()
-
-merge_res = merge(session_ct, merge_ct, destructive=args.destructive)
 
 if config.vyconf_session is not None:
-    with tempfile.NamedTemporaryFile() as merged_cache:
-        merge_res.write_cache(merged_cache.name)
-
-        out, err = config.vyconf_session.load_config(merged_cache.name, cached=True)
-        if err:
-            sys.exit(out)
-        print(out)
+    out, err = config.vyconf_session.merge_config(
+        file_path, destructive=args.destructive
+    )
+    if err:
+        sys.exit(out)
+    print(out)
 else:
+    session_ct = config.get_config_tree()
+    merge_res = merge(session_ct, merge_ct, destructive=args.destructive)
+
     load_explicit(merge_res)
 
 
