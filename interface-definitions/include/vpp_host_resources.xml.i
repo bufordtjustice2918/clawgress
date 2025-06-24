@@ -15,7 +15,7 @@
                     <validator name="numeric" argument="--range 0-4294967295"/>
                 </constraint>
             </properties>
-            <defaultValue>1024</defaultValue>
+            <defaultValue>2048</defaultValue>
         </leafNode>
         <leafNode name="max-map-count">
             <properties>
@@ -28,7 +28,7 @@
                     <validator name="numeric" argument="--range 0-65535"/>
                 </constraint>
             </properties>
-            <defaultValue>3096</defaultValue>
+            <defaultValue>4096</defaultValue>
         </leafNode>
         <leafNode name="shmmax">
             <properties>

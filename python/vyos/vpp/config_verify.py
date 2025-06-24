@@ -16,9 +16,19 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
+import psutil
+
 from vyos import ConfigError
+from vyos.utils.cpu import get_core_count as total_core_count
 
 from vyos.vpp.control_host import get_eth_driver
+from vyos.vpp.config_resource_checks import cpu as cpu_checks, memory as mem_checks
+from vyos.vpp.config_resource_checks import resource_defaults
+from vyos.vpp.utils import human_memory_to_bytes, bytes_to_human_memory
+
+
+# Get default values for resource checks
+defaults = resource_defaults.get_resource_defaults()
 
 
 def verify_vpp_remove_kernel_interface(config: dict):
@@ -171,3 +181,221 @@ def verify_dev_driver(iface_name: str, driver_type: str) -> bool:
         raise ConfigError(f'"Driver type {driver_type} is wrong')
 
     return False
+
+
+def verify_vpp_minimum_cpus():
+    """
+    Verify that the host system has enough physical CPU cores
+    Current minimal requirement is 4
+    """
+    min_cpus = defaults.get('min_cpus')
+    if total_core_count() < min_cpus:
+        raise ConfigError(
+            'This system does not meet minimal requirements for VPP. '
+            f'Minimum {min_cpus} CPU cores are required.'
+        )
+
+
+def verify_vpp_minimum_memory():
+    """
+    Verify that the host system has enough RAM
+    Calculate by retrieving the amount of physical memory
+    And the minimal requirement (currently 8 GB). Round before comparing -
+    To avoid situations like when a machine nominally has 8192 MB (8 giga/gibibytes)
+    But the OS sees only 7.75 GB, creating a fail condition for this check
+    """
+    min_mem = defaults.get('min_memory')
+    total_memory = round(psutil.virtual_memory().total / (1024**3))
+    min_memory = round(human_memory_to_bytes(min_mem) / (1024**3))
+
+    if total_memory < min_memory:
+        raise ConfigError(
+            'This system does not meet minimal requirements for VPP. '
+            f'Minimum {min_memory} GB of RAM are required.'
+        )
+
+
+def verify_vpp_memory(config: dict):
+    main_heap_size = mem_checks.memory_main_heap(config['settings'])
+    main_heap_page_size = mem_checks.main_heap_page_size(config['settings'])
+
+    if main_heap_size < 51 << 20:
+        raise ConfigError('The main heap size must be greater than or equal to 51M')
+
+    readable_heap_page = bytes_to_human_memory(main_heap_page_size, 'K')
+
+    if main_heap_page_size > main_heap_size:
+        raise ConfigError(
+            f'The main heap size must be greater than or equal to page-size ({readable_heap_page})'
+        )
+
+    # Get available HupePage memory to compare with required memory for VPP
+    # (if it's smketests environment get system kernel settings for HugePages)
+    if not resource_defaults.is_smoketest():
+        available_memory = mem_checks.get_total_hugepages_free_memory()
+    else:
+        available_memory = mem_checks.get_memory_from_kernel_settings(
+            config['kernel_memory_settings']
+        )
+
+    memory_required = mem_checks.total_memory_required(config['settings'])
+
+    # Check if there is a config currently active
+    # If yes, calculate how much memory it consumes
+    # and exclude it from required memory
+    if config.get('effective'):
+        memory_used = mem_checks.total_memory_required(config['effective']['settings'])
+        # If we want to reduce memory configs then there is nothing to check
+        if memory_used > memory_required:
+            return
+        memory_required -= memory_used
+
+    if memory_required > available_memory:
+        raise ConfigError(
+            'Not enough free memory to start VPP: '
+            f'available: {round(available_memory / 1024 ** 3, 1)} GB, '
+            f'required: {round(memory_required / 1024 ** 3, 1)} GB. '
+            'Please add kernel memory options for HugePages and reboot'
+        )
+
+
+def verify_vpp_settings_cpu_skip_cores(skip_cores: int):
+    cpu_cores = total_core_count()
+
+    # The number of skipped cores must not be greater than
+    # available CPU cores in the system - 1 for main thread
+    if skip_cores > (cpu_cores - 1):
+        raise ConfigError(
+            f'The system does not have enough available CPUs to skip '
+            f'(reduce "cpu skip-cores" to {cpu_cores} or less)'
+        )
+
+
+def verify_vpp_settings_cpu_and_corelist_workers(settings: dict):
+    """
+    `set vpp settings cpu workers` and `set vpp settings cpu corelist-workers`
+    are mutually exclusive!
+    """
+    if (
+        'corelist_workers' in settings or 'workers' in settings
+    ) and 'main_core' not in settings:
+        raise ConfigError('"cpu main-core" is required but not set!')
+
+    if 'corelist_workers' in settings and 'workers' in settings:
+        raise ConfigError(
+            '"cpu corelist-workers" and "cpu workers" cannot be used at the same time!'
+        )
+
+
+def verify_vpp_cpu_main_core(cpu_settings: dict) -> None:
+    """Check that the main core is available"""
+    skip_cores = int(cpu_settings.get('skip_cores', 0))
+    available_cores = cpu_checks.available_cores_list(skip_cores)
+    main_core = int(cpu_settings['main_core'])
+
+    if main_core not in available_cores:
+        raise ConfigError(
+            'Cannot set main core for VPP process: '
+            f'CPU#{main_core} is not available.'
+        )
+
+
+def verify_vpp_settings_cpu_workers(cpu_settings: dict) -> int:
+    """
+    Verify that the system has enough available CPU cores
+    to run a given amount of worker processes (1 worker/core)
+    """
+    workers = int(cpu_settings.get('workers', 0))
+    available_cores = cpu_checks.available_cores_count(cpu_settings)
+
+    if workers > available_cores:
+        raise ConfigError(
+            f'Not enough free CPU cores for {workers} VPP workers '
+            f'(reduce to {available_cores} or less)'
+        )
+
+    return workers
+
+
+def verify_vpp_settings_cpu_corelist_workers(cpu_settings: dict) -> int:
+    """
+    Verify that the CPU cores provided to the config are free and can be used by VPP
+    """
+    workers = cpu_settings.get('corelist_workers')
+    main_core = int(cpu_settings.get('main_core'))
+    skip_cores = int(cpu_settings.get('skip_cores', 0))
+    available_cores = cpu_checks.available_cores_list(skip_cores)
+    try:
+        all_core_nums = cpu_checks.worker_cores_list(
+            iface='cpu corelist', worker_ranges=workers
+        )
+    except ValueError as e:
+        raise ConfigError(str(e))
+
+    error_msg = 'Cannot set VPP "cpu corelist-workers"'
+
+    if main_core in all_core_nums:
+        raise ConfigError(
+            f'CPU#{main_core} is set as main core and should not '
+            'be included to the corelist-workers'
+        )
+
+    invalid_cores = [str(el) for el in all_core_nums if el not in available_cores]
+    if invalid_cores:
+        raise ConfigError(
+            f'{error_msg}: CPU# {",".join(invalid_cores)} are not available.'
+        )
+
+    if len(all_core_nums) > cpu_checks.available_cores_count(cpu_settings):
+        raise ConfigError(f'{error_msg}: Not enough free CPUs in the system.')
+
+    return len(all_core_nums)
+
+
+def verify_vpp_nat44_workers(workers: int, nat44_workers: list):
+    if workers < 1:
+        raise ConfigError(
+            '"nat44 workers" requires cpu workers or corelist-workers to be set!'
+        )
+    try:
+        nat_workers = cpu_checks.worker_cores_list(
+            iface='nat44', worker_ranges=nat44_workers
+        )
+    except ValueError as e:
+        raise ConfigError(str(e))
+
+    invalid_workers = [str(el) for el in nat_workers if el not in range(workers)]
+    if invalid_workers:
+        raise ConfigError(
+            f'Cannot set VPP "nat44 workers": worker(s) #{",".join(invalid_workers)} not available. '
+            f'Available worker ids: {",".join(map(str, range(workers)))}'
+        )
+
+
+def verify_vpp_statseg_size(settings: dict):
+    statseg_size = mem_checks.statseg_size(settings)
+
+    if 'size' in settings.get('statseg'):
+        if statseg_size < 1 << 20:
+            raise ConfigError('The statseg size must be greater than or equal to 1M')
+
+    if 'page_size' in settings['statseg']:
+        statseg_page_size = mem_checks.statseg_page_size(settings)
+        if statseg_page_size > statseg_size:
+            readable_statseg_page = bytes_to_human_memory(statseg_page_size, 'K')
+            raise ConfigError(
+                f'The statseg size must be greater than or equal to page-size ({readable_statseg_page})'
+            )
+
+
+def verify_vpp_interfaces_dpdk_num_queues(qtype: str, num_queues: int, workers: int):
+    """
+    Verify that VPP has enough workers to run the given amount of RX/TX queues
+    1 queue per 1 worker is assumed as default
+    """
+
+    if num_queues > workers:
+        raise ConfigError(
+            f'The number of {qtype} queues cannot be greater than the number of configured VPP workers: '
+            f'workers: {workers}, queues: {num_queues}'
+        )

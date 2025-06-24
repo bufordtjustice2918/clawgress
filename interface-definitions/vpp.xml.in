@@ -427,11 +427,11 @@
                 <properties>
                   <help>Skip cores</help>
                   <valueHelp>
-                    <format>u32:0-512</format>
+                    <format>u32:1-512</format>
                     <description>Skip cores</description>
                   </valueHelp>
                   <constraint>
-                    <validator name="numeric" argument="--range 0-512"/>
+                    <validator name="numeric" argument="--range 1-512"/>
                   </constraint>
                 </properties>
               </leafNode>
@@ -771,12 +771,14 @@
                 <help>Main heap size</help>
                 #include <include/unformat_memory_size.xml.i>
               </properties>
+              <defaultValue>3G</defaultValue>
             </leafNode>
             <leafNode name="main-heap-page-size">
               <properties>
                 <help>Main heap page size</help>
                 #include <include/unformat_log2_page_size.xml.i>
               </properties>
+              <defaultValue>2M</defaultValue>
             </leafNode>
             <leafNode name="default-hugepage-size">
               <properties>
@@ -785,6 +787,7 @@
                   <script>sudo ${vyos_completion_dir}/list_mem_page_size.py --hugepage_only True </script>
                 </completionHelp>
               </properties>
+              <defaultValue>2M</defaultValue>
             </leafNode>
           </children>
         </node>

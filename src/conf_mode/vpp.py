@@ -18,7 +18,6 @@
 
 from pathlib import Path
 
-from psutil import virtual_memory
 from pyroute2 import IPRoute
 from vpp_papi import VPPIOError, VPPValueError
 
@@ -28,7 +27,6 @@ from vyos.base import Warning
 from vyos.config import Config, config_dict_merge
 from vyos.configdep import set_dependents, call_dependents
 from vyos.configdict import node_changed, leaf_node_changed
-from vyos.utils.cpu import get_core_count, get_available_cpus
 from vyos.ifconfig import Section
 from vyos.template import render
 from vyos.utils.boot import boot_configuration_complete
@@ -38,14 +36,22 @@ from vyos.utils.system import sysctl_read, sysctl_apply
 from vyos.vpp import VPPControl
 from vyos.vpp import control_host
 from vyos.vpp.config_deps import deps_xconnect_dict
-from vyos.vpp.config_verify import verify_dev_driver
-from vyos.vpp.config_filter import iface_filter_eth
-from vyos.vpp.utils import (
-    EthtoolGDrvinfo,
-    human_page_memory_to_bytes,
-    human_memory_to_bytes,
-    bytes_to_human_memory,
+from vyos.vpp.config_verify import (
+    verify_dev_driver,
+    verify_vpp_minimum_cpus,
+    verify_vpp_minimum_memory,
+    verify_vpp_settings_cpu_and_corelist_workers,
+    verify_vpp_settings_cpu_corelist_workers,
+    verify_vpp_cpu_main_core,
+    verify_vpp_settings_cpu_skip_cores,
+    verify_vpp_settings_cpu_workers,
+    verify_vpp_nat44_workers,
+    verify_vpp_memory,
+    verify_vpp_statseg_size,
+    verify_vpp_interfaces_dpdk_num_queues,
 )
+from vyos.vpp.config_filter import iface_filter_eth
+from vyos.vpp.utils import EthtoolGDrvinfo
 from vyos.vpp.configdb import JSONStorage
 
 airbag.enable()
@@ -164,7 +170,7 @@ def get_config(config=None):
     # dictionary retrieved.
     default_values = conf.get_config_defaults(**config.kwargs, recursive=True)
 
-    # delete "xdp-options" from defaults if driver is DPDK
+    # delete 'xdp-options' from defaults if driver is DPDK
     for iface, iface_config in config.get('settings', {}).get('interface', {}).items():
         if iface_config.get('driver') == 'dpdk':
             del default_values['settings']['interface'][iface]['xdp_options']
@@ -278,61 +284,19 @@ def get_config(config=None):
             eth_ifaces_persist[iface]['bus_id'] = control_host.get_bus_name(iface)
             eth_ifaces_persist[iface]['dev_id'] = control_host.get_dev_id(iface)
 
+    # Get kernel settings for hugepages
+    kernel_memory_settings = conf.get_config_dict(
+        ['system', 'option', 'kernel', 'memory'],
+        key_mangling=('-', '_'),
+        get_first_key=True,
+        no_tag_node_value_mangle=True,
+    )
+    config['kernel_memory_settings'] = kernel_memory_settings
+
     # Return to config dictionary
     config['persist_config'] = eth_ifaces_persist
 
     return config
-
-
-def verify_memory(settings):
-    memory_available: int = virtual_memory().available
-    cpus: int = get_core_count()
-
-    nr_hugepages = int(settings['host_resources']['nr_hugepages'])
-    hugepages_memory = nr_hugepages * 2 * 1024**2
-    memory_required = hugepages_memory
-
-    buffers_per_numa = int(settings.get('buffers', {}).get('buffers_per_numa', 16384))
-    data_size = int(settings.get('buffers', {}).get('data_size', 2048))
-    buffers_memory = buffers_per_numa * data_size * cpus
-
-    memory_required += buffers_memory
-
-    netlink_buffer_size = int(
-        settings.get('lcp', {}).get('netlink', {}).get('rx_buffer_size', 212992)
-    )
-    memory_required += netlink_buffer_size
-
-    memory_main_heap = human_memory_to_bytes(
-        settings.get('memory', {}).get('main_heap_size', '1G')
-    )
-
-    if memory_main_heap < 51 << 20:
-        # vpp is aborted when we try to use a smaller heap size
-        raise ConfigError('The main heap size must be greater than or equal to 51M')
-
-    memory_main_heap_page_size = human_page_memory_to_bytes(
-        settings.get('memory', {}).get('main_heap_page_size', 'default')
-    )
-
-    if memory_main_heap_page_size > memory_main_heap:
-        raise ConfigError(
-            f'The main heap size must be greater than or equal to page-size({bytes_to_human_memory(memory_main_heap_page_size, "K")})'
-        )
-
-    memory_required += (memory_main_heap + memory_main_heap_page_size - 1) & ~(
-        memory_main_heap_page_size - 1
-    )
-
-    statseg_size = human_memory_to_bytes(settings.get('statseg', {}).get('size', '96M'))
-    memory_required += statseg_size
-
-    if memory_available < memory_required:
-        raise ConfigError(
-            'Not enough free memory to start VPP:\n'
-            f'available: {round(memory_available / 1024 ** 3, 1)}GB\n'
-            f'required: {round(memory_required / 1024 ** 3, 1)}GB'
-        )
 
 
 def verify(config):
@@ -346,11 +310,63 @@ def verify(config):
     if 'interface' not in config['settings']:
         raise ConfigError('"settings interface" is required but not set!')
 
+    # check if the system meets minimal requirements
+    verify_vpp_minimum_cpus()
+    verify_vpp_minimum_memory()
+
     # check if Ethernet interfaces exist
     ethernet_ifaces = Section.interfaces('ethernet')
     for iface in config['settings']['interface'].keys():
         if iface not in ethernet_ifaces:
             raise ConfigError(f'Interface {iface} does not exist or is not Ethernet!')
+
+    # Resource usage checks
+    workers = 0
+
+    if 'cpu' in config['settings']:
+        cpu_settings = config['settings']['cpu']
+
+        # Check if there are enough CPU cores to skip according to config
+        if 'skip_cores' in cpu_settings:
+            skip_cores = int(cpu_settings['skip_cores'])
+            verify_vpp_settings_cpu_skip_cores(skip_cores)
+
+        # Check whether the workers and corelist-workers are configured properly
+        verify_vpp_settings_cpu_and_corelist_workers(cpu_settings)
+
+        # Check if there are enough CPU cores to add workers
+        if 'workers' in cpu_settings:
+            workers = verify_vpp_settings_cpu_workers(cpu_settings)
+
+        if 'main_core' in cpu_settings:
+            verify_vpp_cpu_main_core(cpu_settings)
+
+        # Check the CPU main core not falling to the corelist-workers
+        if 'corelist_workers' in cpu_settings:
+            workers = verify_vpp_settings_cpu_corelist_workers(cpu_settings)
+
+    if 'workers' in config['settings']['nat44']:
+        verify_vpp_nat44_workers(
+            workers=workers, nat44_workers=config['settings']['nat44']['workers']
+        )
+
+    # Check if available memory is enough for current VPP config
+    verify_vpp_memory(config)
+
+    if 'host_resources' in config['settings']:
+        if (
+            'nr_hugepages' in config['settings']['host_resources']
+            and 'max_map_count' in config['settings']['host_resources']
+        ):
+            if int(config['settings']['host_resources']['max_map_count']) < 2 * int(
+                config['settings']['host_resources']['nr_hugepages']
+            ):
+                raise ConfigError(
+                    'The max_map_count must be greater than or equal to (2 * nr_hugepages)'
+                )
+
+    if 'statseg' in config['settings']:
+        verify_vpp_statseg_size(config['settings'])
 
     # ensure DPDK/XDP settings are properly configured
     for iface, iface_config in config['settings']['interface'].items():
@@ -371,6 +387,19 @@ def verify(config):
 
         if iface_config['driver'] == 'dpdk' and 'xdp_options' in iface_config:
             raise ConfigError('XDP options are not applicable for DPDK driver!')
+
+        if iface_config['driver'] == 'dpdk' and 'dpdk_options' in iface_config:
+            if 'num_rx_queues' in iface_config['dpdk_options']:
+                rx_queues = int(iface_config['dpdk_options']['num_rx_queues'])
+                verify_vpp_interfaces_dpdk_num_queues(
+                    qtype='receive', num_queues=rx_queues, workers=workers
+                )
+
+            if 'num_tx_queues' in iface_config['dpdk_options']:
+                tx_queues = int(iface_config['dpdk_options']['num_tx_queues'])
+                verify_vpp_interfaces_dpdk_num_queues(
+                    qtype='transmit', num_queues=tx_queues, workers=workers
+                )
 
         # RX-mode verification
         rx_mode = iface_config.get('rx_mode')
@@ -428,126 +457,6 @@ def verify(config):
                             raise ConfigError(
                                 'Only one multipoint GRE tunnel is allowed from the same source address'
                             )
-
-    workers = 0
-    if 'cpu' in config['settings']:
-        if (
-            'corelist_workers' in config['settings']['cpu']
-            or 'workers' in config['settings']['cpu']
-        ) and 'main_core' not in config['settings']['cpu']:
-            raise ConfigError('"cpu main-core" is required but not set!')
-
-        if (
-            'corelist_workers' in config['settings']['cpu']
-            and 'workers' in config['settings']['cpu']
-        ):
-            raise ConfigError(
-                '"cpu corelist-workers" and "cpu workers" cannot be used at the same time!'
-            )
-
-        cpus = int(get_core_count())
-        skip_cores = 0
-
-        if 'skip_cores' in config['settings']['cpu']:
-            skip_cores = int(config['settings']['cpu']['skip_cores'])
-            # the number of skipped cores should not be more than all CPUs - 1 (for main core)
-            if skip_cores > cpus - 1:
-                raise ConfigError(
-                    f'The system does not have enough available CPUs to skip '
-                    f'(reduce "cpu skip-cores" to {cpus - 1} or less)'
-                )
-
-        if 'workers' in config['settings']['cpu']:
-            # number of worker threads must be not more than
-            # available CPUs in the system - 1 for main thread - number of skipped cores
-            # or - 1 (at least) for system processes
-            workers = int(config['settings']['cpu']['workers'])
-            available_workers = cpus - 1 - (skip_cores or 1)
-            if workers > available_workers:
-                raise ConfigError(
-                    f'The system does not have enough CPUs for {workers} VPP workers '
-                    f'(reduce to {available_workers} or less)'
-                )
-
-        cpus_available = list(map(lambda el: el['cpu'], get_available_cpus()))
-        # available CPUs are all CPUs without first N skipped cores that will not be used
-        cpus_available = cpus_available[skip_cores:]
-
-        if 'main_core' in config['settings']['cpu']:
-            main_core = int(config['settings']['cpu']['main_core'])
-
-            if main_core not in cpus_available:
-                raise ConfigError(f'"cpu main-core {main_core}" is not available!')
-
-            # CPU main-core must be not included to corelist-workers
-            if config.get('settings').get('cpu', {}).get('corelist_workers'):
-                corelist_workers = config['settings']['cpu']['corelist_workers']
-
-                all_core_numbers = []
-                for worker_range in corelist_workers:
-                    core_numbers = worker_range.split('-')
-                    if int(core_numbers[0]) > int(core_numbers[-1]):
-                        raise ConfigError(
-                            f'Range for "cpu corelist-workers {worker_range}" is not correct'
-                        )
-                    all_core_numbers.extend(
-                        range(int(core_numbers[0]), int(core_numbers[-1]) + 1)
-                    )
-
-                if main_core in all_core_numbers:
-                    raise ConfigError(
-                        f'"cpu main-core {main_core}" must not be included in the corelist-workers!'
-                    )
-
-                if not all(el in cpus_available for el in all_core_numbers):
-                    raise ConfigError('"cpu corelist-workers" is not correct')
-
-                workers = len(all_core_numbers)
-
-    if 'workers' in config['settings']['nat44']:
-        nat_workers = []
-        for worker_range in config['settings']['nat44']['workers']:
-            worker_numbers = worker_range.split('-')
-            if int(worker_numbers[0]) > int(worker_numbers[-1]):
-                raise ConfigError(
-                    f'Range for "nat44 workers {worker_range}" is not correct'
-                )
-            nat_workers.extend(
-                range(int(worker_numbers[0]), int(worker_numbers[-1]) + 1)
-            )
-        if not all(el in list(range(workers)) for el in nat_workers):
-            raise ConfigError('"nat44 workers" is not correct')
-
-    verify_memory(config['settings'])
-    if 'host_resources' in config['settings']:
-        if (
-            'nr_hugepages' in config['settings']['host_resources']
-            and 'max_map_count' in config['settings']['host_resources']
-        ):
-            if int(config['settings']['host_resources']['max_map_count']) < 2 * int(
-                config['settings']['host_resources']['nr_hugepages']
-            ):
-                raise ConfigError(
-                    'The max_map_count must be greater than or equal to (2 * nr_hugepages)'
-                )
-
-    if 'statseg' in config['settings']:
-        _size = human_memory_to_bytes(config['settings']['statseg'].get('size', '96M'))
-
-        if 'size' in config['settings']['statseg']:
-            if _size < 1 << 20:
-                raise ConfigError(
-                    'The statseg size must be greater than or equal to 1M'
-                )
-
-        if 'page_size' in config['settings']['statseg']:
-            _page_size = human_page_memory_to_bytes(
-                config['settings']['statseg']['page_size']
-            )
-            if _page_size > _size:
-                raise ConfigError(
-                    f'The statseg size must be greater than or equal to page-size({bytes_to_human_memory(_page_size, "K")})'
-                )
 
     # Check if deleted interfaces are not xconnect memebrs
     for iface_config in config.get('removed_ifaces', []):
