@@ -143,6 +143,7 @@ class ConfigFileModel(ApiModel):
     file: StrictStr = None
     string: StrictStr = None
     confirm_time: StrictInt = 0
+    destructive: bool = False
 
     class Config:
         json_schema_extra = {

@@ -363,11 +363,9 @@ class ConfigSession(object):
 
         return out
 
-    def merge_config(self, file_path):
-        if self._vyconf_session is None:
-            out = self.__run_command(MERGE_CONFIG + [file_path])
-        else:
-            out = 'unimplemented'
+    def merge_config(self, file_path, destructive=False):
+        destr = ['--destructive'] if destructive else []
+        out = self.__run_command(MERGE_CONFIG + [file_path] + destr)
 
         return out
 
