@@ -233,7 +233,7 @@ class ConfigTree(object):
         return self.__version
 
     def write_cache(self, file_name):
-        self.__write_internal(self._get_config(), file_name)
+        self.__write_internal(self._get_config(), file_name.encode())
 
     def to_string(self, ordered_values=False, no_version=False):
         config_string = self.__to_string(self.__config, ordered_values).decode()
