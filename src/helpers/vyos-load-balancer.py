@@ -246,6 +246,7 @@ if __name__ == '__main__':
 
     # Main loop
 
+    init = True;
     try:
         while True:
             ip_change = False
@@ -273,6 +274,11 @@ if __name__ == '__main__':
                         if state_changed and state['failure_count'] >= int(health_conf['failure_count']):
                             state['state'] = False
                             state['state_changed'] = True
+                    
+                    #Force state changed to trigger the first write
+                    if init == True:
+                        state['state_changed'] = True
+                        init = False
 
                     if state['state_changed']:
                         state['if_addr'] = get_ipv4_address(ifname)

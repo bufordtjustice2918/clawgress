@@ -62,7 +62,7 @@ def _get_formatted_output(raw_data):
         change_dt = datetime.fromtimestamp(latest_change) if latest_change > 0 else None
         success_dt = datetime.fromtimestamp(if_data['last_success']) if if_data['last_success'] > 0 else None
         failure_dt = datetime.fromtimestamp(if_data['last_failure']) if if_data['last_failure'] > 0 else None
-        now = datetime.utcnow()
+        now = datetime.fromtimestamp(time.time())
 
         fmt_data = {
             'ifname': ifname,
