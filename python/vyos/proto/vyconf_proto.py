@@ -106,6 +106,7 @@ class Load:
 @dataclass
 class Merge:
     Location: str = ""
+    destructive: bool = False
     format: ConfigFormat = None
 
 @dataclass
@@ -305,8 +306,8 @@ def set_request_load(token: str = None, location: str = "", cached: bool = False
     req_env = RequestEnvelope(token, req)
     return req_env
 
-def set_request_merge(token: str = None, location: str = "", format: ConfigFormat = None):
-    reqi = Merge (location, format)
+def set_request_merge(token: str = None, location: str = "", destructive: bool = False, format: ConfigFormat = None):
+    reqi = Merge (location, destructive, format)
     req = Request(merge=reqi)
     req_env = RequestEnvelope(token, req)
     return req_env
