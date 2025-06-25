@@ -280,6 +280,7 @@ def main():
         else:
             print('Found the following duplicate paths:\n')
             print(out)
+            sys.exit(1)
 
     with open(op_ref_cache, 'w') as f:
         f.write('from vyos.xml_ref.op_definition import NodeData\n')
