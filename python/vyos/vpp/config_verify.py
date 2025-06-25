@@ -252,7 +252,7 @@ def verify_vpp_memory(config: dict):
 
     if memory_required > available_memory:
         raise ConfigError(
-            'Not enough free memory to start VPP: '
+            'Not enough free hugepage memory to start VPP: '
             f'available: {round(available_memory / 1024 ** 3, 1)} GB, '
             f'required: {round(memory_required / 1024 ** 3, 1)} GB. '
             'Please add kernel memory options for HugePages and reboot'
