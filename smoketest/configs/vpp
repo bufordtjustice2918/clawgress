@@ -42,6 +42,13 @@ system {
     }
     name-server "203.0.113.1"
     option {
+        kernel {
+            memory {
+                hugepage-size 2M {
+                    hugepage-count "2048"
+                }
+            }
+        }
         time-format "24-hour"
     }
     syslog {
