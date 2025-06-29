@@ -582,6 +582,10 @@ def snmp_auth_oid(type):
     }
     return OIDs[type]
 
+@register_filter('quoted_join')
+def quoted_join(input_list, join_str, quote='"'):
+    return str(join_str).join(f'{quote}{elem}{quote}' for elem in input_list)
+
 @register_filter('nft_action')
 def nft_action(vyos_action):
     if vyos_action == 'accept':
