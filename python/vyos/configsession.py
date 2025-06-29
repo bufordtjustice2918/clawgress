@@ -182,8 +182,9 @@ class ConfigSession(object):
         self.__run_command([CLI_SHELL_API, 'setupSession'])
 
         if vyconf_backend() and boot_configuration_complete():
-            self._vyconf_session = VyconfSession(pid=session_id,
-                                                 on_error=ConfigSessionError)
+            self._vyconf_session = VyconfSession(
+                pid=session_id, on_error=ConfigSessionError
+            )
         else:
             self._vyconf_session = None
 
