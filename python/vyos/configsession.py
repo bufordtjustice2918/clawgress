@@ -333,7 +333,7 @@ class ConfigSession(object):
         if self._vyconf_session is None:
             config_data = self.__run_command(SHOW_CONFIG + path)
         else:
-            config_data, _ = self._vyconf_session.show_config()
+            config_data, _ = self._vyconf_session.show_config(path)
 
         if format == 'raw':
             return config_data
