@@ -343,7 +343,7 @@ class ConfigSession(object):
         if self._vyconf_session is None:
             out = self.__run_command(LOAD_CONFIG + [file_path])
         else:
-            out, _ = self._vyconf_session.load_config(file=file_path)
+            out, _ = self._vyconf_session.load_config(file_name=file_path)
 
         return out
 
@@ -360,7 +360,7 @@ class ConfigSession(object):
         if self._vyconf_session is None:
             out = self.__run_command(MIGRATE_LOAD_CONFIG + [file_path])
         else:
-            out, _ = self._vyconf_session.load_config(file=file_path, migrate=True)
+            out, _ = self._vyconf_session.load_config(file_name=file_path, migrate=True)
 
         return out
 
@@ -370,7 +370,7 @@ class ConfigSession(object):
             out = self.__run_command(MERGE_CONFIG + [file_path] + destr)
         else:
             out, _ = self._vyconf_session.merge_config(
-                file=file_path, destructive=destructive
+                file_name=file_path, destructive=destructive
             )
 
         return out
