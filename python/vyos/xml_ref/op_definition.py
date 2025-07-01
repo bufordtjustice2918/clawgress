@@ -15,6 +15,7 @@
 
 from typing import TypeAlias
 from typing import Union
+from typing import Optional
 from typing import Iterator
 from dataclasses import dataclass
 from dataclasses import field
@@ -31,6 +32,8 @@ class NodeData:
     help_text: str = ''
     comp_help: dict[str, list] = field(default_factory=dict)
     command: str = ''
+    standalone_help_text: Optional[str] = None
+    standalone_command: Optional[str] = None
     path: list[str] = field(default_factory=list)
     file: str = ''
     children: list[tuple] = field(default_factory=list)

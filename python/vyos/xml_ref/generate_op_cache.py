@@ -140,9 +140,16 @@ def insert_node(
     prop: OptElement = n.find('properties')
     children: OptElement = n.find('children')
     command: OptElement = n.find('command')
-    # name is not None as required by schema
-    name: str = n.get('name', 'schema_error')
+    standalone: OptElement = n.find('standalone')
     node_type: str = n.tag
+
+    if node_type == 'virtualTagNode':
+        name = '__virtual_tag'
+    else:
+        name = n.get('name')
+        if not name:
+            raise ValueError("Node name is required for all node types except <virtualTagNode>")
+
     if path is None:
         path = []
 
@@ -155,6 +162,16 @@ def insert_node(
     command_text = None if command is None else command.text
     if command_text is not None:
         command_text = translate_command(command_text, path)
+
+    try:
+        standalone_command = translate_command(standalone.find('command').text, path)
+    except AttributeError:
+        standalone_command = None
+
+    try:
+        standalone_help_text = translate_command(standalone.find('help').text, path)
+    except AttributeError:
+        standalone_help_text = None
 
     comp_help = {}
     if prop is not None:
@@ -191,6 +208,8 @@ def insert_node(
     cur_node_data.comp_help = comp_help
     cur_node_data.help_text = help_text
     cur_node_data.command = command_text
+    cur_node_data.standalone_help_text = standalone_help_text
+    cur_node_data.standalone_command = standalone_command
     cur_node_data.path = path
     cur_node_data.file = file
 
