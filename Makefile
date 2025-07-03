@@ -93,7 +93,7 @@ all: clean copyright libvyosconfig interface_definitions op_mode_definitions tes
 
 .PHONY: copyright
 copyright:
-	@if git grep -q -E "Copyright (19|20)[0-9]{2}(-[0-9]{4})? VyOS maintainers"; then \
+	@if git grep -q -E "Copyright( \(C\))? (19|20)[0-9]{2}(-[0-9]{4})? VyOS maintainers"; then \
 		echo "Error: Legacy copyright notice found."; \
 		exit 1; \
 	fi
