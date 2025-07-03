@@ -31,14 +31,12 @@
                     <script>sudo ${vyos_completion_dir}/list_vpp_interfaces.py</script>
                   </completionHelp>
                 </properties>
+                <standalone>
+                  <help>Show VPP interfaces detailed statistics</help>
+                  <command>sudo ${vyos_op_scripts_dir}/show_vpp_interfaces.py --hardware</command>
+                </standalone>
                 <command>sudo ${vyos_op_scripts_dir}/show_vpp_interfaces.py --hardware --intf-name="$5"</command>
               </tagNode>
-              <node name="hardware">
-                <properties>
-                  <help>Show VPP interfaces detailed statistics</help>
-                </properties>
-                <command>sudo ${vyos_op_scripts_dir}/show_vpp_interfaces.py --hardware</command>
-              </node>
             </children>
             <command>sudo ${vyos_op_scripts_dir}/show_vpp_interfaces.py --summary</command>
           </node>
