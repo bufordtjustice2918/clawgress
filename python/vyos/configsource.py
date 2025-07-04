@@ -345,6 +345,11 @@ class ConfigSourceVyconfSession(ConfigSource):
         self._running_config = ConfigTree(internal=self.running_cache_path)
         self._session_config = ConfigTree(internal=self.session_cache_path)
 
+        if os.path.isfile(self.running_cache_path):
+            os.remove(self.running_cache_path)
+        if os.path.isfile(self.session_cache_path):
+            os.remove(self.session_cache_path)
+
         # N.B. level not yet implemented pending integration with legacy CLI
         # cf. T7374
         self._level = []
