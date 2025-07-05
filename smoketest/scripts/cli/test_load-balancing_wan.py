@@ -171,8 +171,8 @@ class TestLoadBalancingWan(VyOSUnitTestSHIM.TestCase):
         nat_wanloadbalance = """table ip vyos_wanloadbalance {
 	chain wlb_nat_postrouting {
 		type nat hook postrouting priority srcnat - 1; policy accept;
-		ct mark 0x000000c9 counter snat to 203.0.113.10
-		ct mark 0x000000ca counter snat to 192.0.2.10
+		ct mark 0x000000c9 oifname "veth1" counter snat to 203.0.113.10
+		ct mark 0x000000ca oifname "veth2" counter snat to 192.0.2.10
 	}
 }"""
 
