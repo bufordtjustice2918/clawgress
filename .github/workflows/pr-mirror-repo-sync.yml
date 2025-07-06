@@ -1,4 +1,4 @@
-name: Trigger Mirror PR and Repo Sync
+name: PR Mirror and Repo Sync
 on:
   pull_request_target:
       types:
@@ -14,5 +14,5 @@ permissions:
 jobs:
   call-trigger-mirror-pr-repo-sync:
     if: github.repository_owner == 'vyos' && github.event.pull_request.merged == true
-    uses: vyos/.github/.github/workflows/trigger-pr-mirror-repo-sync.yml@current
+    uses: vyos/.github/.github/workflows/pr-mirror-repo-sync.yml@current
     secrets: inherit
