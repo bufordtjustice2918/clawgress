@@ -26,10 +26,10 @@ from vyos.vpp.utils import (
 from vyos.vpp.config_resource_checks.resource_defaults import default_resource_map
 
 
-def get_total_hugepages_free_memory() -> int:
+def get_hugepages_info() -> dict:
     """
-    Returns the total amount of hugepage-backed free memory (in bytes)
-    as reported by /proc/meminfo
+    Returns the information about HugePages
+    retrieved from /proc/meminfo
     """
     info = {}
     with open('/proc/meminfo', 'r') as meminfo:
@@ -37,11 +37,26 @@ def get_total_hugepages_free_memory() -> int:
             if line.startswith('Huge'):
                 key, value, *_ = line.strip().split()
                 info[key.rstrip(':')] = int(value)
+    return info
 
+
+def get_total_hugepages_free_memory() -> int:
+    """
+    Returns the total amount of hugepage-backed free memory (in bytes)
+    """
+    info = get_hugepages_info()
     hugepages_free = info.get('HugePages_Free')
     hugepage_size = info.get('Hugepagesize') * 1024
 
     return hugepage_size * hugepages_free
+
+
+def get_hugepages_total() -> int:
+    """
+    Returns the total count of hugepages
+    """
+    info = get_hugepages_info()
+    return info.get('HugePages_Total')
 
 
 def get_numa_count():

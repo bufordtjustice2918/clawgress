@@ -49,6 +49,7 @@ from vyos.vpp.config_verify import (
     verify_vpp_memory,
     verify_vpp_statseg_size,
     verify_vpp_interfaces_dpdk_num_queues,
+    verify_vpp_host_resources,
 )
 from vyos.vpp.config_filter import iface_filter_eth
 from vyos.vpp.utils import EthtoolGDrvinfo
@@ -353,17 +354,8 @@ def verify(config):
     # Check if available memory is enough for current VPP config
     verify_vpp_memory(config)
 
-    if 'host_resources' in config['settings']:
-        if (
-            'nr_hugepages' in config['settings']['host_resources']
-            and 'max_map_count' in config['settings']['host_resources']
-        ):
-            if int(config['settings']['host_resources']['max_map_count']) < 2 * int(
-                config['settings']['host_resources']['nr_hugepages']
-            ):
-                raise ConfigError(
-                    'The max_map_count must be greater than or equal to (2 * nr_hugepages)'
-                )
+    if 'max_map_count' in config['settings'].get('host_resources', {}):
+        verify_vpp_host_resources(config)
 
     if 'statseg' in config['settings']:
         verify_vpp_statseg_size(config['settings'])
@@ -477,8 +469,9 @@ def generate(config):
 
     # apply sysctl values
     # default: https://github.com/FDio/vpp/blob/v23.10/src/vpp/conf/80-vpp.conf
+    # vm.nr_hugepages are now configured in section
+    # 'set system option kernel memory hugepage-size 2M hugepage-count <count>'
     sysctl_config: dict[str, str] = {
-        'vm.nr_hugepages': config['settings']['host_resources']['nr_hugepages'],
         'vm.max_map_count': config['settings']['host_resources']['max_map_count'],
         'vm.hugetlb_shm_group': '0',
         'kernel.shmmax': config['settings']['host_resources']['shmmax'],
