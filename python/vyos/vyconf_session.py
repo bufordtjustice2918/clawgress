@@ -142,6 +142,10 @@ class VyconfSession:
     @raise_exception
     @config_mode
     def commit(self) -> tuple[str, int]:
+        if not self.session_changed():
+            out = 'No changes to commit'
+            return out, 0
+
         lock_fd, out = acquire_commit_lock_file()
         if lock_fd is None:
             return out, Errnum.COMMIT_IN_PROGRESS
