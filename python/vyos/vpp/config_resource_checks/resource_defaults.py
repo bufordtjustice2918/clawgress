@@ -16,11 +16,8 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-import copy
-import os
 
-
-__default_resource_map = {
+default_resource_map = {
     # Default amount of buffers per NUMA (populated CPU socket)
     'buffers_per_numa': 16384,
     # Default size of buffer (in bytes)
@@ -44,19 +41,3 @@ __default_resource_map = {
     # Default heap size for IPv6
     'ipv6_heap_size': '32M',
 }
-
-
-def get_resource_defaults() -> dict:
-    resource_map = copy.deepcopy(__default_resource_map)
-    # Check if current runtime is smoke tests
-    # Since CI/CD runners are limited in resources, reduce the checks for tests
-    if is_smoketest():
-        resource_map.update(min_memory='6G', min_cpus=2, reserved_cpu_cores=0)
-
-    return resource_map
-
-
-def is_smoketest():
-    if os.path.exists('/tmp/vyos.smoketests.hint'):
-        return True
-    return False

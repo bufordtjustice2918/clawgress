@@ -23,12 +23,8 @@ from vyos.utils.cpu import get_core_count as total_core_count
 
 from vyos.vpp.control_host import get_eth_driver
 from vyos.vpp.config_resource_checks import cpu as cpu_checks, memory as mem_checks
-from vyos.vpp.config_resource_checks import resource_defaults
+from vyos.vpp.config_resource_checks.resource_defaults import default_resource_map
 from vyos.vpp.utils import human_memory_to_bytes, bytes_to_human_memory
-
-
-# Get default values for resource checks
-defaults = resource_defaults.get_resource_defaults()
 
 
 def verify_vpp_remove_kernel_interface(config: dict):
@@ -188,7 +184,7 @@ def verify_vpp_minimum_cpus():
     Verify that the host system has enough physical CPU cores
     Current minimal requirement is 4
     """
-    min_cpus = defaults.get('min_cpus')
+    min_cpus = default_resource_map.get('min_cpus')
     if total_core_count() < min_cpus:
         raise ConfigError(
             'This system does not meet minimal requirements for VPP. '
@@ -204,7 +200,7 @@ def verify_vpp_minimum_memory():
     To avoid situations like when a machine nominally has 8192 MB (8 giga/gibibytes)
     But the OS sees only 7.75 GB, creating a fail condition for this check
     """
-    min_mem = defaults.get('min_memory')
+    min_mem = default_resource_map.get('min_memory')
     total_memory = round(psutil.virtual_memory().total / (1024**3))
     min_memory = round(human_memory_to_bytes(min_mem) / (1024**3))
 
@@ -229,14 +225,8 @@ def verify_vpp_memory(config: dict):
             f'The main heap size must be greater than or equal to page-size ({readable_heap_page})'
         )
 
-    # Get available HupePage memory to compare with required memory for VPP
-    # (if it's smketests environment get system kernel settings for HugePages)
-    if not resource_defaults.is_smoketest():
-        available_memory = mem_checks.get_total_hugepages_free_memory()
-    else:
-        available_memory = mem_checks.get_memory_from_kernel_settings(
-            config['kernel_memory_settings']
-        )
+    # Get available HugePage memory to compare with required memory for VPP
+    available_memory = mem_checks.get_total_hugepages_free_memory()
 
     memory_required = mem_checks.total_memory_required(config['settings'])
 

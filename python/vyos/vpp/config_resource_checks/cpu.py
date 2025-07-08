@@ -18,11 +18,11 @@
 
 from vyos.utils.cpu import get_available_cpus, get_core_count
 
-from vyos.vpp.config_resource_checks.resource_defaults import get_resource_defaults
+from vyos.vpp.config_resource_checks.resource_defaults import default_resource_map
 
 
 # Get default value for reserved cpu cores
-reserved_cpus = get_resource_defaults().get('reserved_cpu_cores')
+reserved_cpus = default_resource_map.get('reserved_cpu_cores')
 
 
 def available_cores_count(cpu_settings: dict) -> int:

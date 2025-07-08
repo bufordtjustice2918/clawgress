@@ -23,11 +23,7 @@ from vyos.vpp.utils import (
     human_memory_to_bytes,
     human_page_memory_to_bytes,
 )
-from vyos.vpp.config_resource_checks.resource_defaults import get_resource_defaults
-
-
-# Get default values for resource checks
-defaults = get_resource_defaults()
+from vyos.vpp.config_resource_checks.resource_defaults import default_resource_map
 
 
 def get_total_hugepages_free_memory() -> int:
@@ -74,11 +70,13 @@ def buffer_size(settings: dict) -> int:
     numa_count = get_numa_count()
     buffers_per_numa = int(
         settings.get('buffers', {}).get(
-            'buffers_per_numa', defaults.get('buffers_per_numa')
+            'buffers_per_numa', default_resource_map.get('buffers_per_numa')
         )
     )
     data_size = int(
-        settings.get('buffers', {}).get('data_size', defaults.get('data_size'))
+        settings.get('buffers', {}).get(
+            'data_size', default_resource_map.get('data_size')
+        )
     )
     buffers_memory = buffers_per_numa * data_size * numa_count
     return buffers_memory
@@ -86,21 +84,21 @@ def buffer_size(settings: dict) -> int:
 
 def main_heap_page_size(settings: dict) -> int:
     heap_page_size = settings.get('memory', {}).get(
-        'main_heap_page_size', defaults.get('main_heap_page_size')
+        'main_heap_page_size', default_resource_map.get('main_heap_page_size')
     )
     return human_page_memory_to_bytes(heap_page_size)
 
 
 def memory_main_heap(settings: dict) -> int:
     heap_size = settings.get('memory', {}).get(
-        'main_heap_size', defaults.get('main_heap_size')
+        'main_heap_size', default_resource_map.get('main_heap_size')
     )
     return human_memory_to_bytes(heap_size)
 
 
 def ipv6_heap_size(settings: dict) -> int:
     heap_size = settings.get('ipv6', {}).get(
-        'heap_size', defaults.get('ipv6_heap_size')
+        'heap_size', default_resource_map.get('ipv6_heap_size')
     )
     return human_memory_to_bytes(heap_size)
 
@@ -111,7 +109,7 @@ def total_heap_size(heap_size: int, heap_page_size: int) -> int:
 
 def statseg_size(settings: dict) -> int:
     statseg_memory = settings.get('statseg', {}).get(
-        'size', defaults.get('statseg_heap_size')
+        'size', default_resource_map.get('statseg_heap_size')
     )
     return human_memory_to_bytes(statseg_memory)
 
@@ -132,7 +130,7 @@ def total_memory_required(settings: dict) -> int:
         'memory_buffers': buffer_size(settings),
         'netlink_buffer_size': int(
             settings.get('lcp', {}).get(
-                'rx_buffer_size', defaults.get('netlink_rx_buffer_size')
+                'rx_buffer_size', default_resource_map.get('netlink_rx_buffer_size')
             )
         ),
         'heap_size': total_heap_size(

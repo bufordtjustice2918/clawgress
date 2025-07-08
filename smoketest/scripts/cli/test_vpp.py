@@ -41,7 +41,6 @@ VPP_CONF = '/run/vpp/vpp.conf'
 base_path = ['vpp']
 driver = 'dpdk'
 interface = 'eth1'
-system_memory_path = ['system', 'option', 'kernel', 'memory']
 
 
 def get_vpp_config():
@@ -97,9 +96,6 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
     def setUp(self):
         self.cli_set(base_path + ['settings', 'interface', interface, 'driver', driver])
         self.cli_set(base_path + ['settings', 'unix', 'poll-sleep-usec', '10'])
-        self.cli_set(
-            system_memory_path + ['hugepage-size', '2M', 'hugepage-count', '2048']
-        )
 
     def tearDown(self):
         try:
@@ -112,12 +108,6 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
 
             # delete address for Ethernet interface
             self.cli_delete(['interfaces', 'ethernet', interface, 'address'])
-            self.cli_commit()
-
-            # delete kernel memory settings
-            self.cli_delete(
-                system_memory_path + ['hugepage-size', '2M', 'hugepage-count', '2048']
-            )
             self.cli_commit()
 
         self.assertFalse(os.path.exists(VPP_CONF))
