@@ -597,7 +597,7 @@ async def config_file_op(data: ConfigFileModel, background_tasks: BackgroundTask
                 case 'load':
                     session.migrate_and_load_config(path)
                 case 'merge':
-                    session.merge_config(path)
+                    session.merge_config(path, destructive=data.destructive)
 
             config = Config(session_env=env)
             d = get_config_diff(config)

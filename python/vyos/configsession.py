@@ -182,8 +182,9 @@ class ConfigSession(object):
         self.__run_command([CLI_SHELL_API, 'setupSession'])
 
         if vyconf_backend() and boot_configuration_complete():
-            self._vyconf_session = VyconfSession(pid=session_id,
-                                                 on_error=ConfigSessionError)
+            self._vyconf_session = VyconfSession(
+                pid=session_id, on_error=ConfigSessionError
+            )
         else:
             self._vyconf_session = None
 
@@ -342,7 +343,7 @@ class ConfigSession(object):
         if self._vyconf_session is None:
             out = self.__run_command(LOAD_CONFIG + [file_path])
         else:
-            out, _ = self._vyconf_session.load_config(file=file_path)
+            out, _ = self._vyconf_session.load_config(file_name=file_path)
 
         return out
 
@@ -359,15 +360,18 @@ class ConfigSession(object):
         if self._vyconf_session is None:
             out = self.__run_command(MIGRATE_LOAD_CONFIG + [file_path])
         else:
-            out, _ = self._vyconf_session.load_config(file=file_path, migrate=True)
+            out, _ = self._vyconf_session.load_config(file_name=file_path, migrate=True)
 
         return out
 
-    def merge_config(self, file_path):
+    def merge_config(self, file_path, destructive=False):
         if self._vyconf_session is None:
-            out = self.__run_command(MERGE_CONFIG + [file_path])
+            destr = ['--destructive'] if destructive else []
+            out = self.__run_command(MERGE_CONFIG + [file_path] + destr)
         else:
-            out = 'unimplemented'
+            out, _ = self._vyconf_session.merge_config(
+                file_name=file_path, destructive=destructive
+            )
 
         return out
 
