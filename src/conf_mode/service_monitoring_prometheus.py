@@ -23,6 +23,7 @@ from vyos.configdict import is_node_changed
 from vyos.configverify import verify_vrf
 from vyos.template import render
 from vyos.utils.process import call
+from vyos.utils.process import is_systemd_service_active
 from vyos import ConfigError
 from vyos import airbag
 
@@ -173,11 +174,14 @@ def apply(monitoring):
     # Reload systemd manager configuration
     call('systemctl daemon-reload')
     if not monitoring or 'node_exporter' not in monitoring:
-        call(f'systemctl stop {node_exporter_systemd_service}')
+        if is_systemd_service_active(node_exporter_systemd_service):
+            call(f'systemctl stop {node_exporter_systemd_service}')
     if not monitoring or 'frr_exporter' not in monitoring:
-        call(f'systemctl stop {frr_exporter_systemd_service}')
+        if is_systemd_service_active(frr_exporter_systemd_service):
+            call(f'systemctl stop {frr_exporter_systemd_service}')
     if not monitoring or 'blackbox_exporter' not in monitoring:
-        call(f'systemctl stop {blackbox_exporter_systemd_service}')
+        if is_systemd_service_active(blackbox_exporter_systemd_service):
+            call(f'systemctl stop {blackbox_exporter_systemd_service}')
 
     if not monitoring:
         return
