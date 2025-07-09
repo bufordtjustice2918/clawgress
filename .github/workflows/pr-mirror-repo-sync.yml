@@ -17,7 +17,7 @@ permissions:
   contents: write
   issues: write
 jobs:
-  call-trigger-mirror-pr-repo-sync:
+  call-mirror-pr-repo-sync:
     if: github.repository_owner == 'vyos' && github.event.pull_request.merged == true
     uses: vyos/.github/.github/workflows/pr-mirror-repo-sync.yml@current
     with:
