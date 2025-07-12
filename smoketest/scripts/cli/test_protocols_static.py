@@ -581,7 +581,7 @@ class TestProtocolsStatic(VyOSUnitTestSHIM.TestCase):
                         self.assertIn(tmp, frrconfig)
 
     def test_05_dhcp_default_route(self):
-        # When running via vyos-build under the QEmu environment a local DHCP
+        # When running via vyos-build under the QEMU environment a local DHCP
         # server is available. This test verifies that the default route is set.
         # When not running under the VyOS QEMU environment, this test is skipped.
         if not os.path.exists('/tmp/vyos.smoketests.hint'):
