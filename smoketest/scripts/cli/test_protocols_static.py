@@ -619,5 +619,37 @@ class TestProtocolsStatic(VyOSUnitTestSHIM.TestCase):
         while process_named_running('dhclient', cmdline=interface, timeout=10):
             sleep(0.250)
 
+    def test_06_dhcp_default_route_for_vrf(self):
+        # When running via vyos-build under the QEMU environment a local DHCP
+        # server is available. This test verifies that the default route is set.
+        # When not running under the VyOS QEMU environment, this test is skipped.
+        if not os.path.exists('/tmp/vyos.smoketests.hint'):
+            self.skipTest('Not running under VyOS CI/CD QEMU environment!')
+
+        interface = 'eth0'
+        vrf = 'red'
+        vrf_path = ['vrf', 'name', vrf]
+        interface_path = ['interfaces', 'ethernet', interface]
+        self.cli_set(vrf_path + ['table', '1000'])
+        default_distance = default_value(interface_path + ['dhcp-options', 'default-route-distance'])
+        self.cli_set(interface_path + ['address', 'dhcp'])
+        self.cli_set(interface_path + ['vrf', vrf])
+        self.cli_commit()
+
+        # Wait for dhclient to receive IP address and default gateway
+        sleep(5)
+
+        router = get_dhcp_router(interface)
+        frrconfig = self.getFRRconfig(f'vrf {vrf}', endsection='^exit-vrf')
+        self.assertIn(rf'ip route 0.0.0.0/0 {router} {interface} tag 210 {default_distance}', frrconfig)
+
+        self.cli_delete(interface_path + ['address'])
+        self.cli_delete(interface_path + ['vrf'])
+        self.cli_commit()
+
+        # Wait for dhclient to stop
+        while process_named_running('dhclient', cmdline=interface, timeout=10):
+            sleep(0.250)
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
