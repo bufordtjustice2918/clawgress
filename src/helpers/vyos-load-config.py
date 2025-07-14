@@ -26,17 +26,20 @@ from vyos.config import Config
 from vyos.migrate import ConfigMigrate
 from vyos.migrate import ConfigMigrateError
 from vyos.load_config import load as load_config
+from vyos.defaults import directories
 
+
+default_config_file = os.path.join(directories['config'], 'config.boot')
 
 parser = argparse.ArgumentParser()
-parser.add_argument('config_file', help='config file to load')
+parser.add_argument('config_file', nargs='?', help='config file to load')
 parser.add_argument(
     '--migrate', action='store_true', help='migrate config file before merge'
 )
 
 args = parser.parse_args()
 
-file_name = args.config_file
+file_name = args.config_file if args.config_file else default_config_file
 
 # pylint: disable=consider-using-with
 file_path = tempfile.NamedTemporaryFile(delete=False).name
