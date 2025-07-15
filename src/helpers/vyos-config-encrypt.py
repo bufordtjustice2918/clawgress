@@ -76,16 +76,17 @@ def load_config(key):
 
     return True
 
-def encrypt_config(key, recovery_key):
+def encrypt_config(key, recovery_key=None, is_tpm=True):
     if is_opened():
         raise Exception('An encrypted config volume is already mapped')
 
     # Clear and write key to TPM
-    try:
-        clear_tpm_key()
-    except:
-        pass
-    write_tpm_key(key)
+    if is_tpm:
+        try:
+            clear_tpm_key()
+        except:
+            pass
+        write_tpm_key(key)
 
     persist_path = cmd(persistpath_cmd).strip()
     size = ask_input('Enter size of encrypted config partition (MB): ', numeric_only=True, default=512)
@@ -268,7 +269,7 @@ if __name__ == '__main__':
             print('Backup the recovery key in a safe place!')
             print('Recovery key: ' + recovery_key.decode())
         elif args.enable:
-            encrypt_config(recovery_key)
+            encrypt_config(recovery_key, is_tpm=False)
 
             print('Encrypted config volume has been enabled without TPM')
             print('Backup the key in a safe place!')
