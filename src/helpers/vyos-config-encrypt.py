@@ -23,6 +23,7 @@ from cryptography.fernet import Fernet
 from tempfile import NamedTemporaryFile
 from tempfile import TemporaryDirectory
 
+from vyos.system.image import is_live_boot
 from vyos.tpm import clear_tpm_key
 from vyos.tpm import read_tpm_key
 from vyos.tpm import write_tpm_key
@@ -197,6 +198,10 @@ def decrypt_config(key):
 if __name__ == '__main__':
     if len(sys.argv) < 2:
         print("Must specify action.")
+        sys.exit(1)
+
+    if is_live_boot():
+        print("Config encryption not available on live-ISO environment")
         sys.exit(1)
 
     parser = ArgumentParser(description='Config encryption')
