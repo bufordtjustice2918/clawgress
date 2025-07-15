@@ -347,6 +347,68 @@ class TestVPNIPsec(VyOSUnitTestSHIM.TestCase):
         for line in swanctl_conf_lines:
             self.assertIn(line, swanctl_conf)
 
+    def test_site_to_site_with_default_ts(self):
+        """Test 'site to site' with default value of local and remote Traffic Selection"""
+
+        self.cli_set(base_path + ['ike-group', ike_group, 'key-exchange', 'ikev2'])
+
+        local_address = '192.0.2.11'
+        life_bytes = '100000'
+        life_packets = '2000000'
+
+        # vpn ipsec auth psk <tag> id <x.x.x.x>
+        self.cli_set(
+            base_path + ['authentication', 'psk', connection_name, 'id', local_id]
+        )
+        self.cli_set(
+            base_path + ['authentication', 'psk', connection_name, 'id', remote_id]
+        )
+        self.cli_set(
+            base_path + ['authentication', 'psk', connection_name, 'id', local_address]
+        )
+        self.cli_set(
+            base_path + ['authentication', 'psk', connection_name, 'id', peer_ip]
+        )
+        self.cli_set(
+            base_path + ['authentication', 'psk', connection_name, 'secret', secret]
+        )
+
+        # Site to site
+        peer_base_path = base_path + ['site-to-site', 'peer', connection_name]
+
+        self.cli_set(base_path + ['esp-group', esp_group, 'life-bytes', life_bytes])
+        self.cli_set(base_path + ['esp-group', esp_group, 'life-packets', life_packets])
+
+        self.cli_set(peer_base_path + ['authentication', 'mode', 'pre-shared-secret'])
+        self.cli_set(peer_base_path + ['ike-group', ike_group])
+        self.cli_set(peer_base_path + ['default-esp-group', esp_group])
+        self.cli_set(peer_base_path + ['local-address', local_address])
+        self.cli_set(peer_base_path + ['remote-address', peer_ip])
+        self.cli_set(peer_base_path + ['tunnel', '1', 'protocol', 'gre'])
+
+        self.cli_commit()
+
+        # Verify strongSwan configuration
+        swanctl_conf = read_file(swanctl_file)
+        swanctl_conf_lines = [
+            f'version = 2',
+            f'auth = psk',
+            f'life_bytes = {life_bytes}',
+            f'life_packets = {life_packets}',
+            f'rekey_time = 28800s',  # default value
+            f'proposals = aes128-sha1-modp1024',
+            f'esp_proposals = aes128-sha1-modp1024',
+            f'life_time = 3600s',  # default value
+            f'local_addrs = {local_address} # dhcp:no',
+            f'remote_addrs = {peer_ip}',
+            f'mode = tunnel',
+            f'{connection_name}-tunnel-1',
+            f'local_ts = dynamic[gre/]',  # default value
+            f'remote_ts = dynamic[gre/]',  # default value
+            f'mode = tunnel',
+        ]
+        for line in swanctl_conf_lines:
+            self.assertIn(line, swanctl_conf)
 
     def test_site_to_site_vti(self):
         local_address = '192.0.2.10'
