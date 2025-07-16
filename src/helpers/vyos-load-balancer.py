@@ -160,6 +160,11 @@ def get_config():
     lb = conf.get_config_dict(base, key_mangling=('-', '_'),
                             get_first_key=True, with_recursive_defaults=True)
 
+    # prune limit key if not set by user
+    for rule in lb.get('rule', []):
+        if lb.from_defaults(['rule', rule, 'limit']):
+            del lb['rule'][rule]['limit']
+
     lb['test_defaults'] = get_defaults(base + ['interface-health', 'A', 'test', 'B'], get_first_key=True)
 
     return lb
