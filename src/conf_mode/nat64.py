@@ -19,6 +19,7 @@
 import csv
 import os
 import re
+import sys
 
 from ipaddress import IPv6Network, IPv6Address
 from json import dumps as json_write
@@ -26,10 +27,12 @@ from json import dumps as json_write
 from vyos import ConfigError
 from vyos import airbag
 from vyos.config import Config
-from vyos.configdict import is_node_changed
+from vyos.config import ConfigDict
+from vyos.configdiff import get_config_diff
 from vyos.utils.dict import dict_search
 from vyos.utils.file import write_file
 from vyos.utils.kernel import check_kmod
+from vyos.utils.kernel import unload_kmod
 from vyos.utils.process import cmd
 from vyos.utils.process import run
 
@@ -39,17 +42,25 @@ INSTANCE_REGEX = re.compile(r"instance-(\d+)")
 JOOL_CONFIG_DIR = "/run/jool"
 
 
-def get_config(config: Config | None = None) -> None:
+def get_config(config: Config | None = None) -> ConfigDict:
     if config is None:
         config = Config()
 
     base = ["nat64"]
     nat64 = config.get_config_dict(base, key_mangling=("-", "_"), get_first_key=True)
 
+    config_diff = get_config_diff(config)
+    # get_config_dict returns an instance of ConfigDict
+    setattr(nat64, 'config_diff', config_diff)
+
     return nat64
 
 
 def verify(nat64) -> None:
+    # pylint: disable=too-many-branches
+
+    config_diff = getattr(nat64, 'config_diff')
+
     check_kmod(["jool"])
     base_src = ["nat64", "source", "rule"]
 
@@ -58,7 +69,7 @@ def verify(nat64) -> None:
     for _, instance, _ in csv.reader(lines):
         match = INSTANCE_REGEX.fullmatch(instance)
         if not match:
-            # FIXME: Instances that don't match should be ignored but WARN'ed to the user
+            # to fix: Instances that don't match should be ignored but WARN'ed to the user
             continue
         num = match.group(1)
 
@@ -70,13 +81,12 @@ def verify(nat64) -> None:
 
         # If the user changes the mode, recreate the instance else Jool fails with:
         # Jool error: Sorry; you can't change an instance's framework for now.
-        if is_node_changed(config, base_src + [f"instance-{num}", "mode"]):
+        if config_diff.is_node_changed(base_src + [f"instance-{num}", "mode"]):
             rules[num]["recreate"] = True
 
         # If the user changes the pool6, recreate the instance else Jool fails with:
         # Jool error: Sorry; you can't change a NAT64 instance's pool6 for now.
-        if dict_search("source.prefix", rules[num]) and is_node_changed(
-            config,
+        if dict_search("source.prefix", rules[num]) and config_diff.is_node_changed(
             base_src + [num, "source", "prefix"],
         ):
             rules[num]["recreate"] = True
@@ -84,6 +94,7 @@ def verify(nat64) -> None:
     if not nat64:
         # nothing left to do
         return
+
 
     if dict_search("source.rule", nat64):
         # Ensure only 1 netfilter instance per namespace
@@ -129,11 +140,13 @@ def verify(nat64) -> None:
 
 
 def generate(nat64) -> None:
+    # pylint: disable=too-many-branches
     if not nat64:
         return
 
     os.makedirs(JOOL_CONFIG_DIR, exist_ok=True)
 
+    # pylint: disable=too-many-nested-blocks
     if dict_search("source.rule", nat64):
         for rule, instance in nat64["source"]["rule"].items():
             if "deleted" in instance:
@@ -222,4 +235,4 @@ if __name__ == "__main__":
         apply(c)
     except ConfigError as e:
         print(e)
-        exit(1)
+        sys.exit(1)
