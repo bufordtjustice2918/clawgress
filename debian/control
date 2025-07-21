@@ -19,6 +19,8 @@ Build-Depends:
   python3-certbot-nginx,
   python3-pam,
   python3-dbus,
+  python3-pyroute2,
+  python3-voluptuous,
 # For generating command definitions
   python3-lxml,
   python3-xmltodict,
