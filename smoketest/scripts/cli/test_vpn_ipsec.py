@@ -16,6 +16,7 @@
 
 import os
 import unittest
+import re
 
 from base_vyostest_shim import VyOSUnitTestSHIM
 
@@ -24,6 +25,8 @@ from vyos.ifconfig import Interface
 from vyos.utils.convert import encode_to_base64
 from vyos.utils.process import process_named_running
 from vyos.utils.file import read_file
+from vyos.xml_ref import default_value
+
 
 ethernet_path = ['interfaces', 'ethernet']
 tunnel_path = ['interfaces', 'tunnel']
@@ -106,6 +109,11 @@ IOX4J1NbCNtBlRFx1j6JrsGhqhhf/RUo96XdJ7rishRBAtChj/0wlv1Q
 swanctl_dir = '/etc/swanctl'
 CERT_PATH   = f'{swanctl_dir}/x509/'
 CA_PATH     = f'{swanctl_dir}/x509ca/'
+
+def get_config_value(file, key):
+    tmp = read_file(file)
+    tmp = re.findall(f'\n?{key}\s+(.*)', tmp)
+    return tmp
 
 class TestVPNIPsec(VyOSUnitTestSHIM.TestCase):
     skip_process_check = False
@@ -1467,6 +1475,52 @@ class TestVPNIPsec(VyOSUnitTestSHIM.TestCase):
         self.assertEqual(Interface(vti).get_admin_state(), 'down')
 
         self.tearDownPKI()
+
+    def test_retransmission_settings(self):
+        retransmit_base = '2.2'
+        retransmit_timeout = '10'
+        retransmit_attempts = '8'
+        self.cli_set(base_path + ['options', 'retransmission', 'base', retransmit_base])
+        self.cli_set(base_path + ['options', 'retransmission', 'timeout', retransmit_timeout])
+        self.cli_set(base_path + ['options', 'retransmission', 'attempts', retransmit_attempts])
+
+        self.cli_commit()
+
+        # Verify charon configuration
+        charon_conf = read_file(charon_file)
+        charon_conf_lines = [
+            f'# IKEv2 RETRANSMISSION',
+            f'retransmit_tries = {retransmit_attempts}',
+            f'retransmit_base = {retransmit_base}',
+            f'retransmit_timeout = {retransmit_timeout}',
+        ]
+
+        for line in charon_conf_lines:
+            self.assertIn(line, charon_conf)
+
+    def test_retransmission_default_settings(self):
+        # config file to cli options correspondence
+        retransmission_options = {
+            'retransmit_base' : 'base',
+            'retransmit_timeout': 'timeout',
+            'retransmit_tries': 'attempts',
+        }
+
+        # commit changes
+        self.cli_commit()
+
+        for config_option, cli_option in retransmission_options.items():
+            # Check configured value agains CLI default value
+            config_values_list = get_config_value(charon_file,config_option + ' =')
+
+            if config_values_list:
+                config_value = config_values_list[0]
+            else:
+                config_value = None
+            cli_value = default_value(base_path + ['options', 'retransmission', cli_option])
+            self.assertEqual(config_value, cli_value)
+
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
