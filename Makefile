@@ -116,7 +116,7 @@ check_migration_scripts_executable:
 	find src/migration-scripts -type f -not -executable -print -exec false {} + || sh -c 'echo "Found files that are not executable! Add permissions." && exit 1'
 
 .PHONE: pylint
-pylint:
+pylint: interface_definitions
 	@echo Running "pylint --errors-only ..."
 	@PYTHONPATH=python/ pylint --errors-only $(shell git ls-files python/vyos/ifconfig/*.py python/vyos/utils/*.py src/conf_mode/*.py src/op_mode/*.py src/migration-scripts src/services/vyos*)
 
