@@ -8,14 +8,14 @@
             <properties>
                 <help>Maximum number of memory map areas a process may have</help>
                 <valueHelp>
-                    <format>u32:0-65535</format>
+                    <format>u32:65535-2147483647</format>
                     <description>Areas count</description>
                 </valueHelp>
                 <constraint>
-                    <validator name="numeric" argument="--range 0-65535"/>
+                    <validator name="numeric" argument="--range 65535-2147483647"/>
                 </constraint>
             </properties>
-            <defaultValue>4096</defaultValue>
+            <defaultValue>65535</defaultValue>
         </leafNode>
         <leafNode name="shmmax">
             <properties>
