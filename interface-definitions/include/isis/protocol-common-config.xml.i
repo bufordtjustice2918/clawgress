@@ -289,6 +289,25 @@
         #include <include/segment-routing-label-value.xml.i>
       </children>
     </node>
+    <node name="srv6">
+      <properties>
+        <help>Segment-Routing SRv6 configuration</help>
+      </properties>
+      <children>
+        <leafNode name="locator">
+          <properties>
+            <help>Specify SRv6 locator</help>
+            <valueHelp>
+              <format>txt</format>
+              <description>SRv6 locator name</description>
+            </valueHelp>
+            <constraint>
+              #include <include/constraint/alpha-numeric-hyphen-underscore.xml.i>
+            </constraint>
+          </properties>
+        </leafNode>
+      </children>
+    </node>
     <leafNode name="maximum-label-depth">
       <properties>
         <help>Maximum MPLS labels allowed for this router</help>
