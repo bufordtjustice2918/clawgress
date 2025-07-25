@@ -282,6 +282,71 @@ class TestVPNIPsec(VyOSUnitTestSHIM.TestCase):
         for line in swanctl_secrets_lines:
             self.assertRegex(swanctl_conf, fr'{line}')
 
+    def test_site_to_site_ts_protocol_all(self):
+        """
+        Test acceptance of 'all' protocol in site-to-site traffic selector.
+
+        Verifies that specifying only the subnet (e.g., 'x.x.x.0/24') is accepted
+        for "all" protocols in IPsec site-to-site configuration, while explicit
+        '[all/]' protocol syntax is rejected with strongSwan 5.9.x.
+
+        More details: https://vyos.dev/T7581
+        """
+
+        self.cli_set(base_path + ['ike-group', ike_group, 'key-exchange', 'ikev2'])
+
+        local_address = '192.0.2.12'
+
+        # vpn ipsec auth psk <tag> id <x.x.x.x>
+        auth_psk_path = base_path + ['authentication', 'psk', connection_name]
+        self.cli_set(auth_psk_path + ['id', local_id])
+        self.cli_set(auth_psk_path + ['id', remote_id])
+        self.cli_set(auth_psk_path + ['id', local_address])
+        self.cli_set(auth_psk_path + ['id', peer_ip])
+        self.cli_set(auth_psk_path + ['secret', secret])
+
+        # Site to site
+        peer_base_path = base_path + ['site-to-site', 'peer', connection_name]
+        tunnel_1_base_path = peer_base_path + ['tunnel', '1']
+        tunnel_2_base_path = peer_base_path + ['tunnel', '2']
+
+        self.cli_set(peer_base_path + ['authentication', 'mode', 'pre-shared-secret'])
+        self.cli_set(peer_base_path + ['ike-group', ike_group])
+        self.cli_set(peer_base_path + ['default-esp-group', esp_group])
+        self.cli_set(peer_base_path + ['local-address', local_address])
+        self.cli_set(peer_base_path + ['remote-address', peer_ip])
+        self.cli_set(tunnel_1_base_path + ['protocol', 'all'])
+        self.cli_set(tunnel_1_base_path + ['local', 'prefix', '172.16.10.0/24'])
+        self.cli_set(tunnel_1_base_path + ['local', 'port', '443'])
+        self.cli_set(tunnel_1_base_path + ['remote', 'prefix', '172.17.11.0/24'])
+        self.cli_set(tunnel_1_base_path + ['remote', 'port', '443'])
+
+        self.cli_set(tunnel_2_base_path + ['protocol', 'all'])
+        self.cli_set(tunnel_2_base_path + ['local', 'prefix', '10.1.0.0/16'])
+        self.cli_set(tunnel_2_base_path + ['remote', 'prefix', '10.2.0.0/16'])
+
+        self.cli_commit()
+
+        # Verify strongSwan configuration
+        swanctl_conf = read_file(swanctl_file)
+        swanctl_conf_lines = [
+            'version = 2',
+            'auth = psk',
+            f'local_addrs = {local_address} # dhcp:no',
+            f'remote_addrs = {peer_ip}',
+            'mode = tunnel',
+            f'{connection_name}-tunnel-1',
+            'local_ts = 172.16.10.0/24[/443]',
+            'remote_ts = 172.17.11.0/24[/443]',
+            'mode = tunnel',
+            f'{connection_name}-tunnel-2',
+            'local_ts = 10.1.0.0/16',
+            'remote_ts = 10.2.0.0/16',
+            'mode = tunnel',
+        ]
+        for line in swanctl_conf_lines:
+            self.assertIn(line, swanctl_conf)
+
 
     def test_site_to_site_vti(self):
         local_address = '192.0.2.10'
