@@ -514,44 +514,44 @@ def get_cli_kernel_options(config_file: str) -> list:
     if 'quiet' in kernel_options:
         cmdline_options.append('quiet')
 
-    if 'disable_hpet' in kernel_options:
+    if 'disable-hpet' in kernel_options:
         cmdline_options.append('hpet=disable')
 
-    if 'disable_mce' in kernel_options:
+    if 'disable-mce' in kernel_options:
         cmdline_options.append('mce=off')
 
-    if 'disable_softlockup' in kernel_options:
+    if 'disable-softlockup' in kernel_options:
         cmdline_options.append('nosoftlockup')
 
     # CPU options
-    isol_cpus = k_cpu_opts.get('isolate_cpus')
+    isol_cpus = k_cpu_opts.get('isolate-cpus')
     if isol_cpus:
         cmdline_options.append(f'isolcpus={isol_cpus}')
 
-    nohz_full = k_cpu_opts.get('nohz_full')
+    nohz_full = k_cpu_opts.get('nohz-full')
     if nohz_full:
         cmdline_options.append(f'nohz_full={nohz_full}')
 
-    rcu_nocbs = k_cpu_opts.get('rcu_no_cbs')
+    rcu_nocbs = k_cpu_opts.get('rcu-no-cbs')
     if rcu_nocbs:
         cmdline_options.append(f'rcu_nocbs={rcu_nocbs}')
 
-    if 'disable_nmi_watchdog' in k_cpu_opts:
+    if 'disable-nmi-watchdog' in k_cpu_opts:
         cmdline_options.append('nmi_watchdog=0')
 
     # Memory options
-    if 'disable_numa_balancing' in k_memory_opts:
+    if 'disable-numa-balancing' in k_memory_opts:
         cmdline_options.append('numa_balancing=disable')
 
-    default_hp_size = k_memory_opts.get('default_hugepage_size')
+    default_hp_size = k_memory_opts.get('default-hugepage-size')
     if default_hp_size:
         cmdline_options.append(f'default_hugepagesz={default_hp_size}')
 
-    hp_sizes = k_memory_opts.get('hugepage_size')
+    hp_sizes = k_memory_opts.get('hugepage-size')
     if hp_sizes:
         for size, settings in hp_sizes.items():
             cmdline_options.append(f'hugepagesz={size}')
-            count = settings.get('hugepage_count')
+            count = settings.get('hugepage-count')
             if count:
                 cmdline_options.append(f'hugepages={count}')
 
