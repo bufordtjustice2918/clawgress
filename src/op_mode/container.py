@@ -56,6 +56,7 @@ def add_image(name: str):
                     if rc != 0: raise vyos.opmode.InternalError(out)
 
     rc, output = rc_cmd(f'podman image pull {name}')
+    print(output)
     if rc != 0:
         raise vyos.opmode.InternalError(output)
 
