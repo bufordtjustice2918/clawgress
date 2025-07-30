@@ -202,21 +202,23 @@ def insert_node(
             if comp_scripts:
                 comp_help['script'] = comp_scripts
 
-    cur_node_data = NodeData()
-    cur_node_data.name = name
-    cur_node_data.node_type = node_type
-    cur_node_data.comp_help = comp_help
-    cur_node_data.help_text = help_text
-    cur_node_data.command = command_text
-    cur_node_data.standalone_help_text = standalone_help_text
-    cur_node_data.standalone_command = standalone_command
-    cur_node_data.path = path
-    cur_node_data.file = file
+    new_node_data = NodeData()
+    new_node_data.name = name
+    new_node_data.node_type = node_type
+    new_node_data.comp_help = comp_help
+    new_node_data.help_text = help_text
+    new_node_data.command = command_text
+    new_node_data.standalone_help_text = standalone_help_text
+    new_node_data.standalone_command = standalone_command
+    new_node_data.path = path
 
-    value = {('__node_data', None): cur_node_data}
+    value = {('__node_data', None): new_node_data}
     key = (name, node_type)
 
     cur_value = d.setdefault(key, value)
+    # track the correct pointer reference:
+    cur_node_data = cur_value[('__node_data', None)]
+    cur_node_data.files.append(file)
 
     if parent and key not in parent.children:
         parent.children.append(key)

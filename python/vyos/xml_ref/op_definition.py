@@ -35,7 +35,7 @@ class NodeData:
     standalone_help_text: Optional[str] = None
     standalone_command: Optional[str] = None
     path: list[str] = field(default_factory=list)
-    file: str = ''
+    files: list[str] = field(default_factory=list)
     children: list[tuple] = field(default_factory=list)
 
 
