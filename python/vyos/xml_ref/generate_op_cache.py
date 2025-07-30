@@ -296,7 +296,9 @@ def main():
 
     res, out, err = collapse(op_mode_data)
     if err:
-        print('Failed to generate operational command definition cache due to duplicate paths.')
+        print(
+            'Failed to generate operational command definition cache due to duplicate paths.'
+        )
         print('Found the following duplicate paths:\n')
         print(out)
         sys.exit(1)
