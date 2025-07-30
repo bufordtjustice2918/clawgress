@@ -119,8 +119,6 @@ def generate(console):
 def apply(console):
     # Reset screen blanking
     call('/usr/bin/setterm -blank 0 -powersave off -powerdown 0 -term linux </dev/tty1 >/dev/tty1 2>&1')
-    # Reload systemd manager configuration
-    call('systemctl daemon-reload')
 
     # Service control moved to vyos.utils.serial to unify checks and prompts. 
     # If users are connected, we want to show an informational message on completing 
