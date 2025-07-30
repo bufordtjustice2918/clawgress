@@ -81,7 +81,7 @@ def translate_position(s: str, pos: list[str]) -> str:
 
     # preferred to .format(*list) to avoid collisions with braces
     for i, p in enumerate(pos):
-        t = t.replace(f'_place_holder_{i+1}_', p)
+        t = t.replace(f'_place_holder_{i+1}_', f'{{{{{p}}}}}')
 
     return t
 
