@@ -161,6 +161,7 @@ def collapse(d: OpData, acc: dict = None) -> tuple[dict, str, bool]:
                         out += '\n'
                     out += f'new: {new_data.file} {new_data.path}\n\n'
                 else:
+                    new_data.children = list(map(lambda t: t[0], new_data.children))
                     acc[name] = {}
                     acc[name]['__node_data'] = asdict(new_data)
                     inner, o, e = collapse(v)
