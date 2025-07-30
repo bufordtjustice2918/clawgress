@@ -153,9 +153,14 @@ def insert_node(
     if path is None:
         path = []
 
-    path.append(name)
+    if node_type != 'virtualTagNode':
+        path.append(name)
+
     if node_type == 'tagNode':
         path.append(f'{name}-tag_value')
+
+    if node_type == 'virtualTagNode':
+        path.append(f'{parent.name}-tag_value')
 
     help_prop: OptElement = None if prop is None else prop.find('help')
     help_text = None if help_prop is None else help_prop.text
