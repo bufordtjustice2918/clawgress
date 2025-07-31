@@ -1393,6 +1393,30 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         _, out = rc_cmd('sudo vppctl show nat44 summary')
         self.assertIn(f'max translations per thread: {sess_limit} fib 0', out)
 
+    def test_18_vpp_sflow(self):
+        base_sflow = ['system', 'sflow']
+
+        self.cli_set(base_path + ['sflow', 'interface', interface])
+        self.cli_set(base_sflow + ['interface', interface])
+        self.cli_set(base_sflow + ['server', '127.0.0.1'])
+        self.cli_set(base_sflow + ['vpp'])
+        self.cli_commit()
+
+        # Check sFlow
+        _, out = rc_cmd('sudo vppctl show sflow')
+
+        expected_entries = (
+            'sflow sampling-direction ingress',
+            f'sflow enable {interface}',
+            'interfaces enabled: 1',
+        )
+
+        for expected_entry in expected_entries:
+            self.assertIn(expected_entry, out)
+
+        self.cli_delete(base_sflow)
+        self.cli_commit()
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

@@ -936,6 +936,36 @@
         </node>
       </children>
     </node>
+    <node name="sflow" owner="${vyos_conf_scripts_dir}/vpp_sflow.py">
+      <properties>
+        <help>VPP data-plane sFlow</help>
+        <priority>322</priority>
+      </properties>
+      <children>
+        <leafNode name="interface">
+          <properties>
+            <help>Interface name</help>
+            <completionHelp>
+              <script>${vyos_completion_dir}/list_interfaces</script>
+            </completionHelp>
+            <valueHelp>
+              <format>txt</format>
+              <description>Interface name</description>
+            </valueHelp>
+            <multi/>
+          </properties>
+        </leafNode>
+        <leafNode name="sample-rate">
+          <properties>
+            <help>sFlow sample rate</help>
+            <valueHelp>
+              <format>u32</format>
+              <description>sFlow sample rate</description>
+            </valueHelp>
+          </properties>
+        </leafNode>
+      </children>
+    </node>
     <node name="nat">
       <properties>
         <help>Network Address Translation (NAT) settings</help>

@@ -149,6 +149,10 @@ def get_config(config=None):
     if conf.exists(['vpp', 'nat', 'cgnat']):
         set_dependents('vpp_nat_cgnat', conf)
 
+    # sFlow dependency
+    if conf.exists(['vpp', 'sflow']):
+        set_dependents('vpp_sflow', conf)
+
     # ACL dependency
     if conf.exists(['vpp', 'acl']):
         set_dependents('vpp_acl', conf)
