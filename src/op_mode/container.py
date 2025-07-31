@@ -76,6 +76,9 @@ def delete_image(name: str, force: typing.Optional[bool] = False):
         name = name.replace('\n', ' ')
         # convert to list
         name = name.split()
+    else:
+        # convert str -> list for further processing down the line
+        name = [name]
 
     for image in name:
         # convert the truncated image ID to a full image ID
