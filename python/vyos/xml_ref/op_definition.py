@@ -35,7 +35,7 @@ class NodeData:
     standalone_help_text: Optional[str] = None
     standalone_command: Optional[str] = None
     path: list[str] = field(default_factory=list)
-    file: str = ''
+    files: list[str] = field(default_factory=list)
     children: list[tuple] = field(default_factory=list)
 
 
@@ -161,6 +161,7 @@ def collapse(d: OpData, acc: dict = None) -> tuple[dict, str, bool]:
                         out += '\n'
                     out += f'new: {new_data.file} {new_data.path}\n\n'
                 else:
+                    new_data.children = list(map(lambda t: t[0], new_data.children))
                     acc[name] = {}
                     acc[name]['__node_data'] = asdict(new_data)
                     inner, o, e = collapse(v)
