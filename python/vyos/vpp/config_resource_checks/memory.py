@@ -28,7 +28,7 @@ from vyos.vpp.config_resource_checks.resource_defaults import default_resource_m
 
 def get_hugepages_info() -> dict:
     """
-    Returns the information about HugePages
+    Returns the information about HugePages for default hugepage size
     retrieved from /proc/meminfo
     """
     info = {}
@@ -40,18 +40,18 @@ def get_hugepages_info() -> dict:
     return info
 
 
-def get_total_hugepages_free_memory() -> int:
+def get_total_hugepages_memory() -> int:
     """
-    Returns the total amount of hugepage-backed free memory (in bytes)
+    Returns the total amount of hugepage memory (in bytes)
     """
     info = get_hugepages_info()
-    hugepages_free = info.get('HugePages_Free')
+    hugepages_total = info.get('HugePages_Total')
     hugepage_size = info.get('Hugepagesize') * 1024
 
-    return hugepage_size * hugepages_free
+    return hugepage_size * hugepages_total
 
 
-def get_hugepages_total() -> int:
+def get_total_hugepages_count() -> int:
     """
     Returns the total count of hugepages
     """
@@ -67,18 +67,6 @@ def get_numa_count():
     # e.g. "available: 2 nodes (0-1)"
     m = re.search(r'available:\s*(\d+)\s+nodes', out)
     return int(m.group(1)) if m else 0
-
-
-def get_memory_from_kernel_settings(settings: dict) -> int:
-    hugepage_settings = settings.get('hugepage_size', {})
-
-    total_bytes = 0
-    for size_str, info in hugepage_settings.items():
-        count = int(info.get('hugepage_count', 0))
-        page_bytes = human_memory_to_bytes(size_str)
-        total_bytes += count * page_bytes
-
-    return total_bytes
 
 
 def buffer_size(settings: dict) -> int:

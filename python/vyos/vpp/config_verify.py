@@ -226,27 +226,28 @@ def verify_vpp_memory(config: dict):
             f'The main heap size must be greater than or equal to page-size ({readable_heap_page})'
         )
 
-    # Get available HugePage memory to compare with required memory for VPP
-    available_memory = mem_checks.get_total_hugepages_free_memory()
-
+    available_memory = mem_checks.get_total_hugepages_memory()
     memory_required = mem_checks.total_memory_required(config['settings'])
 
-    # Check if there is a config currently active
-    # If yes, calculate how much memory it consumes
-    # and exclude it from required memory
-    if config.get('effective'):
-        memory_used = mem_checks.total_memory_required(config['effective']['settings'])
-        # If we want to reduce memory configs then there is nothing to check
-        if memory_used > memory_required:
-            return
-        memory_required -= memory_used
-
-    if memory_required > available_memory:
+    if main_heap_size > available_memory:
+        available_memory_in_mb = bytes_to_human_memory(available_memory, 'M')
         raise ConfigError(
-            'Not enough free hugepage memory to start VPP: '
-            f'available: {round(available_memory / 1024 ** 3, 1)} GB, '
-            f'required: {round(memory_required / 1024 ** 3, 1)} GB. '
-            'Please add kernel memory options for HugePages and reboot'
+            f'"memory main-heap-size" must not be greater than hugepages memory. Reduce to {available_memory_in_mb} or less'
+        )
+
+    memory_required = round(memory_required / 1024**3, 1)
+    available_memory = round(available_memory / 1024**3, 1)
+
+    # Allow 10% error margin
+    allowed_margin = memory_required * 0.1
+
+    # Compare HugePage memory with required memory for VPP
+    if memory_required > available_memory + allowed_margin:
+        raise ConfigError(
+            f'Not enough free hugepage memory to start VPP: '
+            f'available: {available_memory} GB, required: {memory_required} GB. '
+            'Please add kernel memory options for HugePages '
+            '"set system option kernel memory hugepage-size ..." and reboot'
         )
 
 
@@ -396,7 +397,7 @@ def verify_vpp_host_resources(config: dict):
     max_map_count = int(config['settings']['host_resources']['max_map_count'])
 
     # Get HugePages total count
-    hugepages = mem_checks.get_hugepages_total()
+    hugepages = mem_checks.get_total_hugepages_count()
 
     if max_map_count < 2 * hugepages:
         Warning(
