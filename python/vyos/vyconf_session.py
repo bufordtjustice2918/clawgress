@@ -223,6 +223,7 @@ class VyconfSession:
 
     @raise_exception
     def save_config(self, file: str, append_version: bool = False) -> tuple[str, int]:
+        file = os.path.realpath(file)
         out = vyconf_client.send_request('save', token=self.__token, location=file)
         if append_version:
             append_system_version(file)
