@@ -37,6 +37,8 @@ from vyos.utils.error import cli_shell_api_err
 from vyos.xml_ref import multi_to_list
 from vyos.xml_ref import is_tag
 from vyos.base import Warning
+from vyos.utils.backend import vyconf_backend
+from vyos.configsource import ConfigSourceVyconfSession
 
 config_file = os.path.join(directories['config'], 'config.boot')
 
@@ -93,7 +95,10 @@ class ConfigTreeQuery(GenericConfigQuery):
         super().__init__()
 
         if boot_configuration_complete():
-            config_source = ConfigSourceSession()
+            if vyconf_backend():
+                config_source = ConfigSourceVyconfSession()
+            else:
+                config_source = ConfigSourceSession()
             self.config = Config(config_source=config_source)
         else:
             try:
