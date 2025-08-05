@@ -67,10 +67,6 @@ class VyconfSession:
 
         self.on_error = on_error
 
-    def __del__(self):
-        if not self.in_config_session:
-            self.teardown()
-
     def teardown(self):
         vyconf_client.send_request('teardown', token=self.__token)
 
