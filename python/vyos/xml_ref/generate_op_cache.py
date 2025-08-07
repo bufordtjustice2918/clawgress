@@ -49,7 +49,6 @@ from defaults import directories  # noqa: E402
 
 
 op_ref_cache = abspath(join(_here, 'op_cache.py'))
-op_ref_json = abspath(join(_here, 'op_cache.json'))
 
 OptElement: TypeAlias = Optional[Element]
 
@@ -81,7 +80,7 @@ def translate_position(s: str, pos: list[str]) -> str:
 
     # preferred to .format(*list) to avoid collisions with braces
     for i, p in enumerate(pos):
-        t = t.replace(f'_place_holder_{i+1}_', p)
+        t = t.replace(f'_place_holder_{i+1}_', f'{{{{{p}}}}}')
 
     return t
 
@@ -89,6 +88,14 @@ def translate_position(s: str, pos: list[str]) -> str:
 def translate_command(s: str, pos: list[str]) -> str:
     s = translate_exec(s)
     s = translate_position(s, pos)
+
+    # If there are any untranslated occurences of '_place_holder_",
+    # it means the command is incorrect,
+    # e.g., it references "$6" when it only has five words.
+    if re.search(r'_place_holder_', s):
+        print(f"Command translation failed: {s}")
+        sys.exit(1)
+
     return s
 
 
@@ -153,9 +160,14 @@ def insert_node(
     if path is None:
         path = []
 
-    path.append(name)
+    if node_type != 'virtualTagNode':
+        path.append(name)
+
     if node_type == 'tagNode':
         path.append(f'{name}-tag_value')
+
+    if node_type == 'virtualTagNode':
+        path.append(f'{parent.name}-tag_value')
 
     help_prop: OptElement = None if prop is None else prop.find('help')
     help_text = None if help_prop is None else help_prop.text
@@ -260,14 +272,15 @@ def main():
         help='check consistency of node data across files',
     )
     parser.add_argument(
-        '--check-path-ambiguity',
-        action='store_true',
-        help='attempt to reduce to unique paths, reporting if error',
-    )
-    parser.add_argument(
         '--select',
         type=str,
         help='limit cache to a subset of XML files: "power_ctl | multicast-group | ..."',
+    )
+
+    parser.add_argument(
+        '--export-json',
+        type=str,
+        help='Export a JSON version of the cache to a file',
     )
 
     args = vars(parser.parse_args())
@@ -278,7 +291,7 @@ def main():
 
     xml_dir = abspath(args['xml_dir'])
 
-    d = {}
+    op_mode_data = {}
 
     select = args['select']
     if select:
@@ -287,25 +300,28 @@ def main():
     for fname in sorted(glob.glob(f'{xml_dir}/*.xml')):
         file = os.path.basename(fname)
         if not select or os.path.splitext(file)[0] in select:
-            parse_file(fname, d)
+            parse_file(fname, op_mode_data)
 
-    d = sort_op_data(d)
+    op_mode_data = sort_op_data(op_mode_data)
 
-    if args['check_path_ambiguity']:
-        # when the following passes without error, return value will be the
-        # full dictionary indexed by str, not tuple
-        res, out, err = collapse(d)
-        if not err:
-            with open(op_ref_json, 'w') as f:
-                json.dump(res, f, indent=2)
-        else:
-            print('Found the following duplicate paths:\n')
-            print(out)
-            sys.exit(1)
+    res, out, err = collapse(op_mode_data)
+    if err:
+        print(
+            'Failed to generate operational command definition cache due to duplicate paths.'
+        )
+        print('Found the following duplicate paths:\n')
+        print(out)
+        sys.exit(1)
+    else:
+        op_mode_data = res
 
     with open(op_ref_cache, 'w') as f:
         f.write('from vyos.xml_ref.op_definition import NodeData\n')
-        f.write(f'op_reference = {str(d)}')
+        f.write(f'op_reference = {str(op_mode_data)}')
+
+    if args['export_json']:
+        with open(args['export_json'], 'w') as f:
+            json.dump(op_mode_data, f)
 
 
 if __name__ == '__main__':
