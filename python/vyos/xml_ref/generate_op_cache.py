@@ -93,7 +93,7 @@ def translate_command(s: str, pos: list[str]) -> str:
     # it means the command is incorrect,
     # e.g., it references "$6" when it only has five words.
     if re.search(r'_place_holder_', s):
-        print(f"Command translation failed: {s}")
+        print(f'Command translation failed: {s}')
         sys.exit(1)
 
     return s
@@ -155,7 +155,9 @@ def insert_node(
     else:
         name = n.get('name')
         if not name:
-            raise ValueError("Node name is required for all node types except <virtualTagNode>")
+            raise ValueError(
+                'Node name is required for all node types except <virtualTagNode>'
+            )
 
     if path is None:
         path = []
