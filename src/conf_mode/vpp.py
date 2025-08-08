@@ -19,7 +19,11 @@
 from pathlib import Path
 
 from pyroute2.iproute import IPRoute
-from vpp_papi import VPPIOError, VPPValueError
+
+try:
+    from vpp_papi import VPPIOError, VPPValueError
+except ImportError:  # pylint: disable=import-error
+    VPPIOError = VPPValueError = None
 
 from vyos import ConfigError
 from vyos import airbag
