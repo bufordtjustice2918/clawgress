@@ -93,7 +93,7 @@ def translate_command(s: str, pos: list[str]) -> str:
     # it means the command is incorrect,
     # e.g., it references "$6" when it only has five words.
     if re.search(r'_place_holder_', s):
-        print(f"Command translation failed: {s}")
+        print(f'Command translation failed: {s}')
         sys.exit(1)
 
     return s
@@ -155,7 +155,9 @@ def insert_node(
     else:
         name = n.get('name')
         if not name:
-            raise ValueError("Node name is required for all node types except <virtualTagNode>")
+            raise ValueError(
+                'Node name is required for all node types except <virtualTagNode>'
+            )
 
     if path is None:
         path = []
@@ -223,22 +225,41 @@ def insert_node(
     new_node_data.standalone_help_text = standalone_help_text
     new_node_data.standalone_command = standalone_command
     new_node_data.path = path
+    new_node_data.files = [file]
 
     value = {('__node_data', None): new_node_data}
     key = (name, node_type)
 
     cur_value = d.setdefault(key, value)
-    # track the correct pointer reference:
-    cur_node_data = cur_value[('__node_data', None)]
-    cur_node_data.files.append(file)
-
-    if parent and key not in parent.children:
-        parent.children.append(key)
 
     if CHECK_XML_CONSISTENCY:
         out = node_data_difference(get_node_data(cur_value), get_node_data(value))
         if out:
             err_buf.write(out)
+
+    # track the correct pointer reference:
+    cur_node_data = cur_value[('__node_data', None)]
+
+    if file not in cur_node_data.files:
+        cur_node_data.files.append(file)
+
+    if not cur_node_data.comp_help and comp_help:
+        cur_node_data.comp_help = comp_help
+
+    if not cur_node_data.help_text and help_text:
+        cur_node_data.help_text = help_text
+
+    if not cur_node_data.command and command_text:
+        cur_node_data.command = command_text
+
+    if not cur_node_data.standalone_help_text and standalone_help_text:
+        cur_node_data.standalone_help_text = standalone_help_text
+
+    if not cur_node_data.standalone_command and standalone_command:
+        cur_node_data.standalone_command = standalone_command
+
+    if parent and key not in parent.children:
+        parent.children.append(key)
 
     if children is not None:
         inner_nodes = children.iterfind('*')

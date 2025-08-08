@@ -126,13 +126,13 @@ def get_node_data_at_path(d: dict, tpath):
 def node_data_difference(a: NodeData, b: NodeData):
     out = ''
     for fld in fields(NodeData):
-        if fld.name in ('children', 'file'):
+        if fld.name in ('children', 'files'):
             continue
         a_fld = getattr(a, fld.name)
         b_fld = getattr(b, fld.name)
         if a_fld != b_fld:
-            out += f'prev: {a.file} {a.path} {fld.name}: {a_fld}\n'
-            out += f'new:  {b.file} {b.path} {fld.name}: {b_fld}\n'
+            out += f'prev: {a.files[-1:]} {a.path} {fld.name}: {a_fld}\n'
+            out += f'new:  {b.files[-1:]} {b.path} {fld.name}: {b_fld}\n'
             out += '\n'
 
     return out
