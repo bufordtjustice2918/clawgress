@@ -18,7 +18,7 @@
 
 from pathlib import Path
 
-from pyroute2 import IPRoute
+from pyroute2.iproute import IPRoute
 from vpp_papi import VPPIOError, VPPValueError
 
 from vyos import ConfigError
