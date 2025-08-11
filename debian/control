@@ -338,6 +338,7 @@ Depends:
   libvppinfra,
   python3-vpp-api,
   vpp,
+  vpp-crypto-engines,
   vpp-dev,
   vpp-plugin-core,
   vpp-plugin-dpdk,
