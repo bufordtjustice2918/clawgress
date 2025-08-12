@@ -31,6 +31,7 @@ from vyos.configsession import ConfigSessionError
 from vyos.utils.process import process_named_running
 from vyos.utils.file import read_file
 from vyos.utils.process import rc_cmd
+from vyos.utils.system import sysctl_read
 from vyos.vpp.utils import human_page_memory_to_bytes
 
 sys.path.append(os.getenv('vyos_completion_dir'))
@@ -1416,6 +1417,33 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
 
         self.cli_delete(base_sflow)
         self.cli_commit()
+
+    def test_19_host_resources(self):
+        max_map_count = '100000'
+        shmmax = '55555555555555'
+        hr_path = ['system', 'option', 'host-resources']
+
+        # Check if max-map-count has default auto calculated value
+        # but not less than '65530'
+        self.assertEqual(sysctl_read('vm.max_map_count'), '65530')
+        # The same is with: kernel.shmmax = '8589934592'
+        self.assertEqual(sysctl_read('kernel.shmmax'), '8589934592')
+
+        # Change max-map-count, shmmax and check
+        self.cli_set(hr_path + ['max-map-count', max_map_count])
+        self.cli_set(hr_path + ['shmmax', shmmax])
+        self.cli_commit()
+
+        self.assertEqual(sysctl_read('vm.max_map_count'), max_map_count)
+        self.assertEqual(sysctl_read('kernel.shmmax'), shmmax)
+
+        # We expect max-map-count and shmmax will return auto calculated values
+        self.cli_delete(hr_path + ['max-map-count'])
+        self.cli_delete(hr_path + ['shmmax'])
+        self.cli_commit()
+
+        self.assertEqual(sysctl_read('vm.max_map_count'), '65530')
+        self.assertEqual(sysctl_read('kernel.shmmax'), '8589934592')
 
 
 if __name__ == '__main__':
