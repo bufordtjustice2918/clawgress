@@ -35,7 +35,6 @@ from vyos.ifconfig import Section
 from vyos.template import render
 from vyos.utils.boot import boot_configuration_complete
 from vyos.utils.process import call
-from vyos.utils.system import sysctl_read, sysctl_apply
 
 from vyos.vpp import VPPControl
 from vyos.vpp import control_host
@@ -53,7 +52,6 @@ from vyos.vpp.config_verify import (
     verify_vpp_memory,
     verify_vpp_statseg_size,
     verify_vpp_interfaces_dpdk_num_queues,
-    verify_vpp_host_resources,
 )
 from vyos.vpp.config_filter import iface_filter_eth
 from vyos.vpp.utils import EthtoolGDrvinfo
@@ -362,9 +360,6 @@ def verify(config):
     # Check if available memory is enough for current VPP config
     verify_vpp_memory(config)
 
-    if 'max_map_count' in config['settings'].get('host_resources', {}):
-        verify_vpp_host_resources(config)
-
     if 'statseg' in config['settings']:
         verify_vpp_statseg_size(config['settings'])
 
@@ -474,27 +469,6 @@ def generate(config):
 
     render(service_conf, 'vpp/startup.conf.j2', config['settings'])
     render(systemd_override, 'vpp/override.conf.j2', config)
-
-    # apply sysctl values
-    # default: https://github.com/FDio/vpp/blob/v23.10/src/vpp/conf/80-vpp.conf
-    # vm.nr_hugepages are now configured in section
-    # 'set system option kernel memory hugepage-size 2M hugepage-count <count>'
-    sysctl_config: dict[str, str] = {
-        'vm.max_map_count': config['settings']['host_resources']['max_map_count'],
-        'vm.hugetlb_shm_group': '0',
-        'kernel.shmmax': config['settings']['host_resources']['shmmax'],
-    }
-    # we do not want to lower current values
-    for sysctl_key, sysctl_value in sysctl_config.items():
-        # perform check only for quantitative params
-        if sysctl_key == 'vm.hugetlb_shm_group':
-            pass
-        current_value = sysctl_read(sysctl_key)
-        if int(current_value) > int(sysctl_value):
-            sysctl_config[sysctl_key] = current_value
-
-    if not sysctl_apply(sysctl_config):
-        raise ConfigError('Cannot configure sysctl parameters for VPP')
 
     return None
 

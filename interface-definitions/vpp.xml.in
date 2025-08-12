@@ -449,7 +449,6 @@
               </leafNode>
             </children>
           </node>
-          #include <include/vpp_host_resources.xml.i>
           <tagNode name="interface">
             <properties>
               <help>Interface</help>
