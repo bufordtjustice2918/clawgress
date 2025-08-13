@@ -25,6 +25,12 @@
         <multi/>
       </properties>
     </leafNode>
+    <leafNode name="wildcard-domain">
+      <properties>
+        <help>Match subdomains of specified domain(s)</help>
+        <valueless/>
+      </properties>
+    </leafNode>
     <node name="set">
       <properties>
         <help>Proxy modifications</help>
