@@ -216,8 +216,8 @@ def verify_vpp_memory(config: dict):
     main_heap_size = mem_checks.memory_main_heap(config['settings'])
     main_heap_page_size = mem_checks.main_heap_page_size(config['settings'])
 
-    if main_heap_size < 51 << 20:
-        raise ConfigError('The main heap size must be greater than or equal to 51M')
+    if main_heap_size < 1 << 30:
+        raise ConfigError('The main heap size must be greater than or equal to 1G')
 
     readable_heap_page = bytes_to_human_memory(main_heap_page_size, 'K')
 
@@ -368,8 +368,8 @@ def verify_vpp_statseg_size(settings: dict):
     statseg_size = mem_checks.statseg_size(settings)
 
     if 'size' in settings.get('statseg'):
-        if statseg_size < 1 << 20:
-            raise ConfigError('The statseg size must be greater than or equal to 1M')
+        if statseg_size < 128 << 20:
+            raise ConfigError('The statseg size must be greater than or equal to 128M')
 
     if 'page_size' in settings['statseg']:
         statseg_page_size = mem_checks.statseg_page_size(settings)
@@ -405,3 +405,29 @@ def verify_vpp_host_resources(config: dict):
             'or VPP could work not properly. Please set up '
             f'"vpp settings host-resources max-map-count" to {2 * hugepages} or higher'
         )
+
+
+def verify_routes_count(settings: dict, workers: int):
+    """
+    Maximum routes count depending on main heap size,
+    statistics segment size and workers
+    """
+    counters = 2  # 2 counters for each route
+    bytes = 16  # each counter consumes 16 bytes
+    statseg_scale = 2
+    statseg_size = settings['statseg']['size']
+    statseg_size_in_bytes = human_memory_to_bytes(statseg_size)
+    main_heap = settings['memory']['main_heap_size']
+    main_heap_in_gb = human_memory_to_bytes(main_heap) >> 30
+
+    formula = (workers + 1) * counters * bytes * statseg_scale
+    routes_count_statseg = statseg_size_in_bytes / formula
+    routes_count_statseg = round(routes_count_statseg / 1_000_000, 2)
+    routes_count_mh = main_heap_in_gb * 2
+    routes_count_min = min(routes_count_statseg, routes_count_mh)
+    Warning(
+        f'NOTE: Current dataplane capacity (estimated): {routes_count_min} M IPv4 routes. '
+        'Exceeding these values will lead to a dataplane out-of-memory condition and a crash. '
+        'Extensive use of features like ACLs, NAT and others may reduce the numbers above. '
+        'Please read the documentation for details: https://docs.vyos.io/'
+    )
