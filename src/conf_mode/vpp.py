@@ -54,6 +54,7 @@ from vyos.vpp.config_verify import (
     verify_vpp_statseg_size,
     verify_vpp_interfaces_dpdk_num_queues,
     verify_vpp_host_resources,
+    verify_routes_count,
 )
 from vyos.vpp.config_filter import iface_filter_eth
 from vyos.vpp.utils import EthtoolGDrvinfo
@@ -464,6 +465,8 @@ def verify(config):
             raise ConfigError(
                 f'Interface {iface_config["iface_name"]} is an xconnect member and cannot be removed'
             )
+
+    verify_routes_count(config['settings'], workers)
 
 
 def generate(config):
