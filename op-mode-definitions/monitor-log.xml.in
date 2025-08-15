@@ -45,6 +45,14 @@
                   <help>Monitor last lines of DHCP server log</help>
                 </properties>
                 <command>journalctl --no-hostname --follow --boot --unit kea-dhcp4-server.service</command>
+                <children>
+                  <tagNode name="vrf">
+                    <properties>
+                      <help>Monitor last lines of DHCP server log on specific vrf</help>
+                    </properties>
+                    <command>journalctl --no-hostname --follow --boot --unit "kea-dhcp4-server@$6.service"</command>
+                  </tagNode>
+                </children>
               </node>
               <node name="client">
                 <properties>
@@ -75,6 +83,14 @@
                   <help>Monitor last lines of DHCPv6 server log</help>
                 </properties>
                 <command>journalctl --no-hostname --follow --boot --unit kea-dhcp6-server.service</command>
+                <children>
+                  <tagNode name="vrf">
+                    <properties>
+                      <help>Monitor last lines of DHCPv6 server log on specific vrf</help>
+                    </properties>
+                    <command>journalctl --no-hostname --follow --boot --unit "kea-dhcp6-server@$6.service"</command>
+                  </tagNode>
+                </children>
               </node>
               <node name="client">
                 <properties>
