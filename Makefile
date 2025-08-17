@@ -66,5 +66,8 @@ $(BUILDDIR)/%.cmx: %.ml
 $(GENERATOR): $(GENERATOR_FILES)
 	ocamlfind opt -o $@ -I $(BUILDDIR)/lib -linkpkg -thread -package $(PACKAGES) $^
 
+deb:
+	dpkg-buildpackage -uc -us -tc -b
+
 clean:
 	rm -rf $(BUILDDIR)
