@@ -58,9 +58,6 @@ def load_config(key):
     image_name = get_current_image()
     image_path = os.path.join(persist_path, 'luks', image_name)
 
-    if not os.path.exists(image_path):
-        raise Exception("Encrypted config volume doesn't exist")
-
     if is_opened():
         print('Encrypted config volume is already mounted')
         return
@@ -71,6 +68,7 @@ def load_config(key):
 
     cmd(f'cryptsetup -q open {image_path} vyos_config --key-file={key_file}')
 
+    run(f'umount {mount_path}')
     cmd(f'mount /dev/mapper/vyos_config {mount_path}')
     cmd(f'chgrp -R vyattacfg {mount_path}')
 
@@ -79,9 +77,6 @@ def load_config(key):
     return True
 
 def encrypt_config(key, recovery_key=None, is_tpm=True):
-    if is_opened():
-        raise Exception('An encrypted config volume is already mapped')
-
     # Clear and write key to TPM
     if is_tpm:
         try:
@@ -137,10 +132,21 @@ def encrypt_config(key, recovery_key=None, is_tpm=True):
     if recovery_key:
         os.unlink(recovery_key_file)
 
+    run(f'umount {mount_path}')
     cmd(f'mount /dev/mapper/vyos_config {mount_path}')
     cmd(f'chgrp vyattacfg {mount_path}')
 
     return True
+
+def config_backup_folder(base):
+    # Get next available backup folder
+    if not os.path.exists(base):
+        return base
+
+    idx = 1
+    while os.path.exists(f'{base}.{idx}'):
+        idx += 1
+    return f'{base}.{idx}'
 
 def decrypt_config(key):
     if not key:
@@ -149,9 +155,6 @@ def decrypt_config(key):
     persist_path = cmd(persistpath_cmd).strip()
     image_name = get_current_image()
     image_path = os.path.join(persist_path, 'luks', image_name)
-
-    if not os.path.exists(image_path):
-        raise Exception("Encrypted config volume doesn't exist")
 
     key_file = None
 
@@ -168,8 +171,9 @@ def decrypt_config(key):
 
     # If /opt/vyatta/etc/config is populated, move to /opt/vyatta/etc/config.old
     if len(os.listdir(mount_path)) > 0:
-        print(f'Moving existing {mount_path} folder to {mount_path_old}')
-        shutil.move(mount_path, mount_path_old)
+        backup_path = config_backup_folder(mount_path_old)
+        print(f'Moving existing {mount_path} folder to {backup_path}')
+        shutil.move(mount_path, backup_path)
 
     # Temporarily mount encrypted volume and migrate files to
     # /opt/vyatta/etc/config on rootfs
@@ -211,6 +215,18 @@ if __name__ == '__main__':
     parser.add_argument('--enable', help='Enable encryption', action="store_true")
     parser.add_argument('--load', help='Load encrypted config volume', action="store_true")
     args = parser.parse_args()
+
+    if args.disable or args.load:
+        persist_path = cmd(persistpath_cmd).strip()
+        image_name = get_current_image()
+        image_path = os.path.join(persist_path, 'luks', image_name)
+
+        if not os.path.exists(image_path):
+            print('Encrypted config volume does not exist, aborting.')
+            sys.exit(0)
+    elif args.enable and is_opened():
+        print('An encrypted config volume is already mapped, aborting.')
+        sys.exit(0)
 
     tpm_exists = os.path.exists('/sys/class/tpm/tpm0')
 
