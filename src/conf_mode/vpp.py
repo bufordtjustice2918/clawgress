@@ -32,8 +32,12 @@ from vyos.config import Config, config_dict_merge
 from vyos.configdep import set_dependents, call_dependents
 from vyos.configdict import node_changed, leaf_node_changed
 from vyos.ifconfig import Section
+from vyos.logger import getLogger
 from vyos.template import render
 from vyos.utils.boot import boot_configuration_complete
+from vyos.utils.kernel import check_kmod
+from vyos.utils.kernel import unload_kmod
+from vyos.utils.kernel import list_loaded_modules
 from vyos.utils.process import call
 from vyos.utils.system import sysctl_read, sysctl_apply
 
@@ -65,6 +69,10 @@ airbag.enable()
 service_name = 'vpp'
 service_conf = Path(f'/run/vpp/{service_name}.conf')
 systemd_override = '/run/systemd/system/vpp.service.d/10-override.conf'
+
+vpp_log = getLogger(
+    service_name, format='%(filename)s[%(process)d]: %(message)s', address='/dev/log'
+)
 
 dependency_interface_type_map = {
     'vpp_interfaces_bonding': 'bonding',
@@ -102,6 +110,42 @@ drivers_support_interrupt: dict[str, list] = {
     'vmxnet3': ['xdp'],
     'virtio_net': ['xdp'],
 }
+
+
+def _load_module(module_name: str):
+    """
+    Load a kernel module
+
+    Args:
+        module_name (str): Name of the module to load.
+    """
+    if module_name in list_loaded_modules():
+        vpp_log.info(f"Module '{module_name}' is alrady loaded")
+        return
+    try:
+        check_kmod(module_name)
+        vpp_log.info(f"Module '{module_name}' loaded successfully")
+    except Exception as e:
+        vpp_log.error(f"Failed to load module '{module_name}': {e}")
+        raise
+
+
+def _unload_module(module_name: str):
+    """
+    Unload a kernel module
+
+    Args:
+        module_name (str): Name of the module to unload.
+    """
+    if module_name not in list_loaded_modules():
+        vpp_log.info(f"Module '{module_name}' is not loaded")
+        return
+    try:
+        unload_kmod(module_name)
+        vpp_log.info(f"Module '{module_name}' unloaded successfully")
+    except Exception as e:
+        vpp_log.error(f"Failed to unload module '{module_name}': {e}")
+        raise
 
 
 def get_config(config=None):
@@ -531,6 +575,8 @@ def initialize_interface(iface, driver, iface_config) -> None:
 
 
 def apply(config):
+    # modrpobe modules
+    modules = ('vfio_iommu_type1', 'vfio_pci', 'vfio_pci_core', 'vfio')
     # Open persistent config
     # It is required for operations with interfaces
     persist_config = JSONStorage('vpp_conf')
@@ -539,9 +585,20 @@ def apply(config):
         persist_config.delete()
         # And stop the service
         call(f'systemctl stop {service_name}.service')
+        # Unlod modules (modprobe -r)
+        for module in modules:
+            _unload_module(module)
     else:
         # Some interfaces required extra preparation before VPP can be started
         if 'settings' in config and 'interface' in config.get('settings'):
+            # modprobe vfio
+            if any(
+                iface_config.get('driver') == 'dpdk'
+                for iface_config in config['settings']['interface'].values()
+            ):
+                for module in modules:
+                    _load_module(module)
+
             for iface, iface_config in config['settings']['interface'].items():
                 if iface_config['driver'] == 'dpdk':
                     # ena interfaces require noiommu mode
