@@ -135,7 +135,7 @@ def encrypt_config(key, recovery_key=None, is_tpm=True):
 
         # Move mount_path to encrypted volume
         shutil.copytree(mount_path, d, copy_function=shutil.move, dirs_exist_ok=True)
-
+        cmd(f'chgrp -R vyattacfg {d}')
         cmd(f'umount {d}')
 
     os.unlink(key_file)
