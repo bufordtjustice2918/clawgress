@@ -28,7 +28,7 @@ from vyos.tpm import clear_tpm_key
 from vyos.tpm import read_tpm_key
 from vyos.tpm import write_tpm_key
 from vyos.utils.io import ask_input, ask_yes_no
-from vyos.utils.process import cmd
+from vyos.utils.process import cmd, run
 from vyos.defaults import directories
 
 persistpath_cmd = '/opt/vyatta/sbin/vyos-persistpath'
@@ -96,28 +96,39 @@ def encrypt_config(key, recovery_key=None, is_tpm=True):
     image_name = get_current_image()
     image_path = os.path.join(luks_folder, image_name)
 
-    # Create file for encrypted config
-    cmd(f'fallocate -l {size}M {image_path}')
+    try:
+        # Create file for encrypted config
+        cmd(f'fallocate -l {size}M {image_path}')
 
-    # Write TPM key for slot #1
-    with NamedTemporaryFile(dir='/dev/shm', delete=False) as f:
-        f.write(key)
-        key_file = f.name
-
-    # Format and add main key to volume
-    cmd(f'cryptsetup -q luksFormat {image_path} {key_file}')
-
-    if recovery_key:
-        # Write recovery key for slot 2
+        # Write TPM key for slot #1
         with NamedTemporaryFile(dir='/dev/shm', delete=False) as f:
-            f.write(recovery_key)
-            recovery_key_file = f.name
+            f.write(key)
+            key_file = f.name
 
-        cmd(f'cryptsetup -q luksAddKey {image_path} {recovery_key_file} --key-file={key_file}')
+        # Format and add main key to volume
+        cmd(f'cryptsetup -q luksFormat {image_path} {key_file}')
 
-    # Open encrypted volume and format with ext4
-    cmd(f'cryptsetup -q open {image_path} vyos_config --key-file={key_file}')
-    cmd('mkfs.ext4 /dev/mapper/vyos_config')
+        if recovery_key:
+            # Write recovery key for slot 2
+            with NamedTemporaryFile(dir='/dev/shm', delete=False) as f:
+                f.write(recovery_key)
+                recovery_key_file = f.name
+
+            cmd(f'cryptsetup -q luksAddKey {image_path} {recovery_key_file} --key-file={key_file}')
+
+        # Open encrypted volume and format with ext4
+        cmd(f'cryptsetup -q open {image_path} vyos_config --key-file={key_file}')
+        cmd('mkfs.ext4 /dev/mapper/vyos_config')
+    except Exception as e:
+        print('An error occurred while creating the encrypted config volume, aborting.')
+
+        if os.path.exists('/dev/mapper/vyos_config'):
+            run('cryptsetup -q close vyos_config')
+
+        if os.path.exists(image_path):
+            os.unlink(image_path)
+
+        raise e
 
     with TemporaryDirectory() as d:
         cmd(f'mount /dev/mapper/vyos_config {d}')
