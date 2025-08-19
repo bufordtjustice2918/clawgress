@@ -7,11 +7,13 @@ open Commitd_client
 
 module CT = Config_tree
 module CD = Config_diff
+module RT = Reference_tree
 module TA = Tree_alg
 module CM = Commit
 module VC = Vycall_client
 
 module I = Internal.Make(Config_tree)
+module IR = Internal.Make(Reference_tree)
 
 let error_message = ref ""
 
@@ -282,6 +284,19 @@ let mask_tree c_ptr_l c_ptr_r =
         | CD.Incommensurable -> error_message := "Incommensurable"; Ctypes.null
         | CD.Empty_comparison -> error_message := "Empty comparison"; Ctypes.null
 
+let validate_tree_filter c_ptr rt_cache_path validator_dir =
+    let ct = Root.get c_ptr in
+    try
+        let rt = IR.read_internal rt_cache_path
+        in
+        let ct_ret, out =
+            RT.validate_tree_filter validator_dir rt ct
+        in
+        error_message := out; Ctypes.Root.create ct_ret
+    with Internal.Read_error msg ->
+        error_message := msg; c_ptr
+
+
 module Stubs(I : Cstubs_inverted.INTERNAL) =
 struct
 
@@ -319,4 +334,5 @@ struct
   let () = I.internal "tree_merge" (bool @-> (ptr void) @-> (ptr void) @-> returning (ptr void)) tree_merge
   let () = I.internal "reference_tree_to_json" (string @-> string @-> string @-> returning int) reference_tree_to_json
   let () = I.internal "mask_tree" ((ptr void) @-> (ptr void) @-> returning (ptr void)) mask_tree
+  let () = I.internal "validate_tree_filter" ((ptr void) @-> string @-> string @-> returning (ptr void)) validate_tree_filter
 end
