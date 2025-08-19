@@ -19,7 +19,6 @@
 import psutil
 
 from vyos import ConfigError
-from vyos.base import Warning
 from vyos.utils.cpu import get_core_count as total_core_count
 
 from vyos.vpp.control_host import get_eth_driver
@@ -390,20 +389,6 @@ def verify_vpp_interfaces_dpdk_num_queues(qtype: str, num_queues: int, workers: 
         raise ConfigError(
             f'The number of {qtype} queues cannot be greater than the number of configured VPP workers: '
             f'workers: {workers}, queues: {num_queues}'
-        )
-
-
-def verify_vpp_host_resources(config: dict):
-    max_map_count = int(config['settings']['host_resources']['max_map_count'])
-
-    # Get HugePages total count
-    hugepages = mem_checks.get_total_hugepages_count()
-
-    if max_map_count < 2 * hugepages:
-        Warning(
-            'The max-map-count should be greater than or equal to (2 * HugePages_Total) '
-            'or VPP could work not properly. Please set up '
-            f'"vpp settings host-resources max-map-count" to {2 * hugepages} or higher'
         )
 
 
