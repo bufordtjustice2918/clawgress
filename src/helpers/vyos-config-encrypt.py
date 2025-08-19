@@ -251,18 +251,19 @@ if __name__ == '__main__':
 
     question_key_str = 'recovery key' if tpm_exists else 'key'
 
-    if tpm_exists:
-        if args.enable:
-            key = Fernet.generate_key()
-        elif args.disable or args.load:
-            try:
-                key = read_tpm_key()
-                need_recovery = False
-            except:
-                print('Failed to read key from TPM, recovery key required')
-                need_recovery = True
-    else:
-        need_recovery = True
+    if not is_opened():
+        if tpm_exists:
+            if args.enable:
+                key = Fernet.generate_key()
+            elif args.disable or args.load:
+                try:
+                    key = read_tpm_key()
+                    need_recovery = False
+                except:
+                    print('Failed to read key from TPM, recovery key required')
+                    need_recovery = True
+        else:
+            need_recovery = True
 
     if args.enable and not tpm_exists:
         print('WARNING: VyOS will boot into a default config when encrypted without a TPM')
