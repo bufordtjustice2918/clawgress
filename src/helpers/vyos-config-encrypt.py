@@ -68,7 +68,7 @@ def load_config(key):
 
     cmd(f'cryptsetup -q open {image_path} vyos_config --key-file={key_file}')
 
-    run(f'umount {mount_path}')
+    run(f'umount -l {mount_path}')
     cmd(f'mount /dev/mapper/vyos_config {mount_path}')
     cmd(f'chgrp -R vyattacfg {mount_path}')
 
@@ -143,7 +143,7 @@ def encrypt_config(key, recovery_key=None, is_tpm=True):
     if recovery_key:
         os.unlink(recovery_key_file)
 
-    run(f'umount {mount_path}')
+    run(f'umount -l {mount_path}')
     cmd(f'mount /dev/mapper/vyos_config {mount_path}')
     cmd(f'chgrp vyattacfg {mount_path}')
 
@@ -166,6 +166,7 @@ def decrypt_config(key):
     persist_path = cmd(persistpath_cmd).strip()
     image_name = get_current_image()
     image_path = os.path.join(persist_path, 'luks', image_name)
+    original_config_path = os.path.join(persist_path, 'boot', image_name, 'rw', 'opt', 'vyatta', 'etc', 'config')
 
     key_file = None
 
@@ -176,9 +177,8 @@ def decrypt_config(key):
 
         cmd(f'cryptsetup -q open {image_path} vyos_config --key-file={key_file}')
 
-    # unmount encrypted volume mount point
-    if os.path.ismount(mount_path):
-        cmd(f'umount {mount_path}')
+    # unmount encrypted volume mount points
+    run(f'umount -Alq /dev/mapper/vyos_config')
 
     # If /opt/vyatta/etc/config is populated, move to /opt/vyatta/etc/config.old
     if len(os.listdir(mount_path)) > 0:
@@ -186,8 +186,12 @@ def decrypt_config(key):
         print(f'Moving existing {mount_path} folder to {backup_path}')
         shutil.move(mount_path, backup_path)
 
-    # Temporarily mount encrypted volume and migrate files to
-    # /opt/vyatta/etc/config on rootfs
+    # Mount original persistence config path
+    if not os.path.exists(mount_path):
+        os.mkdir(mount_path)
+    cmd(f'mount --bind {original_config_path} {mount_path}')
+
+    # Temporarily mount encrypted volume and migrate files to /config on rootfs
     with TemporaryDirectory() as d:
         cmd(f'mount /dev/mapper/vyos_config {d}')
 
