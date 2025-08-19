@@ -197,7 +197,8 @@ def decrypt_config(key):
     os.unlink(image_path)
 
     try:
-        clear_tpm_key()
+        if ask_yes_no('Do you want to clear the TPM? This will cause issues if other system images use the key'):
+            clear_tpm_key()
     except:
         pass
 
