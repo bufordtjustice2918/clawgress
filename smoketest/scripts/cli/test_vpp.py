@@ -1418,10 +1418,10 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         self.cli_delete(base_sflow)
         self.cli_commit()
 
-    def test_19_host_resources(self):
+    def test_19_resource_limits(self):
         max_map_count = '100000'
         shmmax = '55555555555555'
-        hr_path = ['system', 'option', 'host-resources']
+        hr_path = ['system', 'option', 'resource-limits']
 
         # Check if max-map-count has default auto calculated value
         # but not less than '65530'

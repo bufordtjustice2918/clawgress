@@ -32,9 +32,9 @@
               <constraintErrorMessage>Must be ignore, reboot, or poweroff</constraintErrorMessage>
             </properties>
            </leafNode>
-           <node name="host-resources">
+           <node name="resource-limits">
              <properties>
-               <help>Sysctl parameters for host resources</help>
+               <help>Resource limits</help>
              </properties>
              <children>
                <leafNode name="max-map-count">

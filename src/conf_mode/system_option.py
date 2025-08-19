@@ -267,7 +267,7 @@ def apply(options):
         else:
             write_file(kernel_dynamic_debug, f'module {module} -p')
 
-    if 'host_resources' in options:
+    if 'resource_limits' in options:
         unit_map = {'M': 1 << 20, 'G': 1 << 30}
 
         total_pages = 0
@@ -283,8 +283,8 @@ def apply(options):
         max_map_count_min = 65530  # ensures large workload compatibility
         shmmax_min = 8589934592  # 8 GiB safe default for large allocations
 
-        max_map_count_conf = options['host_resources'].get('max_map_count', 'auto')
-        shmmax_conf = options['host_resources'].get('shmmax', 'auto')
+        max_map_count_conf = options['resource_limits'].get('max_map_count', 'auto')
+        shmmax_conf = options['resource_limits'].get('shmmax', 'auto')
 
         parameters = {
             'vm.max_map_count': (
