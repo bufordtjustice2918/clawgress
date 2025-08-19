@@ -31,7 +31,7 @@ default_resource_map = {
     # Default size of buffers transferred via netlink
     'netlink_rx_buffer_size': 212992,
     # Default amount of memory allocated for VPP stats segment usage
-    'statseg_heap_size': '96M',
+    'statseg_heap_size': '128M',
     # Minimal amount of memory required to start VPP
     'min_memory': '8G',
     # Minimal number of physical CPU cores required to start VPP
