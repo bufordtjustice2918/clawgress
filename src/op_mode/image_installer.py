@@ -26,6 +26,7 @@ from os import environ
 from os import readlink
 from os import getpid
 from os import getppid
+from os import sync
 from json import loads
 from json import dumps
 from typing import Union
@@ -1086,29 +1087,59 @@ def add_image(image_path: str, vrf: str = None, username: str = '',
         # find target directory
         root_dir: str = disk.find_persistence()
 
+        cmdline_options = []
+
         # a config dir. It is the deepest one, so the comand will
         # create all the rest in a single step
         target_config_dir: str = f'{root_dir}/boot/{image_name}/rw{DIR_CONFIG}/'
         # copy config
         if no_prompt or migrate_config():
-            print('Copying configuration directory')
-            # copytree preserves perms but not ownership:
-            Path(target_config_dir).mkdir(parents=True)
-            chown(target_config_dir, group='vyattacfg')
-            chmod_2775(target_config_dir)
-            copytree(f'{DIR_CONFIG}/', target_config_dir, symlinks=True,
-                     copy_function=copy_preserve_owner, dirs_exist_ok=True)
+            if Path('/dev/mapper/vyos_config').exists():
+                print('Copying encrypted configuration volume')
 
-            # Record information from which image we upgraded to the new one.
-            # This can be used for a future automatic rollback into the old image.
-            tmp = {'previous_image' : image.get_running_image()}
-            write_file(f'{target_config_dir}/first_boot', dumps(tmp))
+                # Record information from which image we upgraded to the new one.
+                # This can be used for a future automatic rollback into the old image.
+                #
+                # For encrypted config, we need to copy, sync filesystems and remove from current image
+                tmp = {'previous_image' : image.get_running_image()}
+                write_file('/opt/vyatta/etc/config/first_boot', dumps(tmp))
+                sync()
 
+                # Copy encrypteed volumes
+                current_name = image.get_running_image()
+                current_config_path = f'{root_dir}/luks/{current_name}'
+                target_config_path = f'{root_dir}/luks/{image_name}'
+                copy(current_config_path, target_config_path)
+
+                # Now remove from current image
+                Path('/opt/vyatta/etc/config/first_boot').unlink()
+
+                cmdline_options = get_cli_kernel_options(
+                    f'/opt/vyatta/etc/config/config.boot')
+            else:
+                print('Copying configuration directory')
+                # copytree preserves perms but not ownership:
+                Path(target_config_dir).mkdir(parents=True)
+                chown(target_config_dir, group='vyattacfg')
+                chmod_2775(target_config_dir)
+                copytree(f'{DIR_CONFIG}/', target_config_dir, symlinks=True,
+                        copy_function=copy_preserve_owner, dirs_exist_ok=True)
+
+                # Record information from which image we upgraded to the new one.
+                # This can be used for a future automatic rollback into the old image.
+                tmp = {'previous_image' : image.get_running_image()}
+                write_file(f'{target_config_dir}/first_boot', dumps(tmp))
+
+                cmdline_options = get_cli_kernel_options(
+                    f'{target_config_dir}/config.boot')
         else:
             Path(target_config_dir).mkdir(parents=True)
             chown(target_config_dir, group='vyattacfg')
             chmod_2775(target_config_dir)
             Path(f'{target_config_dir}/.vyatta_config').touch()
+
+            cmdline_options = get_cli_kernel_options(
+                f'{target_config_dir}/config.boot')
 
         target_ssh_dir: str = f'{root_dir}/boot/{image_name}/rw/etc/ssh/'
         if no_prompt or copy_ssh_host_keys():
