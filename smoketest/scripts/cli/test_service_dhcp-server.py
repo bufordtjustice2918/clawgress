@@ -1418,7 +1418,7 @@ class TestServiceDHCPServer(VyOSUnitTestSHIM.TestCase):
             client = f'client{seq}'
             mac = f'00:50:00:00:00:{seq:02}'
             ip = inc_ip(subnet, seq)
-            kea_add_lease(4, ip, host_name=client, mac_address=mac)
+            kea_add_lease(4, '', ip, host_name=client, mac_address=mac)
 
         # 2. Verify that leases are not available in vyos-hostsd
         tag_regex = re.escape(f'dhcp-server-{subnet.rsplit(".", 1)[0]}')
