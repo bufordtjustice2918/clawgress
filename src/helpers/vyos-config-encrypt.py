@@ -20,13 +20,10 @@ import sys
 
 from argparse import ArgumentParser
 from cryptography.fernet import Fernet
-from tempfile import NamedTemporaryFile
-from tempfile import TemporaryDirectory
+from tempfile import NamedTemporaryFile, TemporaryDirectory
 
-from vyos.system.image import is_live_boot
-from vyos.tpm import clear_tpm_key
-from vyos.tpm import read_tpm_key
-from vyos.tpm import write_tpm_key
+from vyos.system.image import is_live_boot, get_running_image
+from vyos.tpm import clear_tpm_key, read_tpm_key, write_tpm_key
 from vyos.utils.io import ask_input, ask_yes_no
 from vyos.utils.process import cmd, run
 from vyos.defaults import directories
@@ -40,22 +37,12 @@ dm_device = '/dev/mapper/vyos_config'
 def is_opened():
     return os.path.exists(dm_device)
 
-def get_current_image():
-    with open('/proc/cmdline', 'r') as f:
-        args = f.read().split(" ")
-        for arg in args:
-            if 'vyos-union' in arg:
-                k, v = arg.split("=")
-                path_split = v.split("/")
-                return path_split[-1]
-    return None
-
 def load_config(key):
     if not key:
         return
 
     persist_path = cmd(persistpath_cmd).strip()
-    image_name = get_current_image()
+    image_name = get_running_image()
     image_path = os.path.join(persist_path, 'luks', image_name)
 
     if is_opened():
@@ -93,7 +80,7 @@ def encrypt_config(key, recovery_key=None, is_tpm=True):
     if not os.path.isdir(luks_folder):
         os.mkdir(luks_folder)
 
-    image_name = get_current_image()
+    image_name = get_running_image()
     image_path = os.path.join(luks_folder, image_name)
 
     try:
@@ -164,7 +151,7 @@ def decrypt_config(key):
         return
 
     persist_path = cmd(persistpath_cmd).strip()
-    image_name = get_current_image()
+    image_name = get_running_image()
     image_path = os.path.join(persist_path, 'luks', image_name)
     original_config_path = os.path.join(persist_path, 'boot', image_name, 'rw', 'opt', 'vyatta', 'etc', 'config')
 
@@ -233,7 +220,7 @@ if __name__ == '__main__':
 
     if args.disable or args.load:
         persist_path = cmd(persistpath_cmd).strip()
-        image_name = get_current_image()
+        image_name = get_running_image()
         image_path = os.path.join(persist_path, 'luks', image_name)
 
         if not os.path.exists(image_path):
