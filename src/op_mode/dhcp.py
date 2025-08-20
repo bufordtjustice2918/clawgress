@@ -482,7 +482,7 @@ def clear_dhcp_server_lease(family: ArgFamily, vrf: str, address: str):
     v = 'v6' if family == 'inet6' else ''
     inet = '6' if family == 'inet6' else '4'
 
-    if not _lease_valid(inet, address):
+    if not _lease_valid(inet, vrf, address):
         print(f'Lease not found on DHCP{v} server')
         return None
 
