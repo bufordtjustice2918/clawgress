@@ -363,7 +363,7 @@ def _format_kernel_data(data, detail):
             podman_vrf[interface.get('ifname')]['vrf'] = interface.get('master', 'default')
 
         if interface.get('master', '').startswith('pod-'):
-            vrf = podman_vrf.get(interface.get('master', {})).get('vrf', 'default')
+            vrf = podman_vrf.get(interface.get('master', '')).get('vrf', 'default')
         elif interface.get('linkinfo', {}).get('info_slave_kind', '') == 'vrf':
             vrf = interface.get('master', 'default')
 
