@@ -319,18 +319,12 @@ class ConfigSession(object):
         return out
 
     def commit_confirm(self, minutes: int = DEFAULT_COMMIT_CONFIRM_MINUTES):
-        if self._vyconf_session is None:
-            out = self.__run_command(COMMIT_CONFIRM + [f'-t {minutes}'])
-        else:
-            out = 'unimplemented'
+        out = self.__run_command(COMMIT_CONFIRM + [f'-t {minutes}'])
 
         return out
 
     def confirm(self):
-        if self._vyconf_session is None:
-            out = self.__run_command(CONFIRM)
-        else:
-            out = 'unimplemented'
+        out = self.__run_command(CONFIRM)
 
         return out
 
