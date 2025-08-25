@@ -60,6 +60,8 @@ from vyos.utils.file import chmod_2775
 from vyos.utils.file import read_file
 from vyos.utils.file import write_file
 from vyos.utils.process import cmd, run, rc_cmd
+from vyos.utils.auth import get_local_users
+from vyos.utils.auth import get_user_home_dir
 from vyos.version import get_version_data
 
 # define text messages
@@ -719,6 +721,20 @@ def copy_ssh_host_keys() -> bool:
     return False
 
 
+def copy_ssh_known_hosts() -> bool:
+    """Ask user to copy SSH `known_hosts` files
+
+    Returns:
+        bool: user's decision
+    """
+    known_hosts_files = get_known_hosts_files()
+    msg = (
+        'Would you like to save the SSH known hosts (fingerprints) '
+        'from your current configuration?'
+    )
+    return known_hosts_files and ask_yes_no(msg, default=True)
+
+
 def console_hint() -> str:
     pid = getppid() if 'SUDO_USER' in environ else getpid()
     try:
@@ -1014,6 +1030,55 @@ def install_image() -> None:
         exit(1)
 
 
+def get_known_hosts_files(for_root=True, for_users=True) -> list:
+    """Collect all existing `known_hosts` files for root and/or users under /home"""
+
+    files = []
+
+    if for_root:
+        base_files = ('/root/.ssh/known_hosts', '/etc/ssh/ssh_known_hosts')
+        for file_path in base_files:
+            root_known_hosts = Path(file_path)
+            if root_known_hosts.exists():
+                files.append(root_known_hosts)
+
+    if for_users:  # for each non-system user
+        for user in get_local_users():
+            home_dir = Path(get_user_home_dir(user))
+            if home_dir.exists():
+                known_hosts = home_dir / '.ssh' / 'known_hosts'
+                if known_hosts.exists():
+                    files.append(known_hosts)
+
+    return files
+
+
+def migrate_known_hosts(target_dir: str):
+    """Copy `known_hosts` for root and all users to the new image directory"""
+
+    def _mkdir_and_copy_file(known_hosts_file, target_known_hosts):
+        target_known_hosts.parent.mkdir(parents=True, exist_ok=True)
+        copy(known_hosts_file, target_known_hosts)
+
+    # Copy root only files using default path
+    known_hosts_files = get_known_hosts_files(for_root=True, for_users=False)
+    for known_hosts_file in known_hosts_files:
+        target_known_hosts = Path(f'{target_dir}{known_hosts_file}')
+        _mkdir_and_copy_file(known_hosts_file, target_known_hosts)
+
+    # During image installation, backup critical user-specific files (e.g., known_hosts)
+    # from each user's home directory into /var/.users_backups/{user}. This ensures that their
+    # SSH configuration and trust relationships are preserved across system re-installations
+    # or provisioning.
+    # More details: https://github.com/vyos/vyos-1x/pull/4678#pullrequestreview-3169648265
+    known_hosts_files = get_known_hosts_files(for_root=False, for_users=True)
+    for known_hosts_file in known_hosts_files:
+        username = known_hosts_file.parent.parent.name
+        base_dir = Path(f'{target_dir}/var/.users_backups/{username}')
+        target_known_hosts = base_dir / '.ssh' / 'known_hosts'
+        _mkdir_and_copy_file(known_hosts_file, target_known_hosts)
+
+
 @compat.grub_cfg_update
 def add_image(image_path: str, vrf: str = None, username: str = '',
               password: str = '', no_prompt: bool = False, force: bool = False) -> None:
@@ -1148,6 +1213,11 @@ def add_image(image_path: str, vrf: str = None, username: str = '',
             host_keys: list[str] = glob('/etc/ssh/ssh_host*')
             for host_key in host_keys:
                 copy(host_key, target_ssh_dir)
+
+        target_ssh_known_hosts_dir: str = f'{root_dir}/boot/{image_name}/rw'
+        if no_prompt or copy_ssh_known_hosts():
+            print('Copying SSH known_hosts files')
+            migrate_known_hosts(target_ssh_known_hosts_dir)
 
         # copy system image and kernel files
         print('Copying system image files')

@@ -15,6 +15,7 @@
 
 import os
 import tempfile
+import shutil
 
 from vyos.utils.permission import chown
 
@@ -268,3 +269,46 @@ def write_file_atomic(file_path, data: str, mode='w'):
     except OSError as e:
         cleanup()
         raise OSError(f'rename {e}')
+
+def copy_recursive(src: str, dst: str, overwrite: bool = False):
+    """
+    Recursively copy files from `src` to `dst`.
+
+    :param src: Source directory
+    :param dst: Destination directory
+    :param overwrite: If True, overwrite existing files. If False, skip them.
+    """
+
+    if not os.path.exists(src):
+        raise FileNotFoundError(f"Source path does not exist: {src}")
+
+    os.makedirs(dst, exist_ok=True)  # Create destination directory if not exists
+
+    for root, _, files in os.walk(src):
+        # Find relative path to maintain directory structure
+        rel_path = os.path.relpath(root, src)
+        target_dir = os.path.join(dst, rel_path) if rel_path != "." else dst
+
+        os.makedirs(target_dir, exist_ok=True)
+
+        for file in files:
+            src_file = os.path.join(root, file)
+            dst_file = os.path.join(target_dir, file)
+
+            if not os.path.exists(dst_file) or overwrite:
+                shutil.copy2(src_file, dst_file)
+
+
+def move_recursive(src: str, dst: str, overwrite=False):
+    """
+    Recursively move files from `src` to `dst` and removing the source.
+
+    :param src: Source directory
+    :param dst: Destination directory
+    :param overwrite: If True, overwrite existing files. If False, skip them.
+    """
+    if not os.path.exists(src):
+        raise FileNotFoundError(f"Source path does not exist: {src}")
+
+    copy_recursive(src, dst, overwrite=overwrite)
+    shutil.rmtree(src)
