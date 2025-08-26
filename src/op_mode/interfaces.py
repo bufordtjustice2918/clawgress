@@ -21,6 +21,7 @@ import sys
 import glob
 import json
 import typing
+import textwrap
 from datetime import datetime
 from tabulate import tabulate
 
@@ -28,8 +29,10 @@ import vyos.opmode
 from vyos.ifconfig import Section
 from vyos.ifconfig import Interface
 from vyos.ifconfig import VRRP
-from vyos.utils.process import cmd
+from vyos.utils.dict import dict_set_nested
+from vyos.utils.network import get_interface_vrf
 from vyos.utils.network import interface_exists
+from vyos.utils.process import cmd
 from vyos.utils.process import rc_cmd
 from vyos.utils.process import call
 from vyos.configquery import op_mode_config_dict
@@ -85,6 +88,10 @@ def filtered_interfaces(ifnames: typing.Union[str, list],
                 continue
 
         yield interface
+
+def is_interface_has_mac(interface_name):
+    interface_no_mac = ('tun', 'wg')
+    return not any(interface_name.startswith(prefix) for prefix in interface_no_mac)
 
 def detailed_output(dataset, headers):
     for data in dataset:
@@ -246,10 +253,6 @@ def _get_summary_data(ifname: typing.Optional[str],
         iftype = ''
     ret = []
 
-    def is_interface_has_mac(interface_name):
-        interface_no_mac = ('tun', 'wg')
-        return not any(interface_name.startswith(prefix) for prefix in interface_no_mac)
-
     for interface in filtered_interfaces(ifname, iftype, vif, vrrp):
         res_intf = {}
 
@@ -328,12 +331,22 @@ def _get_kernel_data(raw, ifname = None, detail = False):
 
 def _format_kernel_data(data, detail):
     output_list = []
+    podman_vrf = {}
     tmpInfo = {}
 
     # Sort interfaces by name
     for interface in sorted(data, key=lambda x: x.get('ifname', '')):
+        interface_name = interface.get('ifname', '')
+
+        # Skip VRF interfaces
         if interface.get('linkinfo', {}).get('info_kind') == 'vrf':
             continue
+        # Skip spawned interfaces
+        elif interface_name.startswith(('tunl', 'gre', 'erspan', 'pim6reg')):
+            continue
+
+        master = interface.get('master', 'default')
+        vrf = get_interface_vrf(interface)
 
         # Get the device model; ex. Intel Corporation Ethernet Controller I225-V
         dev_model = interface.get('parentdev', '')
@@ -353,21 +366,28 @@ def _format_kernel_data(data, detail):
                 prefixlen = ip.get('prefixlen', '')
                 ip_list.append(f"{local}/{prefixlen}")
 
-
         # If no global IP address, add '-'; indicates no IP address on interface
         if not has_global:
             ip_list.append('-')
 
+        # Generate a mapping of podman interfaces to their VRF
+        if interface_name.startswith('pod-'):
+            dict_set_nested(f'{interface_name}.vrf', master, podman_vrf)
+
+        # If the veth interface's master is a podman interface, the VRF is the VRF of the podman interface
+        if master.startswith('pod-'):
+            vrf = podman_vrf.get(master).get('vrf', 'default')
+
         sl_status = ('A' if not 'UP' in interface['flags'] else 'u') + '/' + ('D' if interface['operstate'] == 'DOWN' else 'u')
 
         # Generate temporary dict to hold data
-        tmpInfo['ifname'] = interface.get('ifname', '')
+        tmpInfo['ifname'] = interface_name
         tmpInfo['ip'] = ip_list
-        tmpInfo['mac'] = interface.get('address', '')
+        tmpInfo['mac'] = interface.get('address', 'n/a') if is_interface_has_mac(interface_name) else 'n/a'
         tmpInfo['mtu'] = interface.get('mtu', '')
-        tmpInfo['vrf'] = interface.get('master', 'default')
+        tmpInfo['vrf'] = vrf
         tmpInfo['status'] = sl_status
-        tmpInfo['description'] = interface.get('ifalias', '')
+        tmpInfo['description'] = "\n".join(textwrap.wrap(interface.get('ifalias', ''), width=50))
         tmpInfo['device'] = dev_model
         tmpInfo['alternate_names'] = interface.get('altnames', '')
         tmpInfo['minimum_mtu'] = interface.get('min_mtu', '')
@@ -583,6 +603,7 @@ def show_kernel(raw: bool, intf_name: typing.Optional[str], detail: bool):
     if detail:
         detailed_output(data, detail_header)
     else:
+        print('Codes: S - State, L - Link, u - Up, D - Down, A - Admin Down')
         print(tabulate(data, headers))
 
 def _show_raw(data: list, intf_name: str):
