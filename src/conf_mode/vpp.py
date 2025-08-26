@@ -57,6 +57,7 @@ from vyos.vpp.config_verify import (
     verify_vpp_statseg_size,
     verify_vpp_interfaces_dpdk_num_queues,
     verify_routes_count,
+    verify_vpp_main_heap_size,
 )
 from vyos.vpp.config_filter import iface_filter_eth
 from vyos.vpp.utils import EthtoolGDrvinfo
@@ -235,7 +236,12 @@ def get_config(config=None):
 
     # add running config
     if effective_config:
-        config['effective'] = effective_config
+        default_values_effective = conf.get_config_defaults(
+            **effective_config.kwargs, recursive=True
+        )
+        config['effective'] = config_dict_merge(
+            default_values_effective, effective_config
+        )
 
     if 'settings' in config:
         if 'interface' in config['settings']:
@@ -402,11 +408,11 @@ def verify(config):
             workers=workers, nat44_workers=config['settings']['nat44']['workers']
         )
 
+    verify_vpp_main_heap_size(config['settings'])
+    verify_vpp_statseg_size(config['settings'])
+
     # Check if available memory is enough for current VPP config
     verify_vpp_memory(config)
-
-    if 'statseg' in config['settings']:
-        verify_vpp_statseg_size(config['settings'])
 
     # ensure DPDK/XDP settings are properly configured
     for iface, iface_config in config['settings']['interface'].items():
