@@ -321,9 +321,6 @@ Depends:
 # For "vpn openconnect"
   ocserv,
 # End "vpn openconnect"
-# For "system flow-accounting"
-  pmacct (>= 1.6.0),
-# End "system flow-accounting"
 # For "system syslog"
   rsyslog,
 # End "system syslog"
