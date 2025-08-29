@@ -68,7 +68,7 @@ def get_host_identity() -> str:
     host = cmd("hostname").strip().lower()
     return f"{uuid}:{host}"
 
-def gen_mac(name: str, addr: str) -> str:
+def gen_mac(name: str, addr: str, ident: str) -> str:
     """
     Generate a deterministic locally-administered MAC address.
 
@@ -88,7 +88,6 @@ def gen_mac(name: str, addr: str) -> str:
     Returns:
         str: Deterministic MAC address in standard "xx:xx:xx:xx:xx:xx" format.
     """
-    ident = get_host_identity()
     h = hashlib.sha256(f"{ident}:{name}:{addr}".encode()).hexdigest()
     # 0x02 = locally-administered, unicast
     b = [0x02] + [int(h[i:i+2], 16) for i in range(0, 10, 2)]  # 5 bytes = 40 bits

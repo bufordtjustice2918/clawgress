@@ -37,6 +37,7 @@ from vyos.utils.process import call
 from vyos.utils.process import cmd
 from vyos.utils.process import run
 from vyos.utils.network import gen_mac
+from vyos.utils.network import get_host_identity
 from vyos.utils.network import interface_exists
 from vyos.template import bracketize_ipv6
 from vyos.template import inc_ip
@@ -343,7 +344,7 @@ def verify(container):
     return None
 
 
-def generate_run_arguments(name, container_config):
+def generate_run_arguments(name, container_config, host_ident):
     image = container_config['image']
     cpu_quota = container_config['cpu_quota']
     memory = container_config['memory']
@@ -469,7 +470,7 @@ def generate_run_arguments(name, container_config):
         return f'{container_base_cmd} --net host {entrypoint} {image} {command} {command_arguments}'.strip()
 
     ip_param = ''
-    mac_address = ''
+    addr_info = ''
     networks = ",".join(container_config['network'])
     for network in container_config['network']:
         if 'address' not in container_config['network'][network]:
@@ -481,7 +482,8 @@ def generate_run_arguments(name, container_config):
                 ip_param += f' --ip {address}'
 
         addr_info = ''.join(container_config['network'][network]['address'])
-        mac_address = f'--mac-address {gen_mac(name, addr_info)}'
+
+    mac_address = f'--mac-address {gen_mac(name, addr_info, host_ident)}'
 
     return f'{container_base_cmd} --no-healthcheck --net {networks} {ip_param} {mac_address} {entrypoint} {image} {command} {command_arguments}'.strip()
 
@@ -501,7 +503,7 @@ def generate(container):
                 net_interface = dict_search('macvlan.parent', type_config)
                 driver = 'macvlan'
                 mode = dict_search('macvlan.mode', type_config)
-            elif dict_search('bridge', type_config) != None:
+            elif dict_search('bridge', type_config) is not None:
                 net_interface = f'pod-{network}'
                 driver = 'bridge'
             else:
@@ -560,12 +562,13 @@ def generate(container):
     render(config_storage, 'container/storage.conf.j2', container)
 
     if 'name' in container:
+        host_ident = get_host_identity()
         for name, container_config in container['name'].items():
             if 'disable' in container_config:
                 continue
 
             file_path = os.path.join(systemd_unit_path, f'vyos-container-{name}.service')
-            run_args = generate_run_arguments(name, container_config)
+            run_args = generate_run_arguments(name, container_config, host_ident)
             render(file_path, 'container/systemd-unit.j2', {'name': name, 'run_args': run_args, },
                    formater=lambda _: _.replace("&quot;", '"').replace("&apos;", "'"))
 
