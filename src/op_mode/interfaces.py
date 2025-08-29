@@ -309,7 +309,8 @@ def _get_counter_data(ifname: typing.Optional[str],
 
     return ret
 
-def _get_kernel_data(raw, ifname = None, detail = False):
+def _get_kernel_data(raw, ifname = None, detail = False,
+                     statistics = False):
     if ifname:
         # Check if the interface exists
         if not interface_exists(ifname):
@@ -325,11 +326,11 @@ def _get_kernel_data(raw, ifname = None, detail = False):
         return kernel_interface, None
 
     # Format the kernel data
-    kernel_interface_out = _format_kernel_data(kernel_interface, detail)
+    kernel_interface_out = _format_kernel_data(kernel_interface, detail, statistics)
 
     return kernel_interface, kernel_interface_out
 
-def _format_kernel_data(data, detail):
+def _format_kernel_data(data, detail, statistics):
     output_list = []
     podman_vrf = {}
     tmpInfo = {}
@@ -378,6 +379,9 @@ def _format_kernel_data(data, detail):
         if master.startswith('pod-'):
             vrf = podman_vrf.get(master).get('vrf', 'default')
 
+        rx_stats = interface.get('stats64', {}).get('rx')
+        tx_stats = interface.get('stats64', {}).get('tx')
+
         sl_status = ('A' if not 'UP' in interface['flags'] else 'u') + '/' + ('D' if interface['operstate'] == 'DOWN' else 'u')
 
         # Generate temporary dict to hold data
@@ -392,8 +396,6 @@ def _format_kernel_data(data, detail):
         tmpInfo['alternate_names'] = interface.get('altnames', '')
         tmpInfo['minimum_mtu'] = interface.get('min_mtu', '')
         tmpInfo['maximum_mtu'] = interface.get('max_mtu', '')
-        rx_stats = interface.get('stats64', {}).get('rx')
-        tx_stats = interface.get('stats64', {}).get('tx')
         tmpInfo['rx_packets'] = rx_stats.get('packets', "")
         tmpInfo['rx_bytes'] = rx_stats.get('bytes', "")
         tmpInfo['rx_errors'] = rx_stats.get('errors', "")
@@ -407,30 +409,37 @@ def _format_kernel_data(data, detail):
         tmpInfo['tx_carrier_errors'] = tx_stats.get('carrier_errors', "")
         tmpInfo['tx_collisions'] = tx_stats.get('collisions', "")
 
+        # Order the stats based on 'detail' or 'statistics'
+        if detail:
+            stat_keys = [
+                "rx_packets", "rx_bytes", "rx_errors", "rx_dropped",
+                "rx_over_errors", "multicast",
+                "tx_packets", "tx_bytes", "tx_errors", "tx_dropped",
+                "tx_carrier_errors", "tx_collisions",
+            ]
+        elif statistics:
+            stat_keys = [
+                "rx_packets", "rx_bytes", "tx_packets", "tx_bytes",
+                "rx_dropped", "tx_dropped", "rx_errors", "tx_errors",
+            ]
+        else:
+            stat_keys = []
+
+        stat_list = [tmpInfo.get(k, "") for k in stat_keys]
+
         # Generate output list; detail adds more fields
         output_list.append([tmpInfo['ifname'],
-                            '\n'.join(tmpInfo['ip']),
-                            tmpInfo['mac'],
-                            tmpInfo['vrf'],
-                            tmpInfo['mtu'],
-                            tmpInfo['status'],
-                            tmpInfo['description'],
+                            *(['\n'.join(tmpInfo['ip'])] if not statistics else []),
+                            *([tmpInfo['mac']] if not statistics else []),
+                            *([tmpInfo['vrf']] if not statistics else []),
+                            *([tmpInfo['mtu']] if not statistics else []),
+                            *([tmpInfo['status']] if not statistics else []),
+                            *([tmpInfo['description']] if not statistics else []),
                             *([tmpInfo['device']] if detail else []),
                             *(['\n'.join(tmpInfo['alternate_names'])] if detail else []),
                             *([tmpInfo['minimum_mtu']] if detail else []),
                             *([tmpInfo['maximum_mtu']] if detail else []),
-                            *([tmpInfo['rx_packets']] if detail else []),
-                            *([tmpInfo['rx_bytes']] if detail else []),
-                            *([tmpInfo['rx_errors']] if detail else []),
-                            *([tmpInfo['rx_dropped']] if detail else []),
-                            *([tmpInfo['rx_over_errors']] if detail else []),
-                            *([tmpInfo['multicast']] if detail else []),
-                            *([tmpInfo['tx_packets']] if detail else []),
-                            *([tmpInfo['tx_bytes']] if detail else []),
-                            *([tmpInfo['tx_errors']] if detail else []),
-                            *([tmpInfo['tx_dropped']] if detail else []),
-                            *([tmpInfo['tx_carrier_errors']] if detail else []),
-                            *([tmpInfo['tx_collisions']] if detail else [])])
+                            *(stat_list if any([detail, statistics]) else [])])
 
     return output_list
 
@@ -583,27 +592,33 @@ def _format_show_counters(data: list):
     print (output)
     return output
 
-def show_kernel(raw: bool, intf_name: typing.Optional[str], detail: bool):
-    raw_data, data = _get_kernel_data(raw, intf_name, detail)
+def show_kernel(raw: bool, intf_name: typing.Optional[str],
+                detail: bool, statistics: bool):
+    raw_data, data = _get_kernel_data(raw, intf_name, detail, statistics)
 
     # Return early if raw
     if raw:
         return raw_data
 
-    # Normal headers; show interfaces kernel
-    headers = ['Interface', 'IP Address', 'MAC', 'VRF', 'MTU', 'S/L', 'Description']
+    if detail:
+        # Detail headers; ex. show interfaces kernel detail; show interfaces kernel eth0 detail
+        detail_header = ['Interface', 'IP Address', 'MAC', 'VRF', 'MTU', 'S/L', 'Description',
+                        'Device', 'Alternate Names','Minimum MTU', 'Maximum MTU', 'RX_Packets',
+                        'RX_Bytes', 'RX_Errors', 'RX_Dropped', 'Receive Overrun Errors', 'Received Multicast',
+                        'TX_Packets', 'TX_Bytes', 'TX_Errors', 'TX_Dropped', 'Transmit Carrier Errors',
+                        'Transmit Collisions']
+    elif statistics:
+        # Statistics headers; ex. show interfaces kernel statistics; show interfaces kernel eth0 statistics
+        headers = ['Interface', 'Rx Packets', 'Rx Bytes', 'Tx Packets', 'Tx Bytes', 'Rx Dropped', 'Tx Dropped', 'Rx Errors', 'Tx Errors']
+    else:
+        # Normal headers; ex. show interfaces kernel; show interfaces kernel eth0
+        print('Codes: S - State, L - Link, u - Up, D - Down, A - Admin Down')
+        headers = ['Interface', 'IP Address', 'MAC', 'VRF', 'MTU', 'S/L', 'Description']
 
-    # Detail headers; show interfaces kernel detail
-    detail_header = ['Interface', 'IP Address', 'MAC', 'VRF', 'MTU', 'S/L', 'Description',
-                     'Device', 'Alternate Names','Minimum MTU', 'Maximum MTU', 'RX_Packets',
-                     'RX_Bytes', 'RX_Errors', 'RX_Dropped', 'Receive Overrun Errors', 'Received Multicast',
-                     'TX_Packets', 'TX_Bytes', 'TX_Errors', 'TX_Dropped', 'Transmit Carrier Errors',
-                     'Transmit Collisions']
 
     if detail:
         detailed_output(data, detail_header)
     else:
-        print('Codes: S - State, L - Link, u - Up, D - Down, A - Admin Down')
         print(tabulate(data, headers))
 
 def _show_raw(data: list, intf_name: str):
