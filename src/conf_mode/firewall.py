@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2021-2024 VyOS maintainers and contributors
+# Copyright VyOS maintainers and contributors <maintainers@vyos.io>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -17,6 +17,8 @@
 import os
 import re
 
+from glob import glob
+
 from sys import exit
 from vyos.base import Warning
 from vyos.config import Config
@@ -30,6 +32,7 @@ from vyos.firewall import geoip_update
 from vyos.template import render
 from vyos.utils.dict import dict_search_args
 from vyos.utils.dict import dict_search_recursive
+from vyos.utils.file import write_file
 from vyos.utils.process import call
 from vyos.utils.process import cmd
 from vyos.utils.process import rc_cmd
@@ -37,13 +40,13 @@ from vyos.utils.network import get_vrf_members
 from vyos.utils.network import get_interface_vrf
 from vyos import ConfigError
 from vyos import airbag
-from pathlib import Path
 from subprocess import run as subp_run
 
 airbag.enable()
 
 nftables_conf = '/run/nftables.conf'
 domain_resolver_usage = '/run/use-vyos-domain-resolver-firewall'
+firewall_config_dir = "/config/firewall"
 
 sysctl_file = r'/run/sysctl/10-vyos-firewall.conf'
 
@@ -53,7 +56,8 @@ valid_groups = [
     'network_group',
     'port_group',
     'interface_group',
-    ## Added for group ussage in bridge firewall
+    'remote_group',
+    ## Added for group usage in bridge firewall
     'ipv4_address_group',
     'ipv6_address_group',
     'ipv4_network_group',
@@ -203,7 +207,7 @@ def verify_rule(firewall, family, hook, priority, rule_id, rule_conf):
         if 'jump' not in rule_conf['action']:
             raise ConfigError('jump-target defined, but action jump needed and it is not defined')
         target = rule_conf['jump_target']
-        if hook != 'name': # This is a bit clumsy, but consolidates a chunk of code. 
+        if hook != 'name': # This is a bit clumsy, but consolidates a chunk of code.
             verify_jump_target(firewall, hook, target, family, recursive=True)
         else:
             verify_jump_target(firewall, hook, target, family, recursive=False)
@@ -266,12 +270,12 @@ def verify_rule(firewall, family, hook, priority, rule_id, rule_conf):
 
             if dict_search_args(rule_conf, 'gre', 'flags', 'checksum') is None:
                 # There is no builtin match in nftables for the GRE key, so we need to do a raw lookup.
-                # The offset of the key within the packet shifts depending on the C-flag. 
-                # 99% of the time, nobody will have checksums enabled - it's usually a manual config option. 
-                # We can either assume it is unset unless otherwise directed 
+                # The offset of the key within the packet shifts depending on the C-flag.
+                # 99% of the time, nobody will have checksums enabled - it's usually a manual config option.
+                # We can either assume it is unset unless otherwise directed
                 # (confusing, requires doco to explain why it doesn't work sometimes)
-                # or, demand an explicit selection to be made for this specific match rule. 
-                # This check enforces the latter. The user is free to create rules for both cases. 
+                # or, demand an explicit selection to be made for this specific match rule.
+                # This check enforces the latter. The user is free to create rules for both cases.
                 raise ConfigError('Matching GRE tunnel key requires an explicit checksum flag match. For most cases, use "gre flags checksum unset"')
 
             if dict_search_args(rule_conf, 'gre', 'flags', 'key', 'unset') is not None:
@@ -284,7 +288,7 @@ def verify_rule(firewall, family, hook, priority, rule_id, rule_conf):
                 if gre_inner_value < 0 or gre_inner_value > 65535:
                     raise ConfigError('inner-proto outside valid ethertype range 0-65535')
             except ValueError:
-                pass # Symbolic constant, pre-validated before reaching here. 
+                pass # Symbolic constant, pre-validated before reaching here.
 
     tcp_flags = dict_search_args(rule_conf, 'tcp', 'flags')
     if tcp_flags:
@@ -311,8 +315,8 @@ def verify_rule(firewall, family, hook, priority, rule_id, rule_conf):
                 raise ConfigError('Only one of address, fqdn or geoip can be specified')
 
             if 'group' in side_conf:
-                if len({'address_group', 'network_group', 'domain_group'} & set(side_conf['group'])) > 1:
-                    raise ConfigError('Only one address-group, network-group or domain-group can be specified')
+                if len({'address_group', 'network_group', 'domain_group', 'remote_group'} & set(side_conf['group'])) > 1:
+                    raise ConfigError('Only one address-group, network-group, remote-group or domain-group can be specified')
 
                 for group in valid_groups:
                     if group in side_conf['group']:
@@ -332,7 +336,7 @@ def verify_rule(firewall, family, hook, priority, rule_id, rule_conf):
 
                         error_group = fw_group.replace("_", "-")
 
-                        if group in ['address_group', 'network_group', 'domain_group']:
+                        if group in ['address_group', 'network_group', 'domain_group', 'remote_group']:
                             types = [t for t in ['address', 'fqdn', 'geoip'] if t in side_conf]
                             if types:
                                 raise ConfigError(f'{error_group} and {types[0]} cannot both be defined')
@@ -435,12 +439,27 @@ def verify(firewall):
                 for ifname in interfaces:
                     verify_hardware_offload(ifname)
 
+    if 'offload' in firewall.get('global_options', {}).get('state_policy', {}):
+        offload_path = firewall['global_options']['state_policy']['offload']
+        if 'offload_target' not in offload_path:
+            raise ConfigError('offload-target must be specified')
+
+        offload_target = offload_path['offload_target']
+
+        if not dict_search_args(firewall, 'flowtable', offload_target):
+            raise ConfigError(f'Invalid offload-target. Flowtable "{offload_target}" does not exist on the system')
+
     if 'group' in firewall:
         for group_type in nested_group_types:
             if group_type in firewall['group']:
                 groups = firewall['group'][group_type]
                 for group_name, group in groups.items():
                     verify_nested_group(group_name, group, groups, [])
+
+        if 'remote_group' in firewall['group']:
+            for group_name, group in firewall['group']['remote_group'].items():
+                if 'url' not in group:
+                    raise ConfigError(f'remote-group {group_name} must have a url configured')
 
     for family in ['ipv4', 'ipv6', 'bridge']:
         if family in firewall:
@@ -539,6 +558,15 @@ def verify(firewall):
 def generate(firewall):
     render(nftables_conf, 'firewall/nftables.j2', firewall)
     render(sysctl_file, 'firewall/sysctl-firewall.conf.j2', firewall)
+
+    # Cleanup remote-group cache files
+    if os.path.exists(firewall_config_dir):
+        for fw_file in os.listdir(firewall_config_dir):
+            # Delete matching files in 'config/firewall' that no longer exist as a remote-group in config
+            if fw_file.startswith("R_") and fw_file.endswith(".txt"):
+                if 'group' not in firewall or 'remote_group' not in firewall['group'] or fw_file[2:-4] not in firewall['group']['remote_group'].keys():
+                    os.unlink(os.path.join(firewall_config_dir, fw_file))
+
     return None
 
 def parse_firewall_error(output):
@@ -598,12 +626,13 @@ def apply(firewall):
 
     ## DOMAIN RESOLVER
     domain_action = 'restart'
-    if dict_search_args(firewall, 'group', 'domain_group') or firewall['ip_fqdn'].items() or firewall['ip6_fqdn'].items():
+    if dict_search_args(firewall, 'group', 'remote_group') or dict_search_args(firewall, 'group', 'domain_group') or firewall['ip_fqdn'].items() or firewall['ip6_fqdn'].items():
         text = f'# Automatically generated by firewall.py\nThis file indicates that vyos-domain-resolver service is used by the firewall.\n'
-        Path(domain_resolver_usage).write_text(text)
+        write_file(domain_resolver_usage, text)
     else:
-        Path(domain_resolver_usage).unlink(missing_ok=True)
-        if not Path('/run').glob('use-vyos-domain-resolver*'):
+        if os.path.exists(domain_resolver_usage):
+            os.unlink(domain_resolver_usage)
+        if not glob('/run/use-vyos-domain-resolver*'):
             domain_action = 'stop'
     call(f'systemctl {domain_action} vyos-domain-resolver.service')
 
@@ -611,7 +640,7 @@ def apply(firewall):
         # Call helper script to Update set contents
         if 'name' in firewall['geoip_updated'] or 'ipv6_name' in firewall['geoip_updated']:
             print('Updating GeoIP. Please wait...')
-            geoip_update(firewall)
+            geoip_update(firewall=firewall)
 
     return None
 

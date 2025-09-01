@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2020-2024 VyOS maintainers and contributors
+# Copyright VyOS maintainers and contributors <maintainers@vyos.io>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -132,6 +132,33 @@ class TestKernelModules(unittest.TestCase):
         # Psample must be enabled in the OS Kernel to enable egress flow for hsflowd
         for option in ['CONFIG_PSAMPLE']:
             tmp = re.findall(f'{option}=y', self._config_data)
+            self.assertTrue(tmp)
+
+    def test_amd_pstate(self):
+        # AMD pstate driver required as we have "set system option kernel amd-pstate-driver"
+        for option in ['CONFIG_X86_AMD_PSTATE']:
+            tmp = re.findall(f'{option}=y', self._config_data)
+            self.assertTrue(tmp)
+        for option in ['CONFIG_X86_AMD_PSTATE_DEFAULT_MODE']:
+            tmp = re.findall(f'{option}=3', self._config_data)
+            self.assertTrue(tmp)
+
+    def test_inotify_stackfs(self):
+        for option in ['CONFIG_INOTIFY_USER', 'CONFIG_INOTIFY_STACKFS']:
+            tmp = re.findall(f'{option}=y', self._config_data)
+            self.assertTrue(tmp)
+
+    def test_wwan(self):
+        for option in ['CONFIG_USB_NET_DRIVERS', 'CONFIG_USB_USBNET',
+                       'CONFIG_USB_NET_CDCETHER', 'CONFIG_USB_NET_HUAWEI_CDC_NCM',
+                       'CONFIG_USB_NET_CDC_MBIM', 'CONFIG_USB_NET_QMI_WWAN',
+                       'CONFIG_USB_SIERRA_NET', 'CONFIG_WWAN',
+                       'CONFIG_USB_SERIAL', 'CONFIG_USB_SERIAL_WWAN']:
+            tmp = re.findall(f'{option}=y', self._config_data)
+            self.assertTrue(tmp)
+
+        for option in ['CONFIG_WWAN_HWSIM', 'CONFIG_IOSM', 'CONFIG_MTK_T7XX']:
+            tmp = re.findall(f'{option}=m', self._config_data)
             self.assertTrue(tmp)
 
 if __name__ == '__main__':

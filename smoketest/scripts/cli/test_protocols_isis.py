@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2021-2025 VyOS maintainers and contributors
+# Copyright VyOS maintainers and contributors <maintainers@vyos.io>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -59,7 +59,7 @@ class TestProtocolsISIS(VyOSUnitTestSHIM.TestCase):
         route_map = 'EXPORT-ISIS'
         rule = '10'
         metric_style = 'transition'
-
+        redistribute = ['babel', 'bgp', 'connected', 'kernel', 'nhrp', 'ospf', 'rip', 'static']
         self.cli_set(['policy', 'prefix-list', prefix_list, 'rule', rule, 'action', 'permit'])
         self.cli_set(['policy', 'prefix-list', prefix_list, 'rule', rule, 'prefix', '203.0.113.0/24'])
         self.cli_set(['policy', 'route-map', route_map, 'rule', rule, 'action', 'permit'])
@@ -80,7 +80,9 @@ class TestProtocolsISIS(VyOSUnitTestSHIM.TestCase):
         with self.assertRaises(ConfigSessionError):
             self.cli_commit()
 
-        self.cli_set(base_path + ['redistribute', 'ipv4', 'connected', 'level-2', 'route-map', route_map])
+        for proto in redistribute:
+            self.cli_set(base_path + ['redistribute', 'ipv4', proto, 'level-2', 'route-map', route_map])
+
         self.cli_set(base_path + ['metric-style', metric_style])
         self.cli_set(base_path + ['log-adjacency-changes'])
 
@@ -92,7 +94,8 @@ class TestProtocolsISIS(VyOSUnitTestSHIM.TestCase):
         self.assertIn(f' net {net}', tmp)
         self.assertIn(f' metric-style {metric_style}', tmp)
         self.assertIn(f' log-adjacency-changes', tmp)
-        self.assertIn(f' redistribute ipv4 connected level-2 route-map {route_map}', tmp)
+        for proto in redistribute:
+            self.assertIn(f' redistribute ipv4 {proto} level-2 route-map {route_map}', tmp)
 
         for interface in self._interfaces:
             tmp = self.getFRRconfig(f'interface {interface}', endsection='^exit')
@@ -414,6 +417,26 @@ class TestProtocolsISIS(VyOSUnitTestSHIM.TestCase):
             tmp = self.getFRRconfig(f'router isis {domain}', endsection='^exit')
             self.assertIn(f' net {net}', tmp)
             self.assertIn(f' topology {topology}', tmp)
+
+    def test_isis_11_srv6(self):
+        locator = "TEST"
+        interface = 'lo'
+
+        self.cli_set(base_path + ['net', net])
+        self.cli_set(base_path + ['interface', interface])
+        self.cli_set(base_path + ['segment-routing', 'srv6', 'locator', locator])
+
+        # Commit main ISIS changes
+        self.cli_commit()
+
+        # Verify main ISIS changes
+        tmp = self.getFRRconfig(f'router isis {domain}', endsection='^exit')
+        self.assertIn(f' net {net}', tmp)
+        self.assertIn(f' segment-routing srv6', tmp)
+        self.assertIn(f'  locator {locator}', tmp)
+
+        # Commit for isis
+        self.cli_commit()
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

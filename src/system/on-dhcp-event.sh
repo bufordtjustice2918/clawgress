@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright (C) 2024 VyOS maintainers and contributors
+# Copyright VyOS maintainers and contributors <maintainers@vyos.io>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -30,7 +30,7 @@ get_subnet_domain_name () {
 from vyos.kea import kea_get_active_config
 from vyos.utils.dict import dict_search_args
 
-config = kea_get_active_config('4')
+config = kea_get_active_config('4', '')
 shared_networks = dict_search_args(config, 'arguments', f'Dhcp4', 'shared-networks')
 
 found = False

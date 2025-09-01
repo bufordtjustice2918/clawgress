@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2021-2024 VyOS maintainers and contributors
+# Copyright VyOS maintainers and contributors <maintainers@vyos.io>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -255,7 +255,7 @@ class TestProtocolsOSPF(VyOSUnitTestSHIM.TestCase):
     def test_ospf_07_redistribute(self):
         metric = '15'
         metric_type = '1'
-        redistribute = ['babel', 'bgp', 'connected', 'isis', 'kernel', 'rip', 'static']
+        redistribute = ['babel', 'bgp', 'connected', 'isis', 'kernel', 'nhrp', 'rip', 'static']
 
         for protocol in redistribute:
             self.cli_set(base_path + ['redistribute', protocol, 'metric', metric])
@@ -573,6 +573,24 @@ class TestProtocolsOSPF(VyOSUnitTestSHIM.TestCase):
         frrconfig = self.getFRRconfig('router ospf', endsection='^exit', empty_retry=60)
         self.assertIn(f'router ospf', frrconfig)
         self.assertIn(f' network {network} area {area1}', frrconfig)
+
+    def test_ospf_18_area_translate_no_summary(self):
+        area = '11'
+        area_type = 'nssa'
+        network = '100.64.0.0/10'
+
+        self.cli_set(base_path + ['area', area, 'area-type', area_type, 'no-summary'])
+        self.cli_set(base_path + ['area', area, 'area-type', area_type, 'translate', 'never'])
+        self.cli_set(base_path + ['area', area, 'network', network])
+
+        # commit changes
+        self.cli_commit()
+
+        # Verify FRR ospfd configuration
+        frrconfig = self.getFRRconfig('router ospf', endsection='^exit')
+        self.assertIn(f'router ospf', frrconfig)
+        self.assertIn(f' area {area} {area_type} translate-never no-summary', frrconfig)
+        self.assertIn(f' network {network} area {area}', frrconfig)
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

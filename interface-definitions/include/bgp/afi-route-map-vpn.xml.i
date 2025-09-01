@@ -9,7 +9,8 @@
         <help>Between current address-family and VPN</help>
       </properties>
       <children>
-        #include <include/bgp/afi-route-map-export-import.xml.i>
+        #include <include/bgp/afi-route-map-export.xml.i>
+        #include <include/bgp/afi-route-map-import.xml.i>
       </children>
     </node>
   </children>

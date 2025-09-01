@@ -12,19 +12,7 @@
     <constraintErrorMessage>Proxy rule number must be between 1 and 10000</constraintErrorMessage>
   </properties>
   <children>
-    <leafNode name="domain-name">
-      <properties>
-        <help>Domain name to match</help>
-        <valueHelp>
-          <format>txt</format>
-          <description>Domain address to match</description>
-        </valueHelp>
-        <constraint>
-          <validator name="fqdn"/>
-        </constraint>
-        <multi/>
-      </properties>
-    </leafNode>
+    #include <include/haproxy/rule-match-domain.xml.i>
     <node name="set">
       <properties>
         <help>Proxy modifications</help>
@@ -32,15 +20,15 @@
       <children>
         <leafNode name="redirect-location">
           <properties>
-            <help>Set URL location</help>
+            <help>Set path location</help>
             <valueHelp>
               <format>url</format>
-              <description>Set URL location</description>
+              <description>Set path location</description>
             </valueHelp>
             <constraint>
-              <regex>^\/[\w\-.\/]+$</regex>
+              <regex>\/[\w\-.\/]+</regex>
             </constraint>
-            <constraintErrorMessage>Incorrect URL format</constraintErrorMessage>
+            <constraintErrorMessage>Incorrect path format</constraintErrorMessage>
           </properties>
         </leafNode>
         <leafNode name="backend">
@@ -93,7 +81,7 @@
               <description>Begin URL</description>
             </valueHelp>
             <constraint>
-              <regex>^\/[\w\-.\/]+$</regex>
+              <regex>\/[\w\-.\/]+</regex>
             </constraint>
             <constraintErrorMessage>Incorrect URL format</constraintErrorMessage>
             <multi/>
@@ -107,7 +95,7 @@
               <description>End URL</description>
             </valueHelp>
             <constraint>
-              <regex>^\/[\w\-.\/]+$</regex>
+              <regex>\/[\w\-.\/]+</regex>
             </constraint>
             <constraintErrorMessage>Incorrect URL format</constraintErrorMessage>
             <multi/>
@@ -121,7 +109,7 @@
               <description>Exactly URL</description>
             </valueHelp>
             <constraint>
-              <regex>^\/[\w\-.\/]+$</regex>
+              <regex>\/[\w\-.\/]+</regex>
             </constraint>
             <constraintErrorMessage>Incorrect URL format</constraintErrorMessage>
             <multi/>

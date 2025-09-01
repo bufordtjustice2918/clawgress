@@ -5,21 +5,21 @@
       <help>Show system information</help>
     </properties>
     <children>
-      <tagNode name="log">
-        <properties>
-          <help>Show last number of messages in master logging buffer</help>
-          <completionHelp>
-            <list>&lt;1-9999&gt;</list>
-          </completionHelp>
-        </properties>
-        <command>if ${vyos_validators_dir}/numeric --range 1-9999 "$3"; then journalctl --no-hostname --boot --lines "$3"; fi</command>
-      </tagNode>
-      <node name="log">
+     <node name="log">
         <properties>
           <help>Show contents of current master logging buffer</help>
         </properties>
         <command>journalctl --no-hostname --boot</command>
         <children>
+          <virtualTagNode>
+            <properties>
+              <help>Show last number of messages in master logging buffer</help>
+              <completionHelp>
+                <list>&lt;1-9999&gt;</list>
+              </completionHelp>
+            </properties>
+            <command>bash -c "if ${vyos_validators_dir}/numeric --range 1-9999 '$3'; then journalctl --no-hostname --boot --lines $3; fi"</command>
+          </virtualTagNode>
           <leafNode name="audit">
             <properties>
               <help>Show audit logs</help>
@@ -30,7 +30,7 @@
             <properties>
               <help>Show contents of all master log files</help>
             </properties>
-            <command>sudo bash -c 'eval $(lesspipe); less $_vyatta_less_options --prompt=".logm, file %i of %m., page %dt of %D" -- `printf "%s\n" /var/log/messages* | sort -nr`'</command>
+            <command>bash -c 'eval $(lesspipe); less $_vyatta_less_options --prompt=".logm, file %i of %m., page %dt of %D" -- `printf "%s\n" /var/log/messages* | sort -nr`'</command>
           </leafNode>
           <leafNode name="authorization">
             <properties>
@@ -42,7 +42,7 @@
             <properties>
               <help>Show log for certbot</help>
             </properties>
-            <command>if sudo test -f /var/log/letsencrypt/letsencrypt.log; then sudo cat /var/log/letsencrypt/letsencrypt.log; else echo "Cerbot log does not exist"; fi</command>
+            <command>bash -c 'if test -f /var/log/letsencrypt/letsencrypt.log; then cat /var/log/letsencrypt/letsencrypt.log; else echo "Certbot log does not exist"; fi'</command>
           </leafNode>
           <leafNode name="cluster">
             <properties>
@@ -50,6 +50,39 @@
             </properties>
             <command>cat $(printf "%s\n" /var/log/messages* | sort -nr) | grep -e heartbeat -e cl_status -e mach_down -e ha_log</command>
           </leafNode>
+          <node name="conntrack">
+            <properties>
+              <help>Show log for conntrack events</help>
+            </properties>
+            <command>journalctl --no-hostname --boot -t vyos-conntrack-logger --grep='\[(NEW|UPDATE|DESTROY)\]'</command>
+            <children>
+              <node name="event">
+                <properties>
+                  <help>Show log for conntrack events</help>
+                </properties>
+                <children>
+                  <leafNode name="new">
+                    <properties>
+                      <help>Show log for conntrack events</help>
+                    </properties>
+                    <command>journalctl --no-hostname --boot -t vyos-conntrack-logger --grep='\[(NEW)\]'</command>
+                  </leafNode>
+                  <leafNode name="update">
+                    <properties>
+                      <help>Show log for conntrack events</help>
+                    </properties>
+                    <command>journalctl --no-hostname --boot -t vyos-conntrack-logger --grep='\[(UPDATE)\]'</command>
+                  </leafNode>
+                  <leafNode name="destroy">
+                    <properties>
+                      <help>Show log for Conntrack Events</help>
+                    </properties>
+                    <command>journalctl --no-hostname --boot -t vyos-conntrack-logger --grep='\[(DESTROY)\]'</command>
+                  </leafNode>
+                </children>
+              </node>
+            </children>
+          </node>
           <leafNode name="conntrack-sync">
             <properties>
               <help>Show log for Conntrack-sync</help>
@@ -62,19 +95,6 @@
             </properties>
             <command>journalctl --no-hostname --boot --unit conserver-server.service</command>
           </leafNode>
-          <node name="ids">
-            <properties>
-              <help>Show log for for Intrusion Detection System</help>
-            </properties>
-            <children>
-              <leafNode name="ddos-protection">
-                <properties>
-                  <help>Show log for DDOS protection</help>
-                </properties>
-                <command>journalctl --no-hostname --boot --unit fastnetmon.service</command>
-              </leafNode>
-            </children>
-          </node>
           <node name="dhcp">
             <properties>
               <help>Show log for Dynamic Host Control Protocol (DHCP)</help>
@@ -85,6 +105,14 @@
                   <help>Show log for DHCP server</help>
                 </properties>
                 <command>journalctl --no-hostname --boot --unit kea-dhcp4-server.service</command>
+                <children>
+                  <tagNode name="vrf">
+                    <properties>
+                      <help>Monitor last lines of DHCP server log on specific vrf</help>
+                    </properties>
+                    <command>journalctl --no-hostname --follow --boot --unit "kea-dhcp4-server@$6.service"</command>
+                  </tagNode>
+                </children>
               </node>
               <node name="client">
                 <properties>
@@ -115,6 +143,14 @@
                   <help>Show log for DHCPv6 server</help>
                 </properties>
                 <command>journalctl --no-hostname --boot --unit kea-dhcp6-server.service</command>
+                <children>
+                  <tagNode name="vrf">
+                    <properties>
+                      <help>Monitor last lines of DHCPv6 server log on specific vrf</help>
+                    </properties>
+                    <command>journalctl --no-hostname --boot --unit "kea-dhcp6-server@$6.service"</command>
+                  </tagNode>
+                </children>
               </node>
               <node name="client">
                 <properties>
@@ -139,7 +175,7 @@
             <properties>
               <help>Show log for Firewall</help>
             </properties>
-            <command>journalctl --no-hostname --boot -k | egrep "(ipv[46]|bri)-(FWD|INP|OUT|NAM)"</command>
+            <command>journalctl --no-hostname --boot -k --grep='(ipv[46]|bri)-(FWD|INP|OUT|NAM)|STATE-POLICY'</command>
             <children>
               <node name="bridge">
                 <properties>
@@ -539,6 +575,12 @@
             </properties>
             <command>journalctl --no-hostname --boot --unit frr.service</command>
           </leafNode>
+          <leafNode name="haproxy">
+            <properties>
+              <help>Show log for HAProxy</help>
+            </properties>
+            <command>journalctl --no-hostname --boot --unit haproxy.service</command>
+          </leafNode>
           <leafNode name="https">
             <properties>
               <help>Show log for HTTPs</help>
@@ -650,12 +692,6 @@
               <help>Show log for Neighbor Discovery Protocol (NDP) Proxy</help>
             </properties>
             <command>journalctl --no-hostname --boot --unit ndppd.service</command>
-          </leafNode>
-          <leafNode name="nhrp">
-            <properties>
-              <help>Show log for Next Hop Resolution Protocol (NHRP)</help>
-            </properties>
-            <command>journalctl --no-hostname --boot --unit opennhrp.service</command>
           </leafNode>
           <leafNode name="ntp">
             <properties>
@@ -811,6 +847,12 @@
             </properties>
             <command>journalctl --no-hostname --boot --unit snmpd.service</command>
           </leafNode>
+          <leafNode name="spanning-tree">
+            <properties>
+              <help>Show log for Spanning Tree Protocol (STP)</help>
+            </properties>
+            <command>journalctl --dmesg --no-hostname --boot --grep='br[0-9].*(stp|bpdu|blocking|disabled|forwarding|listening|root port)'</command>
+          </leafNode>
           <node name="ssh">
             <properties>
               <help>Show log for Secure Shell (SSH)</help>
@@ -832,14 +874,12 @@
                 <list>&lt;NUMBER&gt;</list>
               </completionHelp>
             </properties>
+            <standalone>
+              <help>Show last 10 lines of /var/log/messages file</help>
+              <command>tail -n 10 /var/log/messages</command>
+            </standalone>
             <command>tail -n "$4" /var/log/messages | ${VYATTA_PAGER:-cat}</command>
           </tagNode>
-          <node name="tail">
-            <properties>
-              <help>Show last 10 lines of /var/log/messages file</help>
-            </properties>
-            <command>tail -n 10 /var/log/messages</command>
-          </node>
           <leafNode name="vpn">
             <properties>
               <help>Show log for ALL Virtual Private Network services</help>
@@ -920,7 +960,7 @@
                 <properties>
                   <help>Show log for WPA supplicant</help>
                 </properties>
-                <command>if cli-shell-api existsActive interfaces wireless; then journalctl --no-hostname --boot --unit "wpa_supplicant@*.service"; else echo "No wireless interface configured!"; fi</command>
+                <command>bash -c "if cli-shell-api existsActive interfaces wireless; then journalctl --no-hostname --boot --unit \"wpa_supplicant@*.service\"; else echo \"No wireless interface configured!\"; fi"</command>
                 <children>
                   <tagNode name="interface">
                     <properties>
@@ -929,7 +969,7 @@
                         <path>interfaces wireless</path>
                       </completionHelp>
                     </properties>
-                    <command>if [[ $(cli-shell-api returnActiveValue interfaces wireless $6 type) == "station" ]]; then journalctl --no-hostname --boot --unit "wpa_supplicant@$6.service"; else echo "Wireless interface $6 not configured as station!"; fi</command>
+                    <command>bash -c "if [[ $(cli-shell-api returnActiveValue interfaces wireless $6 type) == \"station\" ]]; then journalctl --no-hostname --boot --unit \"wpa_supplicant@$6.service\"; else echo \"Wireless interface $6 not configured as station!\"; fi"</command>
                   </tagNode>
                 </children>
               </node>
@@ -937,7 +977,7 @@
                 <properties>
                   <help>Show log for host access point daemon</help>
                 </properties>
-                <command>if cli-shell-api existsActive interfaces wireless; then journalctl --no-hostname --boot --unit "hostapd@*.service"; else echo "No wireless interface configured!"; fi</command>
+                <command>bash -c 'if cli-shell-api existsActive interfaces wireless; then journalctl --no-hostname --boot --unit "hostapd@*.service"; else echo "No wireless interface configured!"; fi'</command>
                 <children>
                   <tagNode name="interface">
                     <properties>
@@ -946,7 +986,7 @@
                         <path>interfaces wireless</path>
                       </completionHelp>
                     </properties>
-                    <command>if [[ $(cli-shell-api returnActiveValue interfaces wireless $6 type) == "access-point" ]]; then journalctl --no-hostname --boot --unit "hostapd@$6.service"; else echo "Wireless interface $6 not configured as access-point!"; fi</command>
+                    <command>bash -c "if [[ $(cli-shell-api returnActiveValue interfaces wireless $6 type) == \"access-point\" ]]; then journalctl --no-hostname --boot --unit \"hostapd@$6.service\"; else echo \"Wireless interface $6 not configured as access-point!\"; fi"</command>
                   </tagNode>
                 </children>
               </node>
@@ -958,6 +998,68 @@
             </properties>
             <command>journalctl --no-hostname --boot --unit squid.service</command>
           </leafNode>
+          <node name="network-event">
+            <properties>
+              <help>Show log for network events</help>
+            </properties>
+            <command>journalctl --no-hostname --boot --unit vyos-network-event-logger.service</command>
+            <children>
+              <tagNode name="interface">
+                <properties>
+                  <help>Show log for specific interface</help>
+                  <completionHelp>
+                    <script>${vyos_completion_dir}/list_interfaces</script>
+                  </completionHelp>
+                </properties>
+                <command>journalctl --no-hostname --boot --unit vyos-network-event-logger.service --grep $5</command>
+              </tagNode>
+              <node name="route">
+                <properties>
+                  <help>Show log for route events</help>
+                </properties>
+                <command>journalctl --no-hostname --boot --unit vyos-network-event-logger.service --grep "\[$4\]"</command>
+                <children>
+                  #include <include/log/network-event-type-interface.xml.i>
+                </children>
+              </node>
+              <node name="link">
+                <properties>
+                  <help>Show log for network link events</help>
+                </properties>
+                <command>journalctl --no-hostname --boot --unit vyos-network-event-logger.service --grep "\[$4\]"</command>
+                <children>
+                  #include <include/log/network-event-type-interface.xml.i>
+                </children>
+              </node>
+              <node name="addr">
+                <properties>
+                  <help>Show log for network address events</help>
+                </properties>
+                <command>journalctl --no-hostname --boot --unit vyos-network-event-logger.service --grep "\[$4\]"</command>
+                <children>
+                  #include <include/log/network-event-type-interface.xml.i>
+                </children>
+              </node>
+              <node name="neigh">
+                <properties>
+                  <help>Show log for neighbor table events</help>
+                </properties>
+                <command>journalctl --no-hostname --boot --unit vyos-network-event-logger.service --grep "\[$4\]"</command>
+                <children>
+                  #include <include/log/network-event-type-interface.xml.i>
+                </children>
+              </node>
+              <node name="rule">
+                <properties>
+                  <help>Show log for PBR rule change events</help>
+                </properties>
+                <command>journalctl --no-hostname --boot --unit vyos-network-event-logger.service --grep "\[$4\]"</command>
+                <children>
+                  #include <include/log/network-event-type-interface.xml.i>
+                </children>
+              </node>
+            </children>
+          </node>
         </children>
       </node>
     </children>

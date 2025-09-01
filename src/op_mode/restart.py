@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2024 VyOS maintainers and contributors
+# Copyright VyOS maintainers and contributors <maintainers@vyos.io>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -53,6 +53,10 @@ service_map = {
         'systemd_service': 'strongswan',
         'path': ['vpn', 'ipsec'],
     },
+    'load-balancing_wan': {
+        'systemd_service': 'vyos-wan-load-balance',
+        'path': ['load-balancing', 'wan'],
+    },
     'mdns_repeater': {
         'systemd_service': 'avahi-daemon',
         'path': ['service', 'mdns', 'repeater'],
@@ -86,6 +90,7 @@ services = typing.Literal[
     'haproxy',
     'igmp_proxy',
     'ipsec',
+    'load-balancing_wan',
     'mdns_repeater',
     'router_advert',
     'snmp',

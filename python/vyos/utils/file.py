@@ -1,4 +1,4 @@
-# Copyright 2023 VyOS maintainers and contributors <maintainers@vyos.io>
+# Copyright VyOS maintainers and contributors <maintainers@vyos.io>
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -28,22 +28,28 @@ def file_is_persistent(path):
     absolute = os.path.abspath(os.path.dirname(path))
     return re.match(location,absolute)
 
-def read_file(fname, defaultonfailure=None):
+def read_file(fname, defaultonfailure=None, sudo=False):
     """
     read the content of a file, stripping any end characters (space, newlines)
     should defaultonfailure be not None, it is returned on failure to read
     """
     try:
-        """ Read a file to string """
-        with open(fname, 'r') as f:
-            data = f.read().strip()
-        return data
+        # Some files can only be read by root - emulate sudo cat call
+        if sudo:
+            from vyos.utils.process import cmd
+            data = cmd(['sudo', 'cat', fname])
+        else:
+            # If not sudo, just read the file
+            with open(fname, 'r') as f:
+                data = f.read()
+        return data.strip()
     except Exception as e:
         if defaultonfailure is not None:
             return defaultonfailure
         raise e
 
-def write_file(fname, data, defaultonfailure=None, user=None, group=None, mode=None, append=False):
+def write_file(fname, data, defaultonfailure=None, user=None, group=None,
+               mode=None, append=False, trailing_newline=False):
     """
     Write content of data to given fname, should defaultonfailure be not None,
     it is returned on failure to read.
@@ -60,6 +66,9 @@ def write_file(fname, data, defaultonfailure=None, user=None, group=None, mode=N
         bytes = 0
         with open(fname, 'w' if not append else 'a') as f:
             bytes = f.write(data)
+            if trailing_newline and not data.endswith('\n'):
+                f.write('\n')
+                bytes += 1
         chown(fname, user, group)
         chmod(fname, mode)
         return bytes
@@ -82,36 +91,6 @@ def read_json(fname, defaultonfailure=None):
         if defaultonfailure is not None:
             return defaultonfailure
         raise e
-
-def chown(path, user=None, group=None, recursive=False):
-    """ change file/directory owner """
-    from pwd import getpwnam
-    from grp import getgrnam
-
-    if user is None and group is None:
-        return False
-
-    # path may also be an open file descriptor
-    if not isinstance(path, int) and not os.path.exists(path):
-        return False
-
-    # keep current value if not specified otherwise
-    uid = -1
-    gid = -1
-
-    if user:
-        uid = getpwnam(user).pw_uid
-    if group:
-        gid = getgrnam(group).gr_gid
-
-    if recursive:
-        for dirpath, dirnames, filenames in os.walk(path):
-            os.chown(dirpath, uid, gid)
-            for filename in filenames:
-                os.chown(os.path.join(dirpath, filename), uid, gid)
-    else:
-        os.chown(path, uid, gid)
-    return True
 
 
 def chmod(path, bitmask):
@@ -165,12 +144,6 @@ def chmod_775(path):
 def file_permissions(path):
     """ Return file permissions in string format, e.g '0755' """
     return oct(os.stat(path).st_mode)[4:]
-
-def makedir(path, user=None, group=None):
-    if os.path.exists(path):
-        return
-    os.makedirs(path, mode=0o755)
-    chown(path, user, group)
 
 def wait_for_inotify(file_path, pre_hook=None, event_type=None, timeout=None, sleep_interval=0.1):
     """ Waits for an inotify event to occur """

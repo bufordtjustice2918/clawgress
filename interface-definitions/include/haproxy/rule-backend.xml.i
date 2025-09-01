@@ -12,19 +12,7 @@
     <constraintErrorMessage>Proxy rule number must be between 1 and 10000</constraintErrorMessage>
   </properties>
   <children>
-    <leafNode name="domain-name">
-      <properties>
-        <help>Domain name to match</help>
-        <valueHelp>
-          <format>txt</format>
-          <description>Domain address to match</description>
-        </valueHelp>
-        <constraint>
-          <validator name="fqdn"/>
-        </constraint>
-        <multi/>
-      </properties>
-    </leafNode>
+    #include <include/haproxy/rule-match-domain.xml.i>
     <node name="set">
       <properties>
         <help>Proxy modifications</help>
@@ -38,7 +26,7 @@
               <description>Set URL location</description>
             </valueHelp>
             <constraint>
-              <regex>^\/[\w\-.\/]+$</regex>
+              <regex>\/[\w\-.\/]+</regex>
             </constraint>
             <constraintErrorMessage>Incorrect URL format</constraintErrorMessage>
           </properties>
@@ -90,7 +78,7 @@
               <description>Begin URL</description>
             </valueHelp>
             <constraint>
-              <regex>^\/[\w\-.\/]+$</regex>
+              <regex>\/[\w\-.\/]+</regex>
             </constraint>
             <constraintErrorMessage>Incorrect URL format</constraintErrorMessage>
             <multi/>
@@ -104,7 +92,7 @@
               <description>End URL</description>
             </valueHelp>
             <constraint>
-              <regex>^\/[\w\-.\/]+$</regex>
+              <regex>\/[\w\-.\/]+</regex>
             </constraint>
             <constraintErrorMessage>Incorrect URL format</constraintErrorMessage>
             <multi/>
@@ -118,7 +106,7 @@
               <description>Exactly URL</description>
             </valueHelp>
             <constraint>
-              <regex>^\/[\w\-.\/]*$</regex>
+              <regex>\/[\w\-.\/]*</regex>
             </constraint>
             <constraintErrorMessage>Incorrect URL format</constraintErrorMessage>
             <multi/>

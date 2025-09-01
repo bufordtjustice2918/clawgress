@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2020-2023 VyOS maintainers and contributors
+# Copyright VyOS maintainers and contributors <maintainers@vyos.io>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -61,6 +61,23 @@ class BondingInterfaceTest(BasicInterfaceTest.TestCase):
         for interface in self._interfaces:
             slaves = read_file(f'/sys/class/net/{interface}/bonding/slaves').split()
             self.assertListEqual(slaves, self._members)
+
+    def test_bonding_keep_mac(self):
+        # T7571: A bond interface should always run from the physical interfaces
+        # MAC address and not a synthetic one.
+        base_mac = Interface(self._members[0]).get_mac()
+
+        # configure member interfaces
+        for interface in self._interfaces:
+            for option in self._options.get(interface, []):
+                self.cli_set(self._base_path + [interface] + option.split())
+
+        self.cli_commit()
+
+        # Verify bond interface MAC address matches the address of it's first member
+        for interface in self._interfaces:
+            mac = Interface(interface).get_mac()
+            self.assertEqual(mac, base_mac)
 
     def test_bonding_remove_member(self):
         # T2515: when removing a bond member the previously enslaved/member
@@ -167,17 +184,24 @@ class BondingInterfaceTest(BasicInterfaceTest.TestCase):
 
     def test_bonding_multi_use_member(self):
         # Define available bonding hash policies
-        for interface in ['bond10', 'bond20']:
+        bonds = ['bond10', 'bond20', 'bond30']
+        for interface in bonds:
             for member in self._members:
                 self.cli_set(self._base_path + [interface, 'member', 'interface', member])
 
         # check validate() - can not use the same member interfaces multiple times
         with self.assertRaises(ConfigSessionError):
             self.cli_commit()
-
-        self.cli_delete(self._base_path + ['bond20'])
+        # only keep the first bond interface configuration
+        for interface in bonds[1:]:
+            self.cli_delete(self._base_path + [interface])
 
         self.cli_commit()
+
+        bond = bonds[0]
+        member_ifaces = read_file(f'/sys/class/net/{bond}/bonding/slaves').split()
+        for member in self._members:
+            self.assertIn(member, member_ifaces)
 
     def test_bonding_source_interface(self):
         # Re-use member interface that is already a source-interface

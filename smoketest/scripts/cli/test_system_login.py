@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2019-2025 VyOS maintainers and contributors
+# Copyright VyOS maintainers and contributors <maintainers@vyos.io>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -42,6 +42,7 @@ from vyos.xml_ref import default_value
 
 base_path = ['system', 'login']
 users = ['vyos1', 'vyos-roxx123', 'VyOS-123_super.Nice']
+weak_passwd_user = ['test_user', 'passWord1']
 
 ssh_test_command = '/opt/vyatta/bin/vyatta-op-cmd-wrapper show version'
 
@@ -194,18 +195,20 @@ class TestSystemLogin(VyOSUnitTestSHIM.TestCase):
     def test_system_login_user(self):
         for user in users:
             name = f'VyOS Roxx {user}'
+            passwd = f'{user}-pSWd-t3st'
             home_dir = f'/tmp/smoketest/{user}'
 
-            self.cli_set(base_path + ['user', user, 'authentication', 'plaintext-password', user])
+            self.cli_set(base_path + ['user', user, 'authentication', 'plaintext-password', passwd])
             self.cli_set(base_path + ['user', user, 'full-name', name])
             self.cli_set(base_path + ['user', user, 'home-directory', home_dir])
 
         self.cli_commit()
 
         for user in users:
+            passwd = f'{user}-pSWd-t3st'
             tmp = ['su','-', user]
             proc = Popen(tmp, stdin=PIPE, stdout=PIPE, stderr=PIPE)
-            tmp = f'{user}\nuname -a'
+            tmp = f'{passwd}\nuname -a'
             proc.stdin.write(tmp.encode())
             proc.stdin.flush()
             (stdout, stderr) = proc.communicate()
@@ -228,6 +231,17 @@ class TestSystemLogin(VyOSUnitTestSHIM.TestCase):
         # check if account is unlocked
         tmp = cmd(f'sudo passwd -S {locked_user}')
         self.assertIn(f'{locked_user} P ', tmp)
+
+    def test_system_login_weak_password_warning(self):
+        self.cli_set(base_path + [
+            'user', weak_passwd_user[0], 'authentication',
+            'plaintext-password', weak_passwd_user[1]
+        ])
+
+        out = self.cli_commit().strip()
+
+        self.assertIn('WARNING: The password complexity is too low', out)
+        self.cli_delete(base_path + ['user', weak_passwd_user[0]])
 
     def test_system_login_otp(self):
         otp_user = 'otp-test_user'
@@ -533,6 +547,35 @@ class TestSystemLogin(VyOSUnitTestSHIM.TestCase):
         with self.assertRaises(ConfigSessionError):
             self.cli_commit()
         self.cli_discard()
+
+    def test_pam_nologin(self):
+        # Testcase for T7443, test if we can login with a non-privileged user
+        # when there are only 5 minutes left until the system reboots
+        username = users[0]
+        password = f'{username}-pSWd-t3st'
+
+        self.cli_set(base_path + ['user', username, 'authentication', 'plaintext-password', password])
+        self.cli_commit()
+
+        # Login with proper credentials
+        out, err = self.ssh_send_cmd(ssh_test_command, username, password)
+        # verify login
+        self.assertFalse(err)
+        self.assertEqual(out, self.ssh_test_command_result)
+
+        # Request system reboot in 5 minutes - this will activate pam_nologin.so
+        # and prevent any login - but we have this disabled, so we must be able
+        # to login to the router
+        self.op_mode(['reboot', 'in', '4'])
+
+        # verify login
+        # Login with proper credentials - after reboot is pending
+        out, err = self.ssh_send_cmd(ssh_test_command, username, password)
+        self.assertFalse(err)
+        self.assertEqual(out, self.ssh_test_command_result)
+
+        # Cancel pending reboot - we do wan't to preceed with the remaining tests
+        self.op_mode(['reboot', 'cancel'])
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

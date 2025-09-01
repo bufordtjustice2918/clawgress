@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2020-2023 VyOS maintainers and contributors
+# Copyright VyOS maintainers and contributors <maintainers@vyos.io>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -113,6 +113,30 @@ class VXLANInterfaceTest(BasicInterfaceTest.TestCase):
             self.assertEqual(ttl,        options['linkinfo']['info_data']['ttl'])
             self.assertEqual(Interface(interface).get_admin_state(), 'up')
             ttl += 10
+
+
+    def test_vxlan_group_remote_error(self):
+        intf = 'vxlan60'
+        options = [
+            'group 239.4.4.5',
+            'mtu 1420',
+            'remote 192.168.0.254',
+            'source-address 192.168.0.1',
+            'source-interface eth0',
+            'vni 60'
+        ]
+        for option in options:
+            opts = option.split()
+            self.cli_set(self._base_path + [intf] + opts)
+
+        # verify() - Both group and remote cannot be specified
+        with self.assertRaises(ConfigSessionError):
+            self.cli_commit()
+
+        # Remove blocking CLI option
+        self.cli_delete(self._base_path + [intf, 'group'])
+        self.cli_commit()
+
 
     def test_vxlan_external(self):
         interface = 'vxlan0'

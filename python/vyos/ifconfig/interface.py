@@ -1,4 +1,4 @@
-# Copyright 2019-2025 VyOS maintainers and contributors <maintainers@vyos.io>
+# Copyright VyOS maintainers and contributors <maintainers@vyos.io>
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -22,10 +22,10 @@ from copy import deepcopy
 from glob import glob
 
 from ipaddress import IPv4Network
-from netifaces import ifaddresses
-# this is not the same as socket.AF_INET/INET6
-from netifaces import AF_INET
-from netifaces import AF_INET6
+from ipaddress import IPv6Interface
+from netifaces import ifaddresses # pylint: disable = no-name-in-module
+from socket import AF_INET
+from socket import AF_INET6
 from netaddr import EUI
 from netaddr import mac_unix_expanded
 
@@ -214,6 +214,16 @@ class Interface(Control):
             # XXX: we should set a maximum
             'validate': assert_positive,
             'location': '/sys/class/net/{ifname}/brport/priority',
+            'errormsg': '{ifname} is not a bridge port member'
+        },
+        'bpdu_guard': {
+            'validate': assert_boolean,
+            'location': '/sys/class/net/{ifname}/brport/bpdu_guard',
+            'errormsg': '{ifname} is not a bridge port member'
+        },
+        'root_guard': {
+            'validate': assert_boolean,
+            'location': '/sys/class/net/{ifname}/brport/root_block',
             'errormsg': '{ifname} is not a bridge port member'
         },
         'proxy_arp': {
@@ -412,11 +422,11 @@ class Interface(Control):
             self._cmd(f'nft {nft_command}')
 
     def _del_interface_from_ct_iface_map(self):
-        nft_command = f'delete element inet vrf_zones ct_iface_map {{ "{self.ifname}" }}'
+        nft_command = f'delete element inet vrf_zones ct_iface_map {{ \'"{self.ifname}"\' }}'
         self._nft_check_and_run(nft_command)
 
     def _add_interface_to_ct_iface_map(self, vrf_table_id: int):
-        nft_command = f'add element inet vrf_zones ct_iface_map {{ "{self.ifname}" : {vrf_table_id} }}'
+        nft_command = f'add element inet vrf_zones ct_iface_map {{ \'"{self.ifname}"\' : {vrf_table_id} }}'
         self._nft_check_and_run(nft_command)
 
     def get_ifindex(self):
@@ -595,12 +605,16 @@ class Interface(Control):
         """
         Add/Remove interface from given VRF instance.
 
+        Keyword arguments:
+        vrf: VRF instance name or empty string (default VRF)
+
+        Return True if VRF was changed, False otherwise
+
         Example:
         >>> from vyos.ifconfig import Interface
         >>> Interface('eth0').set_vrf('foo')
         >>> Interface('eth0').set_vrf()
         """
-
         # Don't allow for netns yet
         if 'netns' in self.config:
             return False
@@ -611,21 +625,33 @@ class Interface(Control):
 
         # Get current VRF table ID
         old_vrf_tableid = get_vrf_tableid(self.ifname)
-        self.set_interface('vrf', vrf)
 
+        # Always stop the DHCP client process to clean up routes within the VRF
+        # where the process was originally started. There is no need to add a
+        # condition to only call the method if "address dhcp" was defined, as
+        # this is handled inside set_dhcp(v6) by only stopping if the daemon is
+        # running. DHCP client process restart will be handled later on once the
+        # interface is moved to the new VRF.
+        self.set_dhcp(False)
+        self.set_dhcpv6(False)
+
+        # Move interface in/out of VRF
+        self.set_interface('vrf', vrf)
         if vrf:
             # Get routing table ID number for VRF
             vrf_table_id = get_vrf_tableid(vrf)
             # Add map element with interface and zone ID
-            if vrf_table_id:
+            if vrf_table_id and old_vrf_tableid != vrf_table_id:
                 # delete old table ID from nftables if it has changed, e.g. interface moved to a different VRF
-                if old_vrf_tableid and old_vrf_tableid != int(vrf_table_id):
-                    self._del_interface_from_ct_iface_map()
+                self._del_interface_from_ct_iface_map()
                 self._add_interface_to_ct_iface_map(vrf_table_id)
+                return True
         else:
-            self._del_interface_from_ct_iface_map()
+            if old_vrf_tableid != get_vrf_tableid(self.ifname):
+                self._del_interface_from_ct_iface_map()
+                return True
 
-        return True
+        return False
 
     def set_arp_cache_tmo(self, tmo):
         """
@@ -893,7 +919,11 @@ class Interface(Control):
         tmp = self.get_interface('ipv6_autoconf')
         if tmp == autoconf:
             return None
-        return self.set_interface('ipv6_autoconf', autoconf)
+        rc = self.set_interface('ipv6_autoconf', autoconf)
+        if autoconf == '0':
+            flushed = self.flush_ipv6_slaac_addrs()
+            self.flush_ipv6_slaac_routes(ra_addrs=flushed)
+        return rc
 
     def add_ipv6_eui64_address(self, prefix):
         """
@@ -920,6 +950,20 @@ class Interface(Control):
             eui64 = mac2eui64(self.get_mac(), prefix)
             prefixlen = prefix.split('/')[1]
             self.del_addr(f'{eui64}/{prefixlen}')
+
+    def set_ipv6_interface_identifier(self, identifier):
+        """
+        Set the interface identifier for IPv6 autoconf.
+        """
+        cmd = f'ip token set {identifier} dev {self.ifname}'
+        self._cmd(cmd)
+
+    def del_ipv6_interface_identifier(self):
+        """
+        Delete the interface identifier for IPv6 autoconf.
+        """
+        cmd = f'ip token delete dev {self.ifname}'
+        self._cmd(cmd)
 
     def set_ipv6_forwarding(self, forwarding):
         """
@@ -1071,6 +1115,28 @@ class Interface(Control):
         """
         self.set_interface('path_priority', priority)
 
+    def set_bpdu_guard(self, state):
+        """
+        Set BPDU guard state for a bridge port. When enabled, the port will be
+        disabled if it receives a BPDU packet.
+
+        Example:
+        >>> from vyos.ifconfig import Interface
+        >>> Interface('eth0').set_bpdu_guard(1)
+        """
+        self.set_interface('bpdu_guard', state)
+
+    def set_root_guard(self, state):
+        """
+        Set root guard state for a bridge port. When enabled, the port will be
+        disabled if it receives a superior BPDU that would make it a root port.
+
+        Example:
+        >>> from vyos.ifconfig import Interface
+        >>> Interface('eth0').set_root_guard(1)
+        """
+        self.set_interface('root_guard', state)
+
     def set_port_isolation(self, on_or_off):
         """
         Controls whether a given port will be isolated, which means it will be
@@ -1181,7 +1247,7 @@ class Interface(Control):
         """
         return self.get_addr_v4() + self.get_addr_v6()
 
-    def add_addr(self, addr):
+    def add_addr(self, addr: str, vrf_changed: bool=False) -> bool:
         """
         Add IP(v6) address to interface. Address is only added if it is not
         already assigned to that interface. Address format must be validated
@@ -1214,15 +1280,14 @@ class Interface(Control):
 
         # add to interface
         if addr == 'dhcp':
-            self.set_dhcp(True)
+            self.set_dhcp(True, vrf_changed=vrf_changed)
         elif addr == 'dhcpv6':
-            self.set_dhcpv6(True)
+            self.set_dhcpv6(True, vrf_changed=vrf_changed)
         elif not is_intf_addr_assigned(self.ifname, addr, netns=netns):
             netns_cmd  = f'ip netns exec {netns}' if netns else ''
             tmp = f'{netns_cmd} ip addr add {addr} dev {self.ifname}'
             # Add broadcast address for IPv4
             if is_ipv4(addr): tmp += ' brd +'
-
             self._cmd(tmp)
         else:
             return False
@@ -1232,7 +1297,7 @@ class Interface(Control):
 
         return True
 
-    def del_addr(self, addr):
+    def del_addr(self, addr: str) -> bool:
         """
         Delete IP(v6) address from interface. Address is only deleted if it is
         assigned to that interface. Address format must be exactly the same as
@@ -1295,6 +1360,71 @@ class Interface(Control):
         # flush all addresses
         self._cmd(cmd)
 
+    def flush_ipv6_slaac_addrs(self) -> list:
+        """
+        Flush all IPv6 addresses installed in response to router advertisement
+        messages from this interface.
+
+        Will raise an exception on error.
+        Will return a list of flushed IPv6 addresses.
+        """
+        netns = get_interface_namespace(self.ifname)
+        netns_cmd = f'ip netns exec {netns}' if netns else ''
+        tmp = get_interface_address(self.ifname)
+        if not tmp or 'addr_info' not in tmp:
+            return
+
+        # Parse interface IP addresses. Example data:
+        # {'family': 'inet6', 'local': '2001:db8:1111:0:250:56ff:feb3:38c5',
+        # 'prefixlen': 64, 'scope': 'global', 'dynamic': True,
+        # 'mngtmpaddr': True, 'protocol': 'kernel_ra',
+        # 'valid_life_time': 2591987, 'preferred_life_time': 14387}
+        flushed = []
+        for addr_info in tmp['addr_info']:
+            if 'protocol' not in addr_info:
+                continue
+            if (addr_info['protocol'] == 'kernel_ra' and
+                addr_info['scope'] == 'global'):
+                # Flush IPv6 addresses installed by router advertisement
+                ra_addr = f"{addr_info['local']}/{addr_info['prefixlen']}"
+                flushed.append(ra_addr)
+                cmd = f'{netns_cmd} ip -6 addr del dev {self.ifname} {ra_addr}'
+                self._cmd(cmd)
+        return flushed
+
+    def flush_ipv6_slaac_routes(self, ra_addrs: list=[]) -> None:
+        """
+        Flush IPv6 default routes installed in response to router advertisement
+        messages from this interface.
+
+        Will raise an exception on error.
+        """
+        # Find IPv6 connected prefixes for flushed SLAAC addresses
+        connected = []
+        for addr in ra_addrs if isinstance(ra_addrs, list) else []:
+            connected.append(str(IPv6Interface(addr).network))
+
+        netns = get_interface_namespace(self.ifname)
+        netns_cmd = f'ip netns exec {netns}' if netns else ''
+
+        tmp = self._cmd(f'{netns_cmd} ip -j -6 route show dev {self.ifname}')
+        tmp = json.loads(tmp)
+        # Parse interface routes. Example data:
+        # {'dst': 'default', 'gateway': 'fe80::250:56ff:feb3:cdba',
+        # 'protocol': 'ra', 'metric': 1024, 'flags': [], 'expires': 1398,
+        # 'metrics': [{'hoplimit': 64}], 'pref': 'medium'}
+        for route in tmp:
+            # If it's a default route received from RA, delete it
+            if (dict_search('dst', route) == 'default' and
+                dict_search('protocol', route) == 'ra'):
+                self._cmd(f'{netns_cmd} ip -6 route del default via {route["gateway"]} dev {self.ifname}')
+            # Remove connected prefixes received from RA
+            if dict_search('dst', route) in connected:
+                # If it's a connected prefix, delete it
+                self._cmd(f'{netns_cmd} ip -6 route del {route["dst"]} dev {self.ifname}')
+
+        return None
+
     def add_to_bridge(self, bridge_dict):
         """
         Adds the interface to the bridge with the passed port config.
@@ -1304,8 +1434,6 @@ class Interface(Control):
 
         # drop all interface addresses first
         self.flush_addrs()
-
-        ifname = self.ifname
 
         for bridge, bridge_config in bridge_dict.items():
             # add interface to bridge - use Section.klass to get BridgeIf class
@@ -1322,7 +1450,7 @@ class Interface(Control):
             bridge_vlan_filter = Section.klass(bridge)(bridge, create=True).get_vlan_filter()
 
             if int(bridge_vlan_filter):
-                cur_vlan_ids = get_vlan_ids(ifname)
+                cur_vlan_ids = get_vlan_ids(self.ifname)
                 add_vlan = []
                 native_vlan_id = None
                 allowed_vlan_ids= []
@@ -1345,18 +1473,18 @@ class Interface(Control):
 
                 # Remove redundant VLANs from the system
                 for vlan in list_diff(cur_vlan_ids, add_vlan):
-                    cmd = f'bridge vlan del dev {ifname} vid {vlan} master'
+                    cmd = f'bridge vlan del dev {self.ifname} vid {vlan} master'
                     self._cmd(cmd)
 
                 for vlan in allowed_vlan_ids:
-                    cmd = f'bridge vlan add dev {ifname} vid {vlan} master'
+                    cmd = f'bridge vlan add dev {self.ifname} vid {vlan} master'
                     self._cmd(cmd)
                 # Setting native VLAN to system
                 if native_vlan_id:
-                    cmd = f'bridge vlan add dev {ifname} vid {native_vlan_id} pvid untagged master'
+                    cmd = f'bridge vlan add dev {self.ifname} vid {native_vlan_id} pvid untagged master'
                     self._cmd(cmd)
 
-    def set_dhcp(self, enable):
+    def set_dhcp(self, enable: bool, vrf_changed: bool=False):
         """
         Enable/Disable DHCP client on a given interface.
         """
@@ -1396,7 +1524,9 @@ class Interface(Control):
             # the old lease is released a new one is acquired (T4203). We will
             # only restart DHCP client if it's option changed, or if it's not
             # running, but it should be running (e.g. on system startup)
-            if 'dhcp_options_changed' in self.config or not is_systemd_service_active(systemd_service):
+            if (vrf_changed or
+                ('dhcp_options_changed' in self.config) or
+                (not is_systemd_service_active(systemd_service))):
                 return self._cmd(f'systemctl restart {systemd_service}')
         else:
             if is_systemd_service_active(systemd_service):
@@ -1423,19 +1553,18 @@ class Interface(Control):
 
         return None
 
-    def set_dhcpv6(self, enable):
+    def set_dhcpv6(self, enable: bool, vrf_changed: bool=False):
         """
         Enable/Disable DHCPv6 client on a given interface.
         """
         if enable not in [True, False]:
             raise ValueError()
 
-        ifname = self.ifname
         config_base = directories['dhcp6_client_dir']
-        config_file = f'{config_base}/dhcp6c.{ifname}.conf'
-        script_file = f'/etc/wide-dhcpv6/dhcp6c.{ifname}.script' # can not live under /run b/c of noexec mount option
-        systemd_override_file = f'/run/systemd/system/dhcp6c@{ifname}.service.d/10-override.conf'
-        systemd_service = f'dhcp6c@{ifname}.service'
+        config_file = f'{config_base}/dhcp6c.{self.ifname}.conf'
+        script_file = f'/etc/wide-dhcpv6/dhcp6c.{self.ifname}.script' # can not live under /run b/c of noexec mount option
+        systemd_override_file = f'/run/systemd/system/dhcp6c@{self.ifname}.service.d/10-override.conf'
+        systemd_service = f'dhcp6c@{self.ifname}.service'
 
         # Rendered client configuration files require additional settings
         config = deepcopy(self.config)
@@ -1452,7 +1581,10 @@ class Interface(Control):
 
             # We must ignore any return codes. This is required to enable
             # DHCPv6-PD for interfaces which are yet not up and running.
-            return self._popen(f'systemctl restart {systemd_service}')
+            if (vrf_changed or
+                ('dhcpv6_options_changed' in self.config) or
+                (not is_systemd_service_active(systemd_service))):
+                return self._popen(f'systemctl restart {systemd_service}')
         else:
             if is_systemd_service_active(systemd_service):
                 self._cmd(f'systemctl stop {systemd_service}')
@@ -1669,30 +1801,31 @@ class Interface(Control):
                 else:
                     self.del_addr(addr)
 
-        # start DHCPv6 client when only PD was configured
-        if dhcpv6pd:
-            self.set_dhcpv6(True)
-
         # XXX: Bind interface to given VRF or unbind it if vrf is not set. Unbinding
         # will call 'ip link set dev eth0 nomaster' which will also drop the
         # interface out of any bridge or bond - thus this is checked before.
+        vrf_changed = False
         if 'is_bond_member' in config:
             bond_if = next(iter(config['is_bond_member']))
             tmp = get_interface_config(config['ifname'])
             if 'master' in tmp and tmp['master'] != bond_if:
-                self.set_vrf('')
+                vrf_changed = self.set_vrf('')
 
         elif 'is_bridge_member' in config:
             bridge_if = next(iter(config['is_bridge_member']))
             tmp = get_interface_config(config['ifname'])
             if 'master' in tmp and tmp['master'] != bridge_if:
-                self.set_vrf('')
+                vrf_changed = self.set_vrf('')
         else:
-            self.set_vrf(config.get('vrf', ''))
+            vrf_changed = self.set_vrf(config.get('vrf', ''))
+
+        # start DHCPv6 client when only PD was configured
+        if dhcpv6pd:
+            self.set_dhcpv6(True, vrf_changed=vrf_changed)
 
         # Add this section after vrf T4331
         for addr in new_addr:
-            self.add_addr(addr)
+            self.add_addr(addr, vrf_changed=vrf_changed)
 
         # Configure MSS value for IPv4 TCP connections
         tmp = dict_search('ip.adjust_mss', config)
@@ -1771,11 +1904,26 @@ class Interface(Control):
         value = '0' if (tmp != None) else '1'
         self.set_ipv6_forwarding(value)
 
+        # Delete old interface identifier
+        # This should be before setting the accept_ra value
+        old = dict_search('ipv6.address.interface_identifier_old', config)
+        now = dict_search('ipv6.address.interface_identifier', config)
+        if old and not now:
+            # accept_ra of ra is required to delete the interface identifier
+            self.set_ipv6_accept_ra('2')
+            self.del_ipv6_interface_identifier()
+
+        # Set IPv6 Interface identifier
+        # This should be before setting the accept_ra value
+        tmp = dict_search('ipv6.address.interface_identifier', config)
+        if tmp:
+            # accept_ra is required to set the interface identifier
+            self.set_ipv6_accept_ra('2')
+            self.set_ipv6_interface_identifier(tmp)
+
         # IPv6 router advertisements
         tmp = dict_search('ipv6.address.autoconf', config)
-        value = '2' if (tmp != None) else '1'
-        if 'dhcpv6' in new_addr:
-            value = '2'
+        value = '2' if (tmp != None) else '0'
         self.set_ipv6_accept_ra(value)
 
         # IPv6 address autoconfiguration

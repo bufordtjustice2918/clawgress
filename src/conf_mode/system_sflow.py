@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2023-2024 VyOS maintainers and contributors
+# Copyright VyOS maintainers and contributors <maintainers@vyos.io>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -54,13 +54,14 @@ def verify(sflow):
     # Check if configured sflow agent-address exist in the system
     if 'agent_address' in sflow:
         tmp = sflow['agent_address']
-        if not is_addr_assigned(tmp):
+        if not is_addr_assigned(tmp, include_vrf=True):
             raise ConfigError(
                 f'Configured "sflow agent-address {tmp}" does not exist in the system!'
             )
 
     # Check if at least one interface is configured
-    if 'interface' not in sflow:
+    # Skip this check if VPP is enabled
+    if 'interface' not in sflow and 'vpp' not in sflow:
         raise ConfigError(
             'sFlow requires at least one interface to be configured!')
 

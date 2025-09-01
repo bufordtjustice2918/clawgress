@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2019-2023 VyOS maintainers and contributors
+# Copyright VyOS maintainers and contributors <maintainers@vyos.io>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -26,7 +26,7 @@ from vyos.utils.process import popen
 def detect_qat_dev():
     output, err = popen('lspci -nn', decode='utf-8')
     if not err:
-        data = re.findall('(8086:19e2)|(8086:37c8)|(8086:0435)|(8086:6f54)', output)
+        data = re.findall('(8086:19e2)|(8086:37c[8-9])|(8086:0435)|(8086:6f54)', output)
         # QAT devices found
         if data:
             return
@@ -93,7 +93,7 @@ args = parser.parse_args()
 if args.hw:
     detect_qat_dev()
     # Show availible Intel QAT devices
-    call('lspci -nn | egrep -e \'8086:37c8|8086:19e2|8086:0435|8086:6f54\'')
+    call('lspci -nn | egrep -e \'8086:37c[8-9]|8086:19e2|8086:0435|8086:6f54\'')
 elif args.flow and args.dev:
     check_qat_if_conf()
     call('cat '+get_qat_proc_path(args.dev)+"fw_counters")

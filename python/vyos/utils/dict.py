@@ -1,4 +1,4 @@
-# Copyright 2023 VyOS maintainers and contributors <maintainers@vyos.io>
+# Copyright VyOS maintainers and contributors <maintainers@vyos.io>
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -211,6 +211,39 @@ def dict_set(key_path, value, dict_object):
             dynamic_dict = dynamic_dict[path_list[i]]
         dynamic_dict[path_list[len(path_list)-1]] = value
 
+def dict_set_nested(key_path, value, dict_object):
+    """
+    Set value to Python dictionary (dict_object) using a path to the key
+    delimited by dot ('.'). The key will be added if it does not exist.
+    Missing keys along the path will be created as nested dictionaries.
+
+    Parameters
+    ----------
+    key_path : str
+        Dot-delimited path to the key (e.g. "this.is.a.path").
+    value : any
+        The value to set at the final key in the path.
+    dict_object : dict
+        Dictionary to modify. Will be updated in place.
+
+    Examples
+    --------
+    d = {}
+    dict_set_nested("this.is.a.path", 42, d)
+    # {'this': {'is': {'a': {'path': 42}}}}
+
+    d = {"existing": {"branch": {}}}
+    dict_set_nested("existing.branch.leaf", "value", d)
+    # {'existing': {'branch': {'leaf': 'value'}}}
+    """
+    path_list = key_path.split(".")
+    dynamic_dict = dict_object
+    for i in range(0, len(path_list) - 1):
+        if path_list[i] not in dynamic_dict or not isinstance(dynamic_dict[path_list[i]], dict):
+            dynamic_dict[path_list[i]] = {}
+        dynamic_dict = dynamic_dict[path_list[i]]
+    dynamic_dict[path_list[-1]] = value
+
 def dict_delete(key_path, dict_object):
     """ Delete key in Python dictionary (dict_object) using path to key delimited by dot (.).
     """
@@ -347,8 +380,6 @@ class FixedDict(dict):
     raise ConfigError(f'Option "{k}" has no defined default')
     """
 
-    from vyos import ConfigError
-
     def __init__(self, **options):
         self._allowed = options.keys()
         super().__init__(**options)
@@ -368,7 +399,7 @@ class FixedDict(dict):
         >>> d
         {'key': 'value'}
         """
+        from vyos import ConfigError
         if k not in self._allowed:
             raise ConfigError(f'Option "{k}" has no defined default')
         super().__setitem__(k, v)
-

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2019-2024 VyOS maintainers and contributors
+# Copyright VyOS maintainers and contributors <maintainers@vyos.io>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -66,7 +66,8 @@ def get_config(config=None):
         vxlan.update({'vlan_to_vni_removed': {}})
         for vlan in tmp:
             vni = leaf_node_changed(conf, base + [ifname, 'vlan-to-vni', vlan, 'vni'])
-            vxlan['vlan_to_vni_removed'].update({vlan : {'vni' : vni[0]}})
+            if vni:
+                vxlan['vlan_to_vni_removed'].update({vlan : {'vni' : vni[0]}})
 
     # We need to verify that no other VXLAN tunnel is configured when external
     # mode is in use - Linux Kernel limitation
@@ -95,6 +96,8 @@ def verify(vxlan):
     if 'group' in vxlan:
         if 'source_interface' not in vxlan:
             raise ConfigError('Multicast VXLAN requires an underlaying interface')
+        if 'remote' in vxlan:
+            raise ConfigError('Both group and remote cannot be specified')
         verify_source_interface(vxlan)
 
     if not any(tmp in ['group', 'remote', 'source_address', 'source_interface'] for tmp in vxlan):

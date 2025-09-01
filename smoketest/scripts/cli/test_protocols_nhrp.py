@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2021-2025 VyOS maintainers and contributors
+# Copyright VyOS maintainers and contributors <maintainers@vyos.io>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -17,10 +17,7 @@
 import unittest
 
 from base_vyostest_shim import VyOSUnitTestSHIM
-
-from vyos.firewall import find_nftables_rule
 from vyos.utils.process import process_named_running
-from vyos.utils.file import read_file
 
 tunnel_path = ['interfaces', 'tunnel']
 nhrp_path = ['protocols', 'nhrp']

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2024 VyOS maintainers and contributors
+# Copyright VyOS maintainers and contributors <maintainers@vyos.io>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -38,7 +38,7 @@ def get_tc_info(interface_dict, interface_name, policy_type):
     if not policy_name:
         return None, None
     
-    class_dict = op_mode_config_dict(['qos', 'policy', policy_type, policy_name], key_mangling=('-', '_'),
+    class_dict = op_mode_config_dict(['qos', 'policy', policy_type, policy_name],
                             get_first_key=True)
     if not class_dict:
         return None, None

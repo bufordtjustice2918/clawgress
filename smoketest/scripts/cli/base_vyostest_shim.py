@@ -1,4 +1,4 @@
-# Copyright (C) 2021-2024 VyOS maintainers and contributors
+# Copyright VyOS maintainers and contributors <maintainers@vyos.io>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -75,10 +75,11 @@ class VyOSUnitTestSHIM:
                 cls._session.discard()
                 cls.fail(cls)
 
-        def cli_set(self, config):
+        def cli_set(self, path, value=None):
             if self.debug:
-                print('set ' + ' '.join(config))
-            self._session.set(config)
+                str = f'set {" ".join(path)} {value}' if value else f'set {" ".join(path)}'
+                print(str)
+            self._session.set(path, value)
 
         def cli_delete(self, config):
             if self.debug:
@@ -93,13 +94,17 @@ class VyOSUnitTestSHIM:
         def cli_commit(self):
             if self.debug:
                 print('commit')
-            self._session.commit()
             # During a commit there is a process opening commit_lock, and run()
             # returns 0
             while run(f'sudo lsof -nP {commit_lock}') == 0:
                 sleep(0.250)
+            # Return the output of commit
+            # Necessary for testing Warning cases
+            out = self._session.commit()
             # Wait for CStore completion for fast non-interactive commits
             sleep(self._commit_guard_time)
+
+            return out
 
         def op_mode(self, path : list) -> None:
             """
@@ -147,12 +152,14 @@ class VyOSUnitTestSHIM:
             return out
 
         @staticmethod
-        def ssh_send_cmd(command, username, password, hostname='localhost'):
+        def ssh_send_cmd(command, username, password, key_filename=None,
+                         hostname='localhost'):
             """ SSH command execution helper """
             # Try to login via SSH
             ssh_client = paramiko.SSHClient()
             ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh_client.connect(hostname=hostname, username=username, password=password)
+            ssh_client.connect(hostname=hostname, username=username,
+                               password=password, key_filename=key_filename)
             _, stdout, stderr = ssh_client.exec_command(command)
             output = stdout.read().decode().strip()
             error = stderr.read().decode().strip()
@@ -181,6 +188,15 @@ class VyOSUnitTestSHIM:
                         matched = True
                         break
                 self.assertTrue(not matched if inverse else matched, msg=search)
+
+        def verify_nftables_chain_exists(self, table, chain, inverse=False):
+            try:
+                cmd(f'sudo nft list chain {table} {chain}')
+                if inverse:
+                    self.fail(f'Chain exists: {table} {chain}')
+            except OSError:
+                if not inverse:
+                    self.fail(f'Chain does not exist: {table} {chain}')
 
         # Verify ip rule output
         def verify_rules(self, rules_search, inverse=False, addr_family='inet'):

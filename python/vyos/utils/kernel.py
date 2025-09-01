@@ -1,4 +1,4 @@
-# Copyright 2023-2024 VyOS maintainers and contributors <maintainers@vyos.io>
+# Copyright VyOS maintainers and contributors <maintainers@vyos.io>
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -14,6 +14,10 @@
 # License along with this library.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
+
+# A list of used Kernel constants
+# https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/drivers/net/wireguard/messages.h?h=linux-6.6.y#n45
+WIREGUARD_REKEY_AFTER_TIME = 120
 
 def check_kmod(k_mod):
     """ Common utility function to load required kernel modules on demand """

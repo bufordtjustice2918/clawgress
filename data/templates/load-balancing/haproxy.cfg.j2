@@ -38,9 +38,10 @@ defaults
     log     global
     mode    http
     option  dontlognull
-    timeout connect 10s
-    timeout client  50s
-    timeout server  50s
+    timeout check {{ timeout.check }}s
+    timeout connect {{ timeout.connect }}s
+    timeout client {{ timeout.client }}s
+    timeout server {{ timeout.server }}s
     errorfile 400 /etc/haproxy/errors/400.http
     errorfile 403 /etc/haproxy/errors/403.http
     errorfile 408 /etc/haproxy/errors/408.http
@@ -49,9 +50,29 @@ defaults
     errorfile 503 /etc/haproxy/errors/503.http
     errorfile 504 /etc/haproxy/errors/504.http
 
+# Default ACME backend
+backend buildin_acme_certbot
+    server localhost 127.0.0.1:{{ get_default_port('certbot_haproxy') }}
+
 # Frontend
 {% if service is vyos_defined %}
 {%     for front, front_config in service.items() %}
+{%         if front_config.redirect_http_to_https is vyos_defined %}
+{%             set certbot_backend_name = 'certbot_' ~ front ~ '_backend' %}
+frontend {{ front }}-http
+    mode http
+{%             if front_config.listen_address is vyos_defined %}
+{%                 for address, server_config in front_config.listen_address.items() %}
+    bind {{ address | bracketize_ipv6 }}:80 {{ 'accept-proxy' if server_config.accept_proxy is vyos_defined }}
+{%                 endfor %}
+{%             else %}
+    bind [::]:80 v4v6
+{%             endif %}
+    acl acme_acl path_beg /.well-known/acme-challenge/
+    use_backend buildin_acme_certbot if acme_acl
+    redirect scheme https code 301 if !acme_acl
+{%         endif %}
+
 frontend {{ front }}
 {%         set ssl_front = [] %}
 {%         if front_config.ssl.certificate is vyos_defined and front_config.ssl.certificate is iterable %}
@@ -61,14 +82,11 @@ frontend {{ front }}
 {%         endif %}
 {%         set ssl_directive = 'ssl' if ssl_front else '' %}
 {%         if front_config.listen_address is vyos_defined %}
-{%             for address in front_config.listen_address %}
-    bind {{ address | bracketize_ipv6 }}:{{ front_config.port }} {{ ssl_directive }} {{ ssl_front | join(' ') }}
+{%             for address, server_config in front_config.listen_address.items() %}
+    bind {{ address | bracketize_ipv6 }}:{{ front_config.port }} {{ ssl_directive }} {{ ssl_front | join(' ') }} {{ 'accept-proxy' if server_config.accept_proxy is vyos_defined }}
 {%             endfor %}
 {%         else %}
     bind [::]:{{ front_config.port }} v4v6 {{ ssl_directive }} {{ ssl_front | join(' ') }}
-{%         endif %}
-{%         if front_config.redirect_http_to_https is vyos_defined %}
-    http-request redirect scheme https unless { ssl_fc }
 {%         endif %}
 {%         if front_config.logging is vyos_defined %}
 {%             for facility, facility_config in front_config.logging.facility.items() %}
@@ -93,17 +111,26 @@ frontend {{ front }}
     http-response set-header {{ header }} '{{ header_config['value'] }}'
 {%             endfor %}
 {%         endif %}
+{%         if front_config.http_compression is vyos_defined %}
+    filter compression
+    compression algo {{ front_config.http_compression.algorithm }}
+    compression type {{ front_config.http_compression.mime_type | join(' ') }}
+{%         endif %}
 {%         if front_config.rule is vyos_defined %}
 {%             for rule, rule_config in front_config.rule.items() %}
     # rule {{ rule }}
 {%                 if rule_config.domain_name is vyos_defined %}
 {%                     set rule_options = 'hdr(host)' %}
+{%                     set domain_prefix = '' %}
 {%                     if rule_config.ssl is vyos_defined %}
 {%                         set ssl_rule_translate = {'req-ssl-sni': 'req_ssl_sni', 'ssl-fc-sni': 'ssl_fc_sni', 'ssl-fc-sni-end': 'ssl_fc_sni_end'} %}
 {%                         set rule_options = ssl_rule_translate[rule_config.ssl] %}
 {%                     endif %}
+{%                     if rule_config.wildcard_domain is vyos_defined %}
+{%                         set domain_prefix = '-m end .' %}
+{%                     endif %}
 {%                     for domain in rule_config.domain_name %}
-    acl {{ rule }} {{ rule_options }} -i {{ domain }}
+    acl {{ rule }} {{ rule_options }} -i {{ domain_prefix }}{{ domain }}
 {%                     endfor %}
 {%                 endif %}
 {# path url #}
@@ -128,6 +155,11 @@ frontend {{ front }}
 {%             for backend in front_config.backend %}
     default_backend {{ backend }}
 {%             endfor %}
+{%         endif %}
+{%         if front_config.timeout is vyos_defined %}
+{%             if front_config.timeout.client is vyos_defined %}
+    timeout client {{ front_config.timeout.client }}s
+{%             endif %}
 {%         endif %}
 
 {%     endfor %}
@@ -189,12 +221,16 @@ backend {{ back }}
 {%             for rule, rule_config in back_config.rule.items() %}
 {%                 if rule_config.domain_name is vyos_defined and rule_config.set.server is vyos_defined %}
 {%                     set rule_options = 'hdr(host)' %}
+{%                     set domain_prefix = '' %}
 {%                     if rule_config.ssl is vyos_defined %}
 {%                         set ssl_rule_translate = {'req-ssl-sni': 'req_ssl_sni', 'ssl-fc-sni': 'ssl_fc_sni', 'ssl-fc-sni-end': 'ssl_fc_sni_end'} %}
 {%                         set rule_options = ssl_rule_translate[rule_config.ssl] %}
 {%                     endif %}
+{%                     if rule_config.wildcard_domain is vyos_defined %}
+{%                         set domain_prefix = '-m end .' %}
+{%                     endif %}
 {%                     for domain in rule_config.domain_name %}
-    acl {{ rule }} {{ rule_options }} -i {{ domain }}
+    acl {{ rule }} {{ rule_options }} -i {{ domain_prefix }}{{ domain }}
 {%                     endfor %}
     use-server {{ rule_config.set.server }} if {{ rule }}
 {%                 endif %}
@@ -226,6 +262,5 @@ backend {{ back }}
 {%         if back_config.timeout.server is vyos_defined %}
     timeout server {{ back_config.timeout.server }}s
 {%         endif %}
-
 {%     endfor %}
 {% endif %}

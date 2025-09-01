@@ -275,7 +275,7 @@
   <children>
     <node name="global-block">
       <properties>
-        <help>Segment Routing Global Block label range</help>
+        <help>Segment-Routing Global Block label range</help>
       </properties>
       <children>
         #include <include/segment-routing-label-value.xml.i>
@@ -283,10 +283,29 @@
     </node>
     <node name="local-block">
       <properties>
-        <help>Segment Routing Local Block label range</help>
+        <help>Segment-Routing Local Block label range</help>
       </properties>
       <children>
         #include <include/segment-routing-label-value.xml.i>
+      </children>
+    </node>
+    <node name="srv6">
+      <properties>
+        <help>Segment-Routing SRv6 configuration</help>
+      </properties>
+      <children>
+        <leafNode name="locator">
+          <properties>
+            <help>Specify SRv6 locator</help>
+            <valueHelp>
+              <format>txt</format>
+              <description>SRv6 locator name</description>
+            </valueHelp>
+            <constraint>
+              #include <include/constraint/alpha-numeric-hyphen-underscore.xml.i>
+            </constraint>
+          </properties>
+        </leafNode>
       </children>
     </node>
     <leafNode name="maximum-label-depth">
@@ -413,6 +432,14 @@
         <node name="kernel">
           <properties>
             <help>Redistribute kernel routes into IS-IS</help>
+          </properties>
+          <children>
+            #include <include/isis/redistribute-level-1-2.xml.i>
+          </children>
+        </node>
+        <node name="nhrp">
+          <properties>
+            <help>Redistribute NHRP routes into IS-IS</help>
           </properties>
           <children>
             #include <include/isis/redistribute-level-1-2.xml.i>

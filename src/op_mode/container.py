@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2022-2024 VyOS maintainers and contributors
+# Copyright VyOS maintainers and contributors <maintainers@vyos.io>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -14,8 +14,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import typing
 import json
 import sys
+import subprocess
 
 from vyos.utils.process import cmd
 from vyos.utils.process import rc_cmd
@@ -55,13 +57,14 @@ def add_image(name: str):
                     if rc != 0: raise vyos.opmode.InternalError(out)
 
     rc, output = rc_cmd(f'podman image pull {name}')
+    print(output)
     if rc != 0:
         raise vyos.opmode.InternalError(output)
 
     if do_logout:
         rc_cmd('podman logout --all')
 
-def delete_image(name: str):
+def delete_image(name: str, force: typing.Optional[bool] = False):
     from vyos.utils.process import rc_cmd
 
     if name == 'all':
@@ -71,9 +74,33 @@ def delete_image(name: str):
         if not name: return
         # replace newline with whitespace
         name = name.replace('\n', ' ')
-    rc, output = rc_cmd(f'podman image rm {name}')
-    if rc != 0:
-        raise vyos.opmode.InternalError(output)
+        # convert to list
+        name = name.split()
+    else:
+        # convert str -> list for further processing down the line
+        name = [name]
+
+    for image in name:
+        # convert the truncated image ID to a full image ID
+        rc, ancestor = rc_cmd(f'podman inspect {image} --format "{{{{.Id}}}}"')
+        if rc != 0:
+            raise vyos.opmode.InternalError(ancestor)
+        # check if the image ID is an ancestor of any running container
+        rc, in_use = rc_cmd(f'podman ps --filter ancestor={ancestor} -q')
+        if rc != 0:
+            raise vyos.opmode.InternalError(in_use)
+
+        if bool(in_use):
+            error = f'Cannot delete image "{image}" because it is currently '\
+                    f'being used by container "{in_use}"!'
+            raise vyos.opmode.InternalError(error)
+
+        tmp = f'podman image rm {image}'
+        if force: tmp += ' --force'
+
+        rc, output = rc_cmd(tmp)
+        if rc != 0:
+            raise vyos.opmode.InternalError(output)
 
 def show_container(raw: bool):
     command = 'podman ps --all'
@@ -108,6 +135,47 @@ def restart(name: str):
         return None
     print(f'Container "{name}" restarted!')
     return output
+
+def show_log(name: str, follow: bool = False, raw: bool = False):
+    """
+    Show or monitor logs for a specific container.
+    Use --follow to continuously stream logs.
+    """
+    from vyos.configquery import ConfigTreeQuery
+    conf = ConfigTreeQuery()
+    container = conf.get_config_dict(['container', 'name', name],  get_first_key=True, with_recursive_defaults=True)
+    log_type = container.get('log-driver')
+    if log_type == 'k8s-file':
+        if follow:
+            log_command_list = ['sudo', 'podman', 'logs', '--follow', '--names', name]
+        else:
+            log_command_list = ['sudo', 'podman', 'logs', '--names', name]
+    elif log_type == 'journald':
+        if follow:
+            log_command_list = ['journalctl', '--follow', '--unit', f'vyos-container-{name}.service']
+        else:
+            log_command_list = ['journalctl', '-e', '--no-pager', '--unit', f'vyos-container-{name}.service']
+    elif log_type == 'none':
+        print(f'Container "{name}" has disabled logs.')
+        return None
+    else:
+        raise vyos.opmode.InternalError(f'Unknown log type "{log_type}" for container "{name}".')
+
+    process = None
+    try:
+        process = subprocess.Popen(log_command_list,
+                                   stdout=sys.stdout,
+                                   stderr=sys.stderr)
+        process.wait()
+    except KeyboardInterrupt:
+        if process:
+            process.terminate()
+            process.wait()
+        return None
+    except Exception as e:
+        raise vyos.opmode.InternalError(f"Error starting logging command: {e} ")
+    return None
+
 
 if __name__ == '__main__':
     try:

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2019-2024 VyOS maintainers and contributors
+# Copyright VyOS maintainers and contributors <maintainers@vyos.io>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -27,6 +27,7 @@ from vyos.configverify import verify_bridge_delete
 from vyos.configverify import verify_source_interface
 from vyos.configverify import verify_vlan_config
 from vyos.configverify import verify_mtu_parent
+from vyos.configverify import verify_mtu_ipv6
 from vyos.configverify import verify_mirror_redirect
 from vyos.ifconfig import MACVLANIf
 from vyos.utils.network import interface_exists
@@ -71,6 +72,7 @@ def verify(peth):
     verify_vrf(peth)
     verify_address(peth)
     verify_mtu_parent(peth, peth['parent'])
+    verify_mtu_ipv6(peth)
     verify_mirror_redirect(peth)
     # use common function to verify VLAN configuration
     verify_vlan_config(peth)

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2019-2023 VyOS maintainers and contributors
+# Copyright VyOS maintainers and contributors <maintainers@vyos.io>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -70,11 +70,12 @@ def verify(qat):
         # PCI id | Chipset
         # 19e2 -> C3xx
         # 37c8 -> C62x
+        # 37c9 -> C62xvf
         # 0435 -> DH895
         # 6f54 -> D15xx
         # 18ee -> QAT_200XX
         data = re.findall(
-            '(8086:19e2)|(8086:37c8)|(8086:0435)|(8086:6f54)|(8086:18ee)', output)
+            '(8086:19e2)|(8086:37c[8-9])|(8086:0435)|(8086:6f54)|(8086:18ee)', output)
         # If QAT devices found
         if not data:
             raise ConfigError('No QAT acceleration device found')

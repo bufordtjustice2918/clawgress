@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2018-2024 VyOS maintainers and contributors
+# Copyright VyOS maintainers and contributors <maintainers@vyos.io>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -362,6 +362,13 @@ def apply(dns):
                 # names (DHCP) to use DNS servers. We need to check if the
                 # value is an interface name - only if this is the case, add the
                 # interface based DNS forwarder.
+                if interface_exists(interface):
+                    hc.add_name_server_tags_recursor(['dhcp-' + interface,
+                                                      'dhcpv6-' + interface ])
+
+        # add dhcp interfaces
+        if 'dhcp' in dns:
+            for interface in dns['dhcp']:
                 if interface_exists(interface):
                     hc.add_name_server_tags_recursor(['dhcp-' + interface,
                                                       'dhcpv6-' + interface ])

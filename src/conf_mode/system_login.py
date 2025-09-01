@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2020-2024 VyOS maintainers and contributors
+# Copyright VyOS maintainers and contributors <maintainers@vyos.io>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -14,7 +14,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import re
 import os
+import json
 
 from passlib.hosts import linux_context
 from psutil import users
@@ -24,15 +26,20 @@ from pwd import getpwuid
 from sys import exit
 from time import sleep
 
+from vyos.base import Warning
 from vyos.config import Config
+from vyos.configdep import set_dependents
+from vyos.configdep import call_dependents
 from vyos.configverify import verify_vrf
 from vyos.template import render
 from vyos.template import is_ipv4
+from vyos.utils.auth import EPasswdStrength
+from vyos.utils.auth import evaluate_strength
 from vyos.utils.auth import get_current_user
 from vyos.utils.configfs import delete_cli_node
 from vyos.utils.configfs import add_cli_node
 from vyos.utils.dict import dict_search
-from vyos.utils.file import chown
+from vyos.utils.permission import chown
 from vyos.utils.process import cmd
 from vyos.utils.process import call
 from vyos.utils.process import run
@@ -126,6 +133,7 @@ def get_config(config=None):
                                                  max_uid=MIN_TACACS_UID) + cli_users
         login['tacacs_min_uid'] = MIN_TACACS_UID
 
+    set_dependents('ssh', conf)
     return login
 
 def verify(login):
@@ -146,11 +154,33 @@ def verify(login):
                 if s_user.pw_name == user and s_user.pw_uid < MIN_USER_UID:
                     raise ConfigError(f'User "{user}" can not be created, conflict with local system account!')
 
+            # T6353: Check password for complexity using cracklib.
+            # A user password should be sufficiently complex
+            plaintext_password = dict_search(
+                path='authentication.plaintext_password',
+                dict_object=user_config
+            ) or None
+
+            failed_check_status = [EPasswdStrength.WEAK, EPasswdStrength.ERROR]
+            if plaintext_password is not None:
+                result = evaluate_strength(plaintext_password)
+                if result['strength'] in failed_check_status:
+                    Warning(result['error'])
+
             for pubkey, pubkey_options in (dict_search('authentication.public_keys', user_config) or {}).items():
                 if 'type' not in pubkey_options:
                     raise ConfigError(f'Missing type for public-key "{pubkey}"!')
                 if 'key' not in pubkey_options:
                     raise ConfigError(f'Missing key for public-key "{pubkey}"!')
+
+            if 'operator' in user_config:
+                op_groups = dict_search('operator.group', user_config)
+                if op_groups:
+                    for og in op_groups:
+                        if dict_search(f'operator_group.{og}', login) is None:
+                            raise ConfigError(f'Operator group {og} does not exist')
+                else:
+                    raise ConfigError(f'User {user} is configured as an operator but is not assigned to any operator groups')
 
     if {'radius', 'tacacs'} <= set(login):
         raise ConfigError('Using both RADIUS and TACACS at the same time is not supported!')
@@ -287,6 +317,28 @@ def generate(login):
         if os.path.isfile(autologout_file):
             os.unlink(autologout_file)
 
+    # Operator groups and group membership
+    operator_config = {'users': {}, 'groups': {}}
+    if 'user' in login:
+        for user, user_config in login['user'].items():
+            op_groups = dict_search('operator.group', user_config)
+            if op_groups:
+                operator_config['users'][user] = op_groups
+
+    if 'operator_group' in login:
+        operator_config['groups'] = login['operator_group']
+
+        # Convert permissions strings to list
+        # so that the operational command runner doesn't have to
+        for g in operator_config['groups']:
+            policy = dict_search(f'command_policy.allow', operator_config['groups'][g])
+            if policy is not None:
+                policy = list(map(lambda s: re.split(r'\s+', s), policy))
+                operator_config['groups'][g]['command_policy']['allow'] = policy
+
+    with open('/etc/vyos/operators.json', 'w') as of:
+        json.dump(operator_config, of)
+
     return None
 
 
@@ -316,7 +368,11 @@ def apply(login):
             if tmp: command += f" --home '{tmp}'"
             else: command += f" --home '/home/{user}'"
 
-            command += f' --groups frr,frrvty,vyattacfg,sudo,adm,dip,disk,_kea {user}'
+            if 'operator' not in user_config:
+                command += f' --groups frr,frrvty,vyattacfg,sudo,adm,dip,disk,_kea'
+
+            command += f' {user}'
+
             try:
                 cmd(command)
                 # we should not rely on the value stored in user_config['home_directory'], as a
@@ -329,6 +385,17 @@ def apply(login):
                        user_config, permission=0o600,
                        formater=lambda _: _.replace("&quot;", '"'),
                        user=user, group='users')
+
+                principals_file = f'{home_dir}/.ssh/authorized_principals'
+                if dict_search('authentication.principal', user_config):
+                    render(principals_file, 'login/authorized_principals.j2',
+                           user_config, permission=0o600,
+                           formater=lambda _: _.replace("&quot;", '"'),
+                           user=user, group='users')
+                else:
+                    if os.path.exists(principals_file):
+                        os.unlink(principals_file)
+
             except Exception as e:
                 raise ConfigError(f'Adding user "{user}" raised exception: "{e}"')
 
@@ -345,14 +412,15 @@ def apply(login):
                     chown(home_dir, user=user, recursive=True)
 
             # Generate 2FA/MFA One-Time-Pad configuration
+            google_auth_file = f'{home_dir}/.google_authenticator'
             if dict_search('authentication.otp.key', user_config):
                 enable_otp = True
-                render(f'{home_dir}/.google_authenticator', 'login/pam_otp_ga.conf.j2',
+                render(google_auth_file, 'login/pam_otp_ga.conf.j2',
                        user_config, permission=0o400, user=user, group='users')
             else:
                 # delete configuration as it's not enabled for the user
-                if os.path.exists(f'{home_dir}/.google_authenticator'):
-                    os.remove(f'{home_dir}/.google_authenticator')
+                if os.path.exists(google_auth_file):
+                    os.unlink(google_auth_file)
 
             # Lock/Unlock local user account
             lock_unlock = '--unlock'
@@ -365,6 +433,22 @@ def apply(login):
             try:
                 # Disable user to prevent re-login
                 call(f'usermod -s /sbin/nologin {user}')
+
+                home_dir = getpwnam(user).pw_dir
+                # Remove SSH authorized keys file
+                authorized_keys_file = f'{home_dir}/.ssh/authorized_keys'
+                if os.path.exists(authorized_keys_file):
+                    os.unlink(authorized_keys_file)
+
+                # Remove SSH authorized principals file
+                principals_file = f'{home_dir}/.ssh/authorized_principals'
+                if os.path.exists(principals_file):
+                    os.unlink(principals_file)
+
+                # Remove Google Authenticator file
+                google_auth_file = f'{home_dir}/.google_authenticator'
+                if os.path.exists(google_auth_file):
+                    os.unlink(google_auth_file)
 
                 # Logout user if he is still logged in
                 if user in list(set([tmp[0] for tmp in users()])):
@@ -404,8 +488,9 @@ def apply(login):
     # Enable/disable Google authenticator
     cmd('pam-auth-update --disable mfa-google-authenticator')
     if enable_otp:
-        cmd(f'pam-auth-update --enable mfa-google-authenticator')
+        cmd('pam-auth-update --enable mfa-google-authenticator')
 
+    call_dependents()
     return None
 
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2022-2024 VyOS maintainers and contributors
+# Copyright VyOS maintainers and contributors <maintainers@vyos.io>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -210,6 +210,20 @@ class TestServicePPPoEServer(BasicAccelPPPTest.TestCase):
         self.assertIn(f'service-name={",".join(services)}', config)
         self.assertIn('accept-any-service=1', config)
         self.assertIn('accept-blank-service=1', config)
+
+    def test_accel_vpp_cp(self):
+        interface_vpp = f'{interface},vpp-cp=true'
+
+        self.basic_config()
+        self.set(['interface', interface, 'vpp-cp'])
+        self.cli_commit()
+
+        # Validate configuration values
+        conf = ConfigParser(allow_no_value=True, delimiters='=')
+        conf.read(self._config_file)
+
+        # Validate configuration
+        self.assertEqual(conf['pppoe']['interface'], interface_vpp)
 
 
 if __name__ == '__main__':

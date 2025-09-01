@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2020-2024 VyOS maintainers and contributors
+# Copyright VyOS maintainers and contributors <maintainers@vyos.io>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -95,8 +95,12 @@ def apply(banner):
         render(POSTLOGIN_FILE, 'login/default_motd.j2', banner,
             permission=0o644, user='root', group='root')
 
-    render(POSTLOGIN_VYOS_FILE, 'login/motd_vyos_nonproduction.j2', banner,
-        permission=0o644, user='root', group='root')
+    if banner['version_data']['build_type'] != 'release':
+        render(POSTLOGIN_VYOS_FILE, 'login/motd_vyos_nonproduction.j2',
+            banner,
+            permission=0o644,
+            user='root',
+            group='root')
 
     return None
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2019-2024 VyOS maintainers and contributors
+# Copyright VyOS maintainers and contributors <maintainers@vyos.io>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -47,7 +47,7 @@ def get_config(config=None):
     # GENEVE interfaces are picky and require recreation if certain parameters
     # change. But a GENEVE interface should - of course - not be re-created if
     # it's description or IP address is adjusted. Feels somehow logic doesn't it?
-    for cli_option in ['remote', 'vni', 'parameters']:
+    for cli_option in ['remote', 'vni', 'parameters', 'port']:
         if is_node_changed(conf, base + [ifname, cli_option]):
             geneve.update({'rebuild_required': {}})
 

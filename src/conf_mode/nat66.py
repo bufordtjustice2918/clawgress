@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2020-2024 VyOS maintainers and contributors
+# Copyright VyOS maintainers and contributors <maintainers@vyos.io>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -92,6 +92,10 @@ def verify(nat):
             if prefix != None:
                 if not is_ipv6(prefix):
                     raise ConfigError(f'{err_msg} source-prefix not specified')
+                
+            if 'destination' in config and 'group' in config['destination']:
+                if len({'address_group', 'network_group', 'domain_group'} & set(config['destination']['group'])) > 1:
+                    raise ConfigError('Only one address-group, network-group or domain-group can be specified')
 
     if dict_search('destination.rule', nat):
         for rule, config in dict_search('destination.rule', nat).items():

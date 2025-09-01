@@ -1,4 +1,4 @@
-# Copyright (C) 2022-2024 VyOS maintainers and contributors
+# Copyright VyOS maintainers and contributors <maintainers@vyos.io>
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -26,6 +26,7 @@ It has special cases for x86_64 and MAY work correctly on other architectures,
 but nothing is certain.
 """
 
+import os
 import re
 
 def _read_cpuinfo():
@@ -99,3 +100,23 @@ def get_core_count():
             core_count += 1
 
     return core_count
+
+
+def get_available_cpus():
+    """ List of cpus with ids that are available in the system
+        Uses 'lscpu' command
+
+        Returns: list[dict[str, str | int | bool]]: cpus details
+    """
+    import json
+
+    from vyos.utils.process import cmd
+
+    out = json.loads(cmd('lscpu --extended -b --json'))
+
+    return out['cpus']
+
+
+def get_half_cpus():
+    """ return 1/2 of the numbers of available CPUs """
+    return max(1, os.cpu_count() // 2)

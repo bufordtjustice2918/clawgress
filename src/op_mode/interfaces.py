@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2022-2023 VyOS maintainers and contributors
+# Copyright VyOS maintainers and contributors <maintainers@vyos.io>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -21,6 +21,7 @@ import sys
 import glob
 import json
 import typing
+import textwrap
 from datetime import datetime
 from tabulate import tabulate
 
@@ -28,9 +29,13 @@ import vyos.opmode
 from vyos.ifconfig import Section
 from vyos.ifconfig import Interface
 from vyos.ifconfig import VRRP
+from vyos.utils.dict import dict_set_nested
+from vyos.utils.network import get_interface_vrf
+from vyos.utils.network import interface_exists
 from vyos.utils.process import cmd
 from vyos.utils.process import rc_cmd
 from vyos.utils.process import call
+from vyos.configquery import op_mode_config_dict
 
 def catch_broken_pipe(func):
     def wrapped(*args, **kwargs):
@@ -38,7 +43,7 @@ def catch_broken_pipe(func):
             func(*args, **kwargs)
         except (BrokenPipeError, KeyboardInterrupt):
             # Flush output to /dev/null and bail out.
-            os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
+            os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno()) # pylint: disable = no-member
     return wrapped
 
 # The original implementation of filtered_interfaces has signature:
@@ -83,6 +88,18 @@ def filtered_interfaces(ifnames: typing.Union[str, list],
                 continue
 
         yield interface
+
+def is_interface_has_mac(interface_name):
+    interface_no_mac = ('tun', 'wg')
+    return not any(interface_name.startswith(prefix) for prefix in interface_no_mac)
+
+def detailed_output(dataset, headers):
+    for data in dataset:
+        adjusted_rule = data + [""] * (len(headers) - len(data)) # account for different header length, like default-action
+        transformed_rule = [[header, adjusted_rule[i]] for i, header in enumerate(headers) if i < len(adjusted_rule)] # create key-pair list from headers and rules lists; wrap at 100 char
+
+        print(tabulate(transformed_rule, tablefmt="presto"))
+        print()
 
 def _split_text(text, used=0):
     """
@@ -236,10 +253,6 @@ def _get_summary_data(ifname: typing.Optional[str],
         iftype = ''
     ret = []
 
-    def is_interface_has_mac(interface_name):
-        interface_no_mac = ('tun', 'wg')
-        return not any(interface_name.startswith(prefix) for prefix in interface_no_mac)
-
     for interface in filtered_interfaces(ifname, iftype, vif, vrrp):
         res_intf = {}
 
@@ -295,6 +308,140 @@ def _get_counter_data(ifname: typing.Optional[str],
         ret.append(res_intf)
 
     return ret
+
+def _get_kernel_data(raw, ifname = None, detail = False,
+                     statistics = False):
+    if ifname:
+        # Check if the interface exists
+        if not interface_exists(ifname):
+            raise vyos.opmode.IncorrectValue(f"{ifname} does not exist!")
+        int_name = f'dev {ifname}'
+    else:
+        int_name = ''
+
+    kernel_interface = json.loads(cmd(f'ip -j -d -s address show {int_name}'))
+
+    # Return early if raw
+    if raw:
+        return kernel_interface, None
+
+    # Format the kernel data
+    kernel_interface_out = _format_kernel_data(kernel_interface, detail, statistics)
+
+    return kernel_interface, kernel_interface_out
+
+def _format_kernel_data(data, detail, statistics):
+    output_list = []
+    podman_vrf = {}
+    tmpInfo = {}
+
+    # Sort interfaces by name
+    for interface in sorted(data, key=lambda x: x.get('ifname', '')):
+        interface_name = interface.get('ifname', '')
+
+        # Skip VRF interfaces
+        if interface.get('linkinfo', {}).get('info_kind') == 'vrf':
+            continue
+        # Skip spawned interfaces
+        elif interface_name.startswith(('tunl', 'gre', 'erspan', 'pim6reg')):
+            continue
+
+        master = interface.get('master', 'default')
+        vrf = get_interface_vrf(interface)
+
+        # Get the device model; ex. Intel Corporation Ethernet Controller I225-V
+        dev_model = interface.get('parentdev', '')
+        if 'parentdev' in interface:
+            parentdev = interface['parentdev']
+            if re.match(r'^[0-9a-fA-F]{4}:', parentdev):
+                dev_model = cmd(f'lspci -nn -s {parentdev}').split(']:')[1].strip()
+
+        # Get the IP addresses on interface
+        ip_list = []
+        has_global = False
+
+        for ip in interface['addr_info']:
+            if ip.get('scope') in ('global', 'host'):
+                has_global = True
+                local = ip.get('local', '-')
+                prefixlen = ip.get('prefixlen', '')
+                ip_list.append(f"{local}/{prefixlen}")
+
+        # If no global IP address, add '-'; indicates no IP address on interface
+        if not has_global:
+            ip_list.append('-')
+
+        # Generate a mapping of podman interfaces to their VRF
+        if interface_name.startswith('pod-'):
+            dict_set_nested(f'{interface_name}.vrf', master, podman_vrf)
+
+        # If the veth interface's master is a podman interface, the VRF is the VRF of the podman interface
+        if master.startswith('pod-'):
+            vrf = podman_vrf.get(master).get('vrf', 'default')
+
+        rx_stats = interface.get('stats64', {}).get('rx')
+        tx_stats = interface.get('stats64', {}).get('tx')
+
+        sl_status = ('A' if not 'UP' in interface['flags'] else 'u') + '/' + ('D' if interface['operstate'] == 'DOWN' else 'u')
+
+        # Generate temporary dict to hold data
+        tmpInfo['ifname'] = interface_name
+        tmpInfo['ip'] = ip_list
+        tmpInfo['mac'] = interface.get('address', 'n/a') if is_interface_has_mac(interface_name) else 'n/a'
+        tmpInfo['mtu'] = interface.get('mtu', '')
+        tmpInfo['vrf'] = vrf
+        tmpInfo['status'] = sl_status
+        tmpInfo['description'] = "\n".join(textwrap.wrap(interface.get('ifalias', ''), width=50))
+        tmpInfo['device'] = dev_model
+        tmpInfo['alternate_names'] = interface.get('altnames', '')
+        tmpInfo['minimum_mtu'] = interface.get('min_mtu', '')
+        tmpInfo['maximum_mtu'] = interface.get('max_mtu', '')
+        tmpInfo['rx_packets'] = rx_stats.get('packets', "")
+        tmpInfo['rx_bytes'] = rx_stats.get('bytes', "")
+        tmpInfo['rx_errors'] = rx_stats.get('errors', "")
+        tmpInfo['rx_dropped'] = rx_stats.get('dropped', "")
+        tmpInfo['rx_over_errors'] = rx_stats.get('over_errors', '')
+        tmpInfo['multicast'] = rx_stats.get('multicast', "")
+        tmpInfo['tx_packets'] = tx_stats.get('packets', "")
+        tmpInfo['tx_bytes'] = tx_stats.get('bytes', "")
+        tmpInfo['tx_errors'] = tx_stats.get('errors', "")
+        tmpInfo['tx_dropped'] = tx_stats.get('dropped', "")
+        tmpInfo['tx_carrier_errors'] = tx_stats.get('carrier_errors', "")
+        tmpInfo['tx_collisions'] = tx_stats.get('collisions', "")
+
+        # Order the stats based on 'detail' or 'statistics'
+        if detail:
+            stat_keys = [
+                "rx_packets", "rx_bytes", "rx_errors", "rx_dropped",
+                "rx_over_errors", "multicast",
+                "tx_packets", "tx_bytes", "tx_errors", "tx_dropped",
+                "tx_carrier_errors", "tx_collisions",
+            ]
+        elif statistics:
+            stat_keys = [
+                "rx_packets", "rx_bytes", "tx_packets", "tx_bytes",
+                "rx_dropped", "tx_dropped", "rx_errors", "tx_errors",
+            ]
+        else:
+            stat_keys = []
+
+        stat_list = [tmpInfo.get(k, "") for k in stat_keys]
+
+        # Generate output list; detail adds more fields
+        output_list.append([tmpInfo['ifname'],
+                            *(['\n'.join(tmpInfo['ip'])] if not statistics else []),
+                            *([tmpInfo['mac']] if not statistics else []),
+                            *([tmpInfo['vrf']] if not statistics else []),
+                            *([tmpInfo['mtu']] if not statistics else []),
+                            *([tmpInfo['status']] if not statistics else []),
+                            *([tmpInfo['description']] if not statistics else []),
+                            *([tmpInfo['device']] if detail else []),
+                            *(['\n'.join(tmpInfo['alternate_names'])] if detail else []),
+                            *([tmpInfo['minimum_mtu']] if detail else []),
+                            *([tmpInfo['maximum_mtu']] if detail else []),
+                            *(stat_list if any([detail, statistics]) else [])])
+
+    return output_list
 
 @catch_broken_pipe
 def _format_show_data(data: list):
@@ -445,6 +592,34 @@ def _format_show_counters(data: list):
     print (output)
     return output
 
+def show_kernel(raw: bool, intf_name: typing.Optional[str],
+                detail: bool, statistics: bool):
+    raw_data, data = _get_kernel_data(raw, intf_name, detail, statistics)
+
+    # Return early if raw
+    if raw:
+        return raw_data
+
+    if detail:
+        # Detail headers; ex. show interfaces kernel detail; show interfaces kernel eth0 detail
+        detail_header = ['Interface', 'IP Address', 'MAC', 'VRF', 'MTU', 'S/L', 'Description',
+                        'Device', 'Alternate Names','Minimum MTU', 'Maximum MTU', 'RX_Packets',
+                        'RX_Bytes', 'RX_Errors', 'RX_Dropped', 'Receive Overrun Errors', 'Received Multicast',
+                        'TX_Packets', 'TX_Bytes', 'TX_Errors', 'TX_Dropped', 'Transmit Carrier Errors',
+                        'Transmit Collisions']
+    elif statistics:
+        # Statistics headers; ex. show interfaces kernel statistics; show interfaces kernel eth0 statistics
+        headers = ['Interface', 'Rx Packets', 'Rx Bytes', 'Tx Packets', 'Tx Bytes', 'Rx Dropped', 'Tx Dropped', 'Rx Errors', 'Tx Errors']
+    else:
+        # Normal headers; ex. show interfaces kernel; show interfaces kernel eth0
+        print('Codes: S - State, L - Link, u - Up, D - Down, A - Admin Down')
+        headers = ['Interface', 'IP Address', 'MAC', 'VRF', 'MTU', 'S/L', 'Description']
+
+
+    if detail:
+        detailed_output(data, detail_header)
+    else:
+        print(tabulate(data, headers))
 
 def _show_raw(data: list, intf_name: str):
     if intf_name is not None and len(data) <= 1:
@@ -488,6 +663,72 @@ def show_counters(raw: bool, intf_name: typing.Optional[str],
     if raw:
         return _show_raw(data, intf_name)
     return _format_show_counters(data)
+
+def show_vlan_to_vni(raw: bool, intf_name: typing.Optional[str], vid: typing.Optional[str], detail: bool):
+    if not interface_exists(intf_name):
+        raise vyos.opmode.UnconfiguredObject(f"Interface {intf_name} does not exist\n")
+
+    if not vid:
+        vid = "all"
+
+    tunnel_data = json.loads(cmd(f"bridge -j vlan tunnelshow dev {intf_name} vid {vid}"))
+
+    if not tunnel_data:
+        if vid == "all":
+            raise vyos.opmode.UnconfiguredObject(f"No VLAN-to-VNI mapping found for interface {intf_name}\n")
+        else:
+            raise vyos.opmode.UnconfiguredObject(f"No VLAN-to-VNI mapping found for VLAN {vid}\n")
+
+    statistics_data = json.loads(cmd(f"bridge -j -s vlan tunnelshow dev {intf_name} vid {vid}"))[0]
+
+    mapping_config = op_mode_config_dict(['interfaces', 'vxlan', intf_name, 'vlan-to-vni'],
+                        get_first_key=True)
+
+    raw_data = {intf_name: {}}
+    output_list = []
+
+    for tunnel in tunnel_data[0].get("tunnels", []):
+        tunnel_id = tunnel.get("tunid")
+        tunnel_dict = raw_data[intf_name][tunnel_id] = {}
+
+        for vlan in statistics_data.get("vlans", []):
+            if vlan.get("vid") == tunnel.get("vlan"):
+                vlan_id = str(vlan.get("vid"))
+                description = mapping_config.get(vlan_id, {}).get("description", "")
+
+                if raw:
+                    tunnel_dict["vlan"] = vlan_id
+                    tunnel_dict["rx_bytes"] = vlan.get("rx_bytes")
+                    tunnel_dict["tx_bytes"] = vlan.get("tx_bytes")
+                    tunnel_dict["rx_packets"] = vlan.get("rx_packets")
+                    tunnel_dict["tx_packets"] = vlan.get("tx_packets")
+                    tunnel_dict["description"] = description
+                else:
+                    #Generate output list; detail adds more fields
+                    output_list.append([
+                        *([intf_name] if not detail else []),
+                        vlan_id,
+                        tunnel_id,
+                        description,
+                        *([vlan.get("rx_bytes")] if detail else []),
+                        *([vlan.get("tx_bytes")] if detail else []),
+                        *([vlan.get("rx_packets")] if detail else []),
+                        *([vlan.get("tx_packets")] if detail else [])
+                    ])
+
+    if raw:
+        return raw_data
+
+    if detail:
+        # Detail headers; ex. show interfaces vxlan vxlan1 vlan-to-vni detail
+        detail_header = ['VLAN', 'VNI', 'Description', 'Rx Bytes', 'Tx Bytes', 'Rx Packets', 'Tx Packets']
+        print('-' * 35)
+        print(f"Interface: {intf_name}\n")
+        detailed_output(output_list, detail_header)
+    else:
+        # Normal headers; ex. show interfaces vxlan vxlan1 vlan-to-vni
+        headers = ['Interface', 'VLAN', 'VNI', 'Description']
+        print(tabulate(output_list, headers))
 
 def clear_counters(intf_name: typing.Optional[str],
                    intf_type: typing.Optional[str],

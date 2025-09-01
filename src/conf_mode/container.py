@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2021-2024 VyOS maintainers and contributors
+# Copyright VyOS maintainers and contributors <maintainers@vyos.io>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -22,6 +22,7 @@ from ipaddress import ip_address
 from ipaddress import ip_network
 from json import dumps as json_write
 
+import psutil
 from vyos.base import Warning
 from vyos.config import Config
 from vyos.configdict import dict_merge
@@ -223,6 +224,21 @@ def verify(container):
                     if not os.path.exists(source):
                         raise ConfigError(f'Volume "{volume}" source path "{source}" does not exist!')
 
+            if 'tmpfs' in container_config:
+                for tmpfs, tmpfs_config in container_config['tmpfs'].items():
+                    if 'destination' not in tmpfs_config:
+                        raise ConfigError(f'tmpfs "{tmpfs}" has no destination path configured!')
+                    if 'size' in tmpfs_config:
+                        free_mem_mb: int = psutil.virtual_memory().available / 1024 /  1024
+                        if int(tmpfs_config['size']) > free_mem_mb:
+                            Warning(f'tmpfs "{tmpfs}" size is greater than the current free memory!')
+
+                        total_mem_mb: int = (psutil.virtual_memory().total / 1024 /  1024) / 2
+                        if int(tmpfs_config['size']) > total_mem_mb:
+                            raise ConfigError(f'tmpfs "{tmpfs}" size should not be more than 50% of total system memory!')
+                    else:
+                        raise ConfigError(f'tmpfs "{tmpfs}" has no size configured!')
+
             if 'port' in container_config:
                 for tmp in container_config['port']:
                     if not {'source', 'destination'} <= set(container_config['port'][tmp]):
@@ -273,6 +289,13 @@ def verify(container):
 
     if 'registry' in container:
         for registry, registry_config in container['registry'].items():
+            if 'mirror' in registry_config:
+                if 'host_name' in registry_config['mirror'] and 'address' in registry_config['mirror']:
+                    raise ConfigError(f'Container registry mirror address/host-name are mutually exclusive!')
+
+                if 'path' in registry_config['mirror'] and not registry_config['mirror']['path'].startswith('/'):
+                    raise ConfigError('Container registry mirror path must start with "/"!')
+
             if 'authentication' not in registry_config:
                 continue
             if not {'username', 'password'} <= set(registry_config['authentication']):
@@ -287,12 +310,13 @@ def generate_run_arguments(name, container_config):
     memory = container_config['memory']
     shared_memory = container_config['shared_memory']
     restart = container_config['restart']
+    log_driver = container_config['log_driver']
 
     # Add sysctl options
     sysctl_opt = ''
     if 'sysctl' in container_config and 'parameter' in container_config['sysctl']:
         for k, v in container_config['sysctl']['parameter'].items():
-            sysctl_opt += f" --sysctl {k}={v['value']}"
+            sysctl_opt += f" --sysctl \"{k}={v['value']}\""
 
     # Add capability options. Should be in uppercase
     capabilities = ''
@@ -300,6 +324,11 @@ def generate_run_arguments(name, container_config):
         for cap in container_config['capability']:
             cap = cap.upper().replace('-', '_')
             capabilities += f' --cap-add={cap}'
+
+    # Grant root capabilities to the container
+    privileged = ''
+    if 'privileged' in container_config:
+        privileged = '--privileged'
 
     # Add a host device to the container /dev/x:/dev/x
     device = ''
@@ -362,6 +391,14 @@ def generate_run_arguments(name, container_config):
             prop = vol_config['propagation']
             volume += f' --volume {svol}:{dvol}:{mode},{prop}'
 
+    # Mount tmpfs
+    tmpfs = ''
+    if 'tmpfs' in container_config:
+        for tmpfs_config in container_config['tmpfs'].values():
+            dest = tmpfs_config['destination']
+            size = tmpfs_config['size']
+            tmpfs += f' --mount=type=tmpfs,tmpfs-size={size}M,destination={dest}'
+
     host_pid = ''
     if 'allow_host_pid' in container_config:
       host_pid = '--pid host'
@@ -371,9 +408,9 @@ def generate_run_arguments(name, container_config):
         for ns in container_config['name_server']:
             name_server += f'--dns {ns}'
 
-    container_base_cmd = f'--detach --interactive --tty --replace {capabilities} --cpus {cpu_quota} {sysctl_opt} ' \
-                         f'--memory {memory}m --shm-size {shared_memory}m --memory-swap 0 --restart {restart} ' \
-                         f'--name {name} {hostname} {device} {port} {name_server} {volume} {env_opt} {label} {uid} {host_pid}'
+    container_base_cmd = f'--detach --interactive --tty --replace {capabilities} {privileged} --cpus {cpu_quota} {sysctl_opt} ' \
+                         f'--memory {memory}m --shm-size {shared_memory}m --memory-swap 0 --restart {restart} --log-driver={log_driver} ' \
+                         f'--name {name} {hostname} {device} {port} {name_server} {volume} {tmpfs} {env_opt} {label} {uid} {host_pid}'
 
     entrypoint = ''
     if 'entrypoint' in container_config:

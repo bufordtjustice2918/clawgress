@@ -1,0 +1,14 @@
+name: Python Lint (Darker + Ruff)
+on:
+  pull_request_target:
+    branches:
+      - current
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  darker-ruff-lint:
+    uses: vyos/.github/.github/workflows/lint-with-darker-ruff.yml@current
+    secrets: inherit

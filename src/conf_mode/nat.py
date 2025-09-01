@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2020-2024 VyOS maintainers and contributors
+# Copyright VyOS maintainers and contributors <maintainers@vyos.io>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -16,13 +16,13 @@
 
 import os
 
+from glob import glob
 from sys import exit
 
 from vyos.base import Warning
 from vyos.config import Config
 from vyos.configdep import set_dependents, call_dependents
 from vyos.template import render
-from vyos.template import is_ip_network
 from vyos.utils.kernel import check_kmod
 from vyos.utils.dict import dict_search
 from vyos.utils.dict import dict_search_args
@@ -30,7 +30,6 @@ from vyos.utils.file import write_file
 from vyos.utils.process import cmd
 from vyos.utils.process import run
 from vyos.utils.process import call
-from vyos.utils.network import is_addr_assigned
 from vyos.utils.network import interface_exists
 from vyos.firewall import fqdn_config_parse
 from vyos import ConfigError
@@ -43,7 +42,6 @@ k_mod = ['nft_nat', 'nft_chain_nat']
 nftables_nat_config = '/run/nftables_nat.conf'
 nftables_static_nat_conf = '/run/nftables_static-nat-rules.nft'
 domain_resolver_usage = '/run/use-vyos-domain-resolver-nat'
-domain_resolver_usage_firewall = '/run/use-vyos-domain-resolver-firewall'
 
 valid_groups = [
     'address_group',
@@ -176,12 +174,6 @@ def verify(nat):
                 if 'exclude' not in config and 'backend' not in config['load_balance']:
                     raise ConfigError(f'{err_msg} translation requires address and/or port')
 
-            addr = dict_search('translation.address', config)
-            if addr != None and addr != 'masquerade' and not is_ip_network(addr):
-                for ip in addr.split('-'):
-                    if not is_addr_assigned(ip):
-                        Warning(f'IP address {ip} does not exist on the system!')
-
             # common rule verification
             verify_rule(config, err_msg, nat['firewall_group'])
 
@@ -266,8 +258,8 @@ def apply(nat):
             write_file(domain_resolver_usage, text)
         elif os.path.exists(domain_resolver_usage):
             os.unlink(domain_resolver_usage)
-            if not os.path.exists(domain_resolver_usage_firewall):
-                # Firewall not using domain resolver
+
+            if not glob('/run/use-vyos-domain-resolver*'):
                 domain_action = 'stop'
         call(f'systemctl {domain_action} vyos-domain-resolver.service')
 

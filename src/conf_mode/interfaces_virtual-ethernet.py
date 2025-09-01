@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2022-2024 VyOS maintainers and contributors
+# Copyright VyOS maintainers and contributors <maintainers@vyos.io>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 or later as
@@ -23,6 +23,7 @@ from vyos.configdict import get_interface_dict
 from vyos.configverify import verify_address
 from vyos.configverify import verify_bridge_delete
 from vyos.configverify import verify_vrf
+from vyos.configverify import verify_mtu_ipv6
 from vyos.ifconfig import VethIf
 from vyos.utils.network import interface_exists
 airbag.enable()
@@ -62,6 +63,7 @@ def verify(veth):
         return None
 
     verify_vrf(veth)
+    verify_mtu_ipv6(veth)
     verify_address(veth)
 
     if 'peer_name' not in veth:
