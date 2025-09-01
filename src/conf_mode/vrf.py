@@ -149,8 +149,9 @@ def verify(vrf):
                                   f'static routes installed!')
 
     if 'name' in vrf:
-        reserved_names = ["add", "all", "broadcast", "default", "delete", "dev",
-                          "get", "inet", "mtu", "link", "type", "vrf"]
+        reserved_names = ['add', 'all', 'broadcast', 'default', 'delete', 'dev',
+                          'down', 'get', 'inet', 'link', 'mtu', 'type', 'up', 'vrf']
+
         table_ids = []
         vnis = []
         for name, vrf_config in vrf['name'].items():
