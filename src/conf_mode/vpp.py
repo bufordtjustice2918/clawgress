@@ -58,6 +58,7 @@ from vyos.vpp.config_verify import (
     verify_vpp_interfaces_dpdk_num_queues,
     verify_routes_count,
     verify_vpp_main_heap_size,
+    verify_vpp_buffers,
 )
 from vyos.vpp.config_filter import iface_filter_eth
 from vyos.vpp.utils import EthtoolGDrvinfo
@@ -223,10 +224,12 @@ def get_config(config=None):
     # dictionary retrieved.
     default_values = conf.get_config_defaults(**config.kwargs, recursive=True)
 
-    # delete 'xdp-options' from defaults if driver is DPDK
+    # delete driver-incompatible defaults
     for iface, iface_config in config.get('settings', {}).get('interface', {}).items():
         if iface_config.get('driver') == 'dpdk':
             del default_values['settings']['interface'][iface]['xdp_options']
+        elif iface_config.get('driver') == 'xdp':
+            del default_values['settings']['interface'][iface]['dpdk_options']
 
     config = config_dict_merge(default_values, config)
 
@@ -342,15 +345,6 @@ def get_config(config=None):
             eth_ifaces_persist[iface]['bus_id'] = control_host.get_bus_name(iface)
             eth_ifaces_persist[iface]['dev_id'] = control_host.get_dev_id(iface)
 
-    # Get kernel settings for hugepages
-    kernel_memory_settings = conf.get_config_dict(
-        ['system', 'option', 'kernel', 'memory'],
-        key_mangling=('-', '_'),
-        get_first_key=True,
-        no_tag_node_value_mangle=True,
-    )
-    config['kernel_memory_settings'] = kernel_memory_settings
-
     # Return to config dictionary
     config['persist_config'] = eth_ifaces_persist
 
@@ -410,6 +404,9 @@ def verify(config):
 
     verify_vpp_main_heap_size(config['settings'])
     verify_vpp_statseg_size(config['settings'])
+
+    # Check buffers
+    verify_vpp_buffers(config['settings'], workers)
 
     # Check if available memory is enough for current VPP config
     verify_vpp_memory(config)

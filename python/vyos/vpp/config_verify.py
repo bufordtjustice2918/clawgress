@@ -442,3 +442,15 @@ def verify_routes_count(settings: dict, workers: int):
         'Extensive use of features like ACLs, NAT and others may reduce the numbers above. '
         'Please read the documentation for details: https://docs.vyos.io/'
     )
+
+
+def verify_vpp_buffers(settings: dict, workers: int):
+    buffers_configured = int(settings['buffers']['buffers_per_numa'])
+
+    buffers_required = mem_checks.buffers_required(settings, workers)
+
+    if buffers_required > buffers_configured:
+        raise ConfigError(
+            'Not enough buffers to initialize RX/TX queues for interfaces. '
+            f'Set "vpp settings buffers buffers-per-numa" to {buffers_required} or higher'
+        )
