@@ -134,6 +134,7 @@ def _get_formatted_server_leases(raw_data, family='inet'):
     if family == 'inet6':
         for lease in raw_data:
             ipaddr = lease.get('ip')
+            hw_addr = lease.get('mac')
             state = lease.get('state')
             start = datetime.fromtimestamp(
                 lease.get('last_communication'), timezone.utc
@@ -148,17 +149,19 @@ def _get_formatted_server_leases(raw_data, family='inet'):
             pool = lease.get('pool')
             host_identifier = lease.get('duid')
             data_entries.append(
-                [ipaddr, state, start, end, remain, lease_type, pool, host_identifier]
+                [ipaddr, hw_addr, state, start, end, remain, pool, hostname, lease_type, host_identifier]
             )
 
         headers = [
             'IPv6 address',
+            'MAC address',
             'State',
             'Last communication',
             'Lease expiration',
             'Remaining',
-            'Type',
             'Pool',
+            'Hostname',
+            'Type',
             'DUID',
         ]
 
