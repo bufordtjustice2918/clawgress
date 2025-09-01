@@ -147,6 +147,7 @@ def _get_formatted_server_leases(raw_data, family='inet'):
             remain = lease.get('remaining')
             lease_type = lease.get('type')
             pool = lease.get('pool')
+            hostname = lease.get('hostname')
             host_identifier = lease.get('duid')
             data_entries.append(
                 [ipaddr, hw_addr, state, start, end, remain, pool, hostname, lease_type, host_identifier]
