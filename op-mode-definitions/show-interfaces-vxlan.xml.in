@@ -54,7 +54,7 @@
                           </leafNode>
                           <leafNode name="statistics">
                             <properties>
-                              <help>Show statistics for the  t0 VNI mapping</help>
+                              <help>Show VLAN to VNI statistics for the specified VLAN</help>
                             </properties>
                             <command>${vyos_op_scripts_dir}/interfaces.py show_vlan_to_vni --intf-name="$4" --vid="$7" --statistics</command>
                           </leafNode>
