@@ -60,6 +60,7 @@ from vyos.vpp.config_verify import (
     verify_vpp_main_heap_size,
     verify_vpp_buffers,
 )
+from vyos.vpp.config_resource_checks import memory
 from vyos.vpp.config_filter import iface_filter_eth
 from vyos.vpp.utils import EthtoolGDrvinfo
 from vyos.vpp.configdb import JSONStorage
@@ -146,6 +147,28 @@ def _unload_module(module_name: str):
     except Exception as e:
         vpp_log.error(f"Failed to unload module '{module_name}': {e}")
         raise
+
+
+def _get_workers_count(cpu_settings: dict) -> int:
+    if 'corelist_workers' in cpu_settings:
+        corelist_workers = []
+        for worker_range in cpu_settings['corelist_workers']:
+            core_numbers = worker_range.split('-')
+            corelist_workers.extend(
+                range(int(core_numbers[0]), int(core_numbers[-1]) + 1)
+            )
+
+        return len(corelist_workers)
+
+    return int(cpu_settings.get('workers', 0))
+
+
+def _normalize_buffers(config: dict):
+    """Replace 'auto' buffers_per_numa with calculated value"""
+    if config['settings']['buffers']['buffers_per_numa'] == 'auto':
+        workers = _get_workers_count(config['settings'].get('cpu', {}))
+        buffers = memory.buffers_required(config['settings'], workers)
+        config['settings']['buffers']['buffers_per_numa'] = str(buffers)
 
 
 def get_config(config=None):
@@ -242,9 +265,10 @@ def get_config(config=None):
         default_values_effective = conf.get_config_defaults(
             **effective_config.kwargs, recursive=True
         )
-        config['effective'] = config_dict_merge(
-            default_values_effective, effective_config
-        )
+        effective_config = config_dict_merge(default_values_effective, effective_config)
+        # Buffer normalization (auto → computed)
+        _normalize_buffers(effective_config)
+        config['effective'] = effective_config
 
     if 'settings' in config:
         if 'interface' in config['settings']:
@@ -317,6 +341,9 @@ def get_config(config=None):
                         xdp_api_params['flags'] = 'no_syscall_lock'
                     iface_config['xdp_api_params'] = xdp_api_params
 
+        # Buffer normalization (auto → computed)
+        _normalize_buffers(config)
+
     if removed_ifaces:
         config['removed_ifaces'] = removed_ifaces
         config['xconn_members'] = xconn_members
@@ -373,8 +400,6 @@ def verify(config):
             raise ConfigError(f'Interface {iface} does not exist or is not Ethernet!')
 
     # Resource usage checks
-    workers = 0
-
     if 'cpu' in config['settings']:
         cpu_settings = config['settings']['cpu']
 
@@ -388,14 +413,16 @@ def verify(config):
 
         # Check if there are enough CPU cores to add workers
         if 'workers' in cpu_settings:
-            workers = verify_vpp_settings_cpu_workers(cpu_settings)
+            verify_vpp_settings_cpu_workers(cpu_settings)
 
         if 'main_core' in cpu_settings:
             verify_vpp_cpu_main_core(cpu_settings)
 
         # Check the CPU main core not falling to the corelist-workers
         if 'corelist_workers' in cpu_settings:
-            workers = verify_vpp_settings_cpu_corelist_workers(cpu_settings)
+            verify_vpp_settings_cpu_corelist_workers(cpu_settings)
+
+    workers = _get_workers_count(config['settings'].get('cpu', {}))
 
     if 'workers' in config['settings']['nat44']:
         verify_vpp_nat44_workers(

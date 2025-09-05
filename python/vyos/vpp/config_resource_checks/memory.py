@@ -199,11 +199,18 @@ def buffers_required(settings: dict, workers) -> int:
     """
     buffers_total = 0
     for ifname, iface_config in settings.get('interface', {}).items():
+        # Do not include XDP interfaces in buffer calculations.
+        # Unlike DPDK, XDP does not use VPP-managed mbufs for RX/TX rings,
+        # so buffer requirements cannot be derived from descriptors here.
+        # Buffers for XDP are handled internally by the kernel/XDP layer,
+        # not by VPP’s buffer allocator.
         if iface_config.get('driver') == 'xdp':
             continue
         dpdk_options = iface_config.get('dpdk_options', {})
         rx_queues = int(dpdk_options.get('num_rx_queues', 1))
         rx_desc = int(dpdk_options.get('num_rx_desc'))
+        # default TX queues is equal to number of worker threads
+        # plus 1 main thread
         tx_queues = int(dpdk_options.get('num_tx_queues', workers + 1))
         tx_desc = int(dpdk_options.get('num_tx_desc'))
 

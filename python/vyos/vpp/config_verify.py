@@ -317,7 +317,7 @@ def verify_vpp_cpu_main_core(cpu_settings: dict) -> None:
         )
 
 
-def verify_vpp_settings_cpu_workers(cpu_settings: dict) -> int:
+def verify_vpp_settings_cpu_workers(cpu_settings: dict):
     """
     Verify that the system has enough available CPU cores
     to run a given amount of worker processes (1 worker/core)
@@ -331,10 +331,8 @@ def verify_vpp_settings_cpu_workers(cpu_settings: dict) -> int:
             f'(reduce to {available_cores} or less)'
         )
 
-    return workers
 
-
-def verify_vpp_settings_cpu_corelist_workers(cpu_settings: dict) -> int:
+def verify_vpp_settings_cpu_corelist_workers(cpu_settings: dict):
     """
     Verify that the CPU cores provided to the config are free and can be used by VPP
     """
@@ -365,8 +363,6 @@ def verify_vpp_settings_cpu_corelist_workers(cpu_settings: dict) -> int:
 
     if len(all_core_nums) > cpu_checks.available_cores_count(cpu_settings):
         raise ConfigError(f'{error_msg}: Not enough free CPUs in the system.')
-
-    return len(all_core_nums)
 
 
 def verify_vpp_nat44_workers(workers: int, nat44_workers: list):
