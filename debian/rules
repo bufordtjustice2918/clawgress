@@ -2,15 +2,25 @@
 
 DIR := debian/tmp
 DIR_AWS := $(DIR)/vyos-1x-aws
+DIR_LIBVYOSCONFIG := $(DIR)/libvyosconfig
 VYOS_SBIN_DIR := usr/sbin
 VYOS_BIN_DIR := usr/bin
+VYOS_LIB_DIR := usr/lib
 VYOS_LIBEXEC_DIR := usr/libexec/vyos
 VYOS_DATA_DIR := usr/share/vyos
 VYOS_CFG_TMPL_DIR := opt/vyatta/share/vyatta-cfg/templates
 VYOS_OP_TMPL_DIR := opt/vyatta/share/vyatta-op/templates
 VYOS_MIBS_DIR := usr/share/snmp/mibs
 VYOS_LOCALUI_DIR := srv/localui
+
+VYCONF := usr/libexec/vyos/vyconf
+VYCONF_CONF := $(VYCONF)/config
+VYCONF_SESSION := $(VYCONF)/session
+VYCONF_DATA := usr/share/vyos/vyconf
+VYCONF_DEF := etc/vyos
 VYCONF_REFTREE_DIR := $(VYOS_LIBEXEC_DIR)/vyconf/reftree
+
+OCAML_DIR := /opt/opam/${OCAML_VERSION}
 
 MIGRATION_SCRIPTS_DIR := opt/vyatta/etc/config-migrate/migrate
 ACTIVATION_SCRIPTS_DIR := usr/libexec/vyos/activate
@@ -18,12 +28,6 @@ SYSTEM_SCRIPTS_DIR := usr/libexec/vyos/system
 SERVICES_DIR := usr/libexec/vyos/services
 
 DEB_TARGET_ARCH := $(shell dpkg-architecture -qDEB_TARGET_ARCH)
-
-# Base version prefix from debian/changelog
-BASE_VERSION := 999.0
-COMMIT_ID := $(shell echo -n g && git rev-parse --short HEAD)
-COMMIT_COUNT := $(shell git rev-list HEAD --count)
-DIRTY_FLAG := $(shell ! git diff --quiet || ! git diff --cached --quiet && echo -dirty || echo)
 
 %:
 	dh $@ --with python3, --with quilt
@@ -33,7 +37,7 @@ DIRTY_FLAG := $(shell ! git diff --quiet || ! git diff --cached --quiet && echo 
 override_dh_strip_nondeterminism:
 
 override_dh_gencontrol:
-	dh_gencontrol -- -v$(BASE_VERSION)-$(COMMIT_COUNT)-$(COMMIT_ID)$(DIRTY_FLAG)
+	dh_gencontrol -- -v$(shell (git describe --tags --long --match 'vyos/*' --match '1.4.*' --dirty 2>/dev/null || echo 0.0-no.git.tag) | sed -E 's%vyos/%%' | sed -E 's%-dirty%+dirty%')
 
 override_dh_auto_build:
 	make all
@@ -167,6 +171,19 @@ override_dh_auto_install:
 
 	mkdir -p $(DIR_AWS)/usr/share/vyos/templates
 	mv $(DIR)/usr/share/vyos/templates/aws/ $(DIR_AWS)/usr/share/vyos/templates
+
+	# libvyosconfig package
+	mkdir -p $(DIR_LIBVYOSCONFIG)/$(VYOS_LIB_DIR)
+	mkdir -p $(DIR_LIBVYOSCONFIG)/$(VYCONF_CONF)
+	mkdir -p $(DIR_LIBVYOSCONFIG)/$(VYCONF_SESSION)
+	mkdir -p $(DIR_LIBVYOSCONFIG)/$(VYCONF_DATA)
+	mkdir -p $(DIR_LIBVYOSCONFIG)/$(VYCONF_DEF)
+
+	cp $(OCAML_DIR)/share/vyconf/vyconf.proto $(DIR_LIBVYOSCONFIG)/$(VYCONF_DATA)
+	cp $(OCAML_DIR)/share/vyconf/vyconfd.conf $(DIR_LIBVYOSCONFIG)/$(VYCONF_DEF)
+	cp $(OCAML_DIR)/bin/vyconfd $(DIR_LIBVYOSCONFIG)/$(VYCONF)
+	cp $(OCAML_DIR)/bin/vyconf_cli $(DIR_LIBVYOSCONFIG)/$(VYCONF)
+	cp libvyosconfig/_build/libvyosconfig.so $(DIR_LIBVYOSCONFIG)/$(VYOS_LIB_DIR)/libvyosconfig.so.0
 
 override_dh_installsystemd:
 	dh_installsystemd -pvyos-1x --name vyos-router vyos-router.service

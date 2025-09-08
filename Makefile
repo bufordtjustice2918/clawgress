@@ -7,34 +7,28 @@ LIBS := -lzmq
 CFLAGS :=
 BUILD_ARCH := $(shell dpkg-architecture -q DEB_BUILD_ARCH)
 J2LINT := $(shell command -v j2lint 2> /dev/null)
-LIBVYOSCONFIG_BUILD_PATH := /tmp/libvyosconfig/_build/libvyosconfig.so
-LIBVYOSCONFIG_STATUS := $(shell git submodule status)
 
 config_xml_src = $(wildcard interface-definitions/*.xml.in)
 config_xml_obj = $(config_xml_src:.xml.in=.xml)
 op_xml_src = $(wildcard op-mode-definitions/*.xml.in)
 op_xml_obj = $(op_xml_src:.xml.in=.xml)
 
+.PHONY: libvyosconfig
+libvyosconfig:
+	@if [ ! -f /usr/lib/libvyosconfig.so.0 ]; then \
+		make -C libvyosconfig clean ; \
+		make -C libvyosconfig all ; \
+		sudo make -C libvyosconfig install ; \
+	fi
+
 %.xml: %.xml.in
 	@echo Generating $(BUILD_DIR)/$@ from $<
 	mkdir -p $(BUILD_DIR)/$(dir $@)
 	$(CURDIR)/scripts/transclude-template $< > $(BUILD_DIR)/$@
 
-.PHONY: libvyosconfig
-.ONESHELL:
-libvyosconfig:
-	if test ! -f $(LIBVYOSCONFIG_BUILD_PATH); then
-		if ! echo $(firstword $(LIBVYOSCONFIG_STATUS))|grep -Eq '^[a-z0-9]'; then
-			git submodule sync; git submodule update --init --remote
-		fi
-		rm -rf /tmp/libvyosconfig && mkdir /tmp/libvyosconfig
-		cp -r libvyosconfig /tmp && cd /tmp/libvyosconfig && \
-		eval $$(opam env --root=/opt/opam --set-root) && ./build.sh || exit 1
-	fi
-
 .PHONY: interface_definitions
 .ONESHELL:
-interface_definitions: $(config_xml_obj) libvyosconfig
+interface_definitions: $(config_xml_obj)
 	mkdir -p $(TMPL_DIR)
 
 	$(CURDIR)/scripts/override-default $(BUILD_DIR)/interface-definitions
@@ -88,7 +82,7 @@ vyshim:
 	$(MAKE) -C $(SHIM_DIR)
 
 .PHONY: all
-all: clean copyright pylint libvyosconfig interface_definitions op_mode_definitions test j2lint vyshim generate-configd-include-json
+all: clean copyright libvyosconfig pylint interface_definitions op_mode_definitions test j2lint vyshim generate-configd-include-json
 
 .PHONY: copyright
 copyright:
