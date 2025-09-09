@@ -241,13 +241,25 @@ if __name__ == '__main__':
 
     if not is_opened():
         if tpm_exists:
+            existing_key = None
+
+            try:
+                existing_key = read_tpm_key()
+            except: pass
+
             if args.enable:
-                key = Fernet.generate_key()
+                if existing_key:
+                    print('WARNING: An encryption key already exists in the TPM.')
+                    print('If you choose not to use the existing key, any system image')
+                    print('using the old key will need the recovery key.')
+                if existing_key and ask_yes_no('Do you want to use the existing TPM key?'):
+                    key = existing_key
+                else:
+                    key = Fernet.generate_key()
             elif args.disable or args.load:
-                try:
-                    key = read_tpm_key()
+                if existing_key:
                     need_recovery = False
-                except:
+                else:
                     print('Failed to read key from TPM, recovery key required')
                     need_recovery = True
         else:
