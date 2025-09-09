@@ -664,7 +664,9 @@ def show_counters(raw: bool, intf_name: typing.Optional[str],
         return _show_raw(data, intf_name)
     return _format_show_counters(data)
 
-def show_vlan_to_vni(raw: bool, intf_name: typing.Optional[str], vid: typing.Optional[str], detail: bool):
+def show_vlan_to_vni(raw: bool, intf_name: typing.Optional[str],
+                     vid: typing.Optional[str], detail: bool,
+                     statistics: bool):
     if not interface_exists(intf_name):
         raise vyos.opmode.UnconfiguredObject(f"Interface {intf_name} does not exist\n")
 
@@ -696,6 +698,14 @@ def show_vlan_to_vni(raw: bool, intf_name: typing.Optional[str], vid: typing.Opt
                 vlan_id = str(vlan.get("vid"))
                 description = mapping_config.get(vlan_id, {}).get("description", "")
 
+                # detail allows for longer descriptions; each output wraps to 80 characters
+                if detail:
+                    description = "\n".join(textwrap.wrap(description, width=65))
+                elif raw:
+                    pass
+                else:
+                    description = "\n".join(textwrap.wrap(description, width=48))
+
                 if raw:
                     tunnel_dict["vlan"] = vlan_id
                     tunnel_dict["rx_bytes"] = vlan.get("rx_bytes")
@@ -709,11 +719,11 @@ def show_vlan_to_vni(raw: bool, intf_name: typing.Optional[str], vid: typing.Opt
                         *([intf_name] if not detail else []),
                         vlan_id,
                         tunnel_id,
-                        description,
-                        *([vlan.get("rx_bytes")] if detail else []),
-                        *([vlan.get("tx_bytes")] if detail else []),
-                        *([vlan.get("rx_packets")] if detail else []),
-                        *([vlan.get("tx_packets")] if detail else [])
+                        *([description] if not statistics else []),
+                        *([vlan.get("rx_packets")] if any([detail, statistics]) else []),
+                        *([vlan.get("rx_bytes")] if any([detail, statistics]) else []),
+                        *([vlan.get("tx_packets")] if any([detail, statistics]) else []),
+                        *([vlan.get("tx_bytes")] if any([detail, statistics]) else [])
                     ])
 
     if raw:
@@ -721,10 +731,14 @@ def show_vlan_to_vni(raw: bool, intf_name: typing.Optional[str], vid: typing.Opt
 
     if detail:
         # Detail headers; ex. show interfaces vxlan vxlan1 vlan-to-vni detail
-        detail_header = ['VLAN', 'VNI', 'Description', 'Rx Bytes', 'Tx Bytes', 'Rx Packets', 'Tx Packets']
+        detail_header = ['VLAN', 'VNI', 'Description', 'Rx Packets', 'Rx Bytes', 'Tx Packets', 'Tx Bytes']
         print('-' * 35)
         print(f"Interface: {intf_name}\n")
         detailed_output(output_list, detail_header)
+    elif statistics:
+        # Statistics headers; ex. show interfaces vxlan vxlan1 vlan-to-vni statistics
+        headers = ['Interface', 'VLAN', 'VNI', 'Rx Packets', 'Rx Bytes', 'Tx Packets', 'Tx Bytes']
+        print(tabulate(output_list, headers))
     else:
         # Normal headers; ex. show interfaces vxlan vxlan1 vlan-to-vni
         headers = ['Interface', 'VLAN', 'VNI', 'Description']
