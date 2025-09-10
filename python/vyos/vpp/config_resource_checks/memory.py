@@ -28,6 +28,10 @@ from vyos.vpp.utils import (
 from vyos.vpp.config_resource_checks.resource_defaults import default_resource_map
 
 
+# VPP buffers default per NUMA node
+MIN_BUFFERS = 16_384
+
+
 def classify_page_size(page_size_bytes: int) -> str:
     """
     Returns one of: '4K', '2M', '1G' based on page size.
@@ -187,3 +191,40 @@ def total_memory_required(settings: dict) -> dict:
         memory[classify_page_size(page_size)] += memory_size
 
     return memory
+
+
+def buffers_required(settings: dict, workers) -> int:
+    """
+    Calculate total VPP buffer requirements based on interface settings and workers.
+    """
+    buffers_total = 0
+    for ifname, iface_config in settings.get('interface', {}).items():
+        # Do not include XDP interfaces in buffer calculations.
+        # Unlike DPDK, XDP does not use VPP-managed mbufs for RX/TX rings,
+        # so buffer requirements cannot be derived from descriptors here.
+        # Buffers for XDP are handled internally by the kernel/XDP layer,
+        # not by VPP’s buffer allocator.
+        if iface_config.get('driver') == 'xdp':
+            continue
+        dpdk_options = iface_config.get('dpdk_options', {})
+        rx_queues = int(dpdk_options.get('num_rx_queues', 1))
+        rx_desc = int(dpdk_options.get('num_rx_desc'))
+        # default TX queues is equal to number of worker threads
+        # plus 1 main thread
+        tx_queues = int(dpdk_options.get('num_tx_queues', workers + 1))
+        tx_desc = int(dpdk_options.get('num_tx_desc'))
+
+        # buffers for RX/TX queues for interface
+        buffers_total += rx_queues * rx_desc + tx_queues * tx_desc
+
+    # per-thread buffer caches (approx. 256 buffers per worker)
+    buffers_total += workers * 256
+
+    # Safety margin for buffer calculations:
+    # traffic bursts, alignment/metadata overhead etc.
+    # The factor 2.5 is derived from VPP’s own calculations:
+    # https://github.com/FDio/vpp/blob/stable/2506/extras/vpp_config/vpplib/AutoConfig.py#L609
+    buffers_total = int(buffers_total * 2.5)
+
+    # Enforce minimum required by VPP (16K buffers)
+    return max(buffers_total, MIN_BUFFERS)

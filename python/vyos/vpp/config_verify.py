@@ -317,7 +317,7 @@ def verify_vpp_cpu_main_core(cpu_settings: dict) -> None:
         )
 
 
-def verify_vpp_settings_cpu_workers(cpu_settings: dict) -> int:
+def verify_vpp_settings_cpu_workers(cpu_settings: dict):
     """
     Verify that the system has enough available CPU cores
     to run a given amount of worker processes (1 worker/core)
@@ -331,10 +331,8 @@ def verify_vpp_settings_cpu_workers(cpu_settings: dict) -> int:
             f'(reduce to {available_cores} or less)'
         )
 
-    return workers
 
-
-def verify_vpp_settings_cpu_corelist_workers(cpu_settings: dict) -> int:
+def verify_vpp_settings_cpu_corelist_workers(cpu_settings: dict):
     """
     Verify that the CPU cores provided to the config are free and can be used by VPP
     """
@@ -365,8 +363,6 @@ def verify_vpp_settings_cpu_corelist_workers(cpu_settings: dict) -> int:
 
     if len(all_core_nums) > cpu_checks.available_cores_count(cpu_settings):
         raise ConfigError(f'{error_msg}: Not enough free CPUs in the system.')
-
-    return len(all_core_nums)
 
 
 def verify_vpp_nat44_workers(workers: int, nat44_workers: list):
@@ -442,3 +438,15 @@ def verify_routes_count(settings: dict, workers: int):
         'Extensive use of features like ACLs, NAT and others may reduce the numbers above. '
         'Please read the documentation for details: https://docs.vyos.io/'
     )
+
+
+def verify_vpp_buffers(settings: dict, workers: int):
+    buffers_configured = int(settings['buffers']['buffers_per_numa'])
+
+    buffers_required = mem_checks.buffers_required(settings, workers)
+
+    if buffers_required > buffers_configured:
+        raise ConfigError(
+            'Not enough buffers to initialize RX/TX queues for interfaces. '
+            f'Set "vpp settings buffers buffers-per-numa" to {buffers_required} or higher'
+        )
