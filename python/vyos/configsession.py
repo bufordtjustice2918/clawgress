@@ -181,7 +181,9 @@ class ConfigSession(object):
         for k, v in env_list:
             session_env[k] = v
 
-        session_env['CONFIGSESSION_PID'] = str(session_id)
+        # replaces ambient instance of SESSION_PID,
+        # for use when running from a non-shared configsession
+        session_env['SESSION_PID'] = str(session_id)
 
         self.__session_env = session_env
         self.__session_env['COMMIT_VIA'] = app
