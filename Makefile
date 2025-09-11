@@ -96,6 +96,7 @@ clean:
 	rm -rf $(BUILD_DIR)
 	rm -rf $(TMPL_DIR)
 	rm -rf $(OP_TMPL_DIR)
+	$(MAKE) -C libvyosconfig clean
 	$(MAKE) -C $(SHIM_DIR) clean
 
 .PHONY: test
