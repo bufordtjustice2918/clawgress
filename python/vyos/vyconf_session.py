@@ -142,6 +142,32 @@ class VyconfSession:
         return self.output(out), out.status
 
     @raise_exception
+    def aux_set(
+        self, path: list[str], script_name: str, tag_value: str = None
+    ) -> tuple[str, int]:
+        out = vyconf_client.send_request(
+            'aux_set',
+            token=self.__token,
+            path=path,
+            script_name=script_name,
+            tag_value=tag_value,
+        )
+        return self.output(out), out.status
+
+    @raise_exception
+    def aux_delete(
+        self, path: list[str], script_name: str, tag_value: str = None
+    ) -> tuple[str, int]:
+        out = vyconf_client.send_request(
+            'aux_delete',
+            token=self.__token,
+            path=path,
+            script_name=script_name,
+            tag_value=tag_value,
+        )
+        return self.output(out), out.status
+
+    @raise_exception
     @config_mode
     def commit(self) -> tuple[str, int]:
         if not self.session_changed():
