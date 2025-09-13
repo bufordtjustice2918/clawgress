@@ -159,9 +159,9 @@ override_dh_auto_install:
 	mkdir -p $(DIR)/$(VYOS_BIN_DIR)
 	cp -r smoketest/bin/* $(DIR)/$(VYOS_BIN_DIR)
 
-	# Install udev script
+	# Install udev scripts
 	mkdir -p $(DIR)/usr/lib/udev
-	cp src/helpers/vyos_net_name $(DIR)/usr/lib/udev
+	cp -r src/udev/* $(DIR)/usr/lib/udev
 
 	# vyos-1x-aws package
 	# Move some files to dedicated DEB packages
