@@ -155,9 +155,7 @@ table ip vyos_filter {
 {%     if ipv4.output.filter.disable_conntrack is vyos_defined %}
     chain VYOS_DISABLE_CONNTRACK_OUT {
         type filter hook output priority -320; policy accept;
-{%         if ipv4.output.filter.disable_conntrack is vyos_defined %}
-               notrack counter comment "DISABLE-CT-OUT"
-{%         endif %}
+        notrack counter comment "DISABLE-CT-OUT"
     }
 {%     endif %}
 
@@ -344,9 +342,7 @@ table ip6 vyos_filter {
 {%     if ipv6.output.filter.disable_conntrack is vyos_defined %}
     chain VYOS_DISABLE_CONNTRACK_OUT_V6 {
         type filter hook output priority -320; policy accept;
-{%         if ipv6.output.filter.disable_conntrack is vyos_defined %}
-              notrack counter comment "DISABLE-CT-OUT-V6"
-{%         endif %}
+        notrack counter comment "DISABLE-CT-OUT-V6"
     }
 {%     endif %}
 
