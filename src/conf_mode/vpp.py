@@ -229,11 +229,25 @@ def get_config(config=None):
     if conf.exists(['vpp', 'acl']):
         set_dependents('vpp_acl', conf)
 
+    # Get interfaces that are used in PPPoe for control-plane integration
+    pppoe_conf = conf.get_config_dict(
+        ['service', 'pppoe-server'],
+        key_mangling=('-', '_'),
+        get_first_key=True,
+        no_tag_node_value_mangle=True,
+    )
+    pppoe_map_ifaces = [
+        ifname
+        for ifname, iface_conf in pppoe_conf.get('interface', {}).items()
+        if 'vpp_cp' in iface_conf
+    ]
+
     if not conf.exists(base):
         return {
             'removed_ifaces': removed_ifaces,
             'xconn_members': xconn_members,
             'persist_config': eth_ifaces_persist,
+            **({'pppoe_ifaces': pppoe_map_ifaces} if pppoe_map_ifaces else {}),
         }
 
     config = conf.get_config_dict(
@@ -372,6 +386,11 @@ def get_config(config=None):
             eth_ifaces_persist[iface]['bus_id'] = control_host.get_bus_name(iface)
             eth_ifaces_persist[iface]['dev_id'] = control_host.get_dev_id(iface)
 
+    # PPPoE dependency
+    if pppoe_map_ifaces:
+        config['pppoe_ifaces'] = pppoe_map_ifaces
+        set_dependents('pppoe_server', conf)
+
     # Return to config dictionary
     config['persist_config'] = eth_ifaces_persist
 
@@ -379,6 +398,20 @@ def get_config(config=None):
 
 
 def verify(config):
+    # Cannot remove interface if PPPoE control-plane is still enabled
+    removed_ifaces = [iface['iface_name'] for iface in config.get('removed_ifaces', [])]
+    pppoe_removed_ifaces = [
+        p
+        for p in config.get('pppoe_ifaces', [])
+        for r in removed_ifaces
+        if p == r or p.startswith(f'{r}.')
+    ]
+    if pppoe_removed_ifaces:
+        raise ConfigError(
+            f'{", ".join(pppoe_removed_ifaces)} still in use by the PPPoE server. '
+            'Disable PPPoE control-plane integration with VPP before proceeding.'
+        )
+
     # bail out early - looks like removal from running config
     if not config or ('removed_ifaces' in config and 'settings' not in config):
         return None
