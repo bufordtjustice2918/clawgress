@@ -320,7 +320,7 @@ def _verify_client(func):
 
 @_verify_server
 def show_server_pool_statistics(
-    raw: bool, family: ArgFamily, vrf: str, pool: typing.Optional[str]
+    raw: bool, family: ArgFamily, vrf: typing.Optional[str], pool: typing.Optional[str]
 ):
     v = 'v6' if family == 'inet6' else ''
     inet_suffix = '6' if family == 'inet6' else '4'
@@ -366,7 +366,7 @@ def show_server_pool_statistics(
 def show_server_leases(
     raw: bool,
     family: ArgFamily,
-    vrf: str,
+    vrf: typing.Optional[str],
     pool: typing.Optional[str],
     sorted: typing.Optional[str],
     state: typing.Optional[ArgState],
@@ -429,7 +429,7 @@ def show_server_leases(
 def show_server_static_mappings(
     raw: bool,
     family: ArgFamily,
-    vrf: str,
+    vrf: typing.Optional[str],
     pool: typing.Optional[str],
     sorted: typing.Optional[str],
 ):
@@ -482,7 +482,7 @@ def _lease_valid(inet, vrf, address):
 
 
 @_verify_server
-def clear_dhcp_server_lease(family: ArgFamily, vrf: str, address: str):
+def clear_dhcp_server_lease(family: ArgFamily, address: str, vrf: typing.Optional[str]):
     v = 'v6' if family == 'inet6' else ''
     inet = '6' if family == 'inet6' else '4'
 
