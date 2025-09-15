@@ -328,14 +328,15 @@ def verify_vpp_settings_cpu_skip_cores(skip_cores: int):
         )
 
 
-def verify_vpp_settings_cpu_and_corelist_workers(settings: dict):
+def verify_vpp_settings_cpu(settings: dict):
     """
+    Verify 'cpu main-core' is set if worker-related settings are used.
     `set vpp settings cpu workers` and `set vpp settings cpu corelist-workers`
     are mutually exclusive!
     """
-    if (
-        'corelist_workers' in settings or 'workers' in settings
-    ) and 'main_core' not in settings:
+    worker_related = ('corelist_workers', 'workers', 'skip_cores')
+
+    if any(key in settings for key in worker_related) and 'main_core' not in settings:
         raise ConfigError('"cpu main-core" is required but not set!')
 
     if 'corelist_workers' in settings and 'workers' in settings:
