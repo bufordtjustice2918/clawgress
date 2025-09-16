@@ -390,7 +390,6 @@ def verify(config):
         raise ConfigError('"settings interface" is required but not set!')
 
     # check if the system meets minimal requirements
-    verify_vpp_minimum_cpus()
     verify_vpp_minimum_memory()
 
     # check if Ethernet interfaces exist
@@ -400,9 +399,12 @@ def verify(config):
             raise ConfigError(f'Interface {iface} does not exist or is not Ethernet!')
 
     # Resource usage checks
-    if 'cpu' in config['settings']:
-        cpu_settings = config['settings']['cpu']
+    cpu_settings = config['settings'].get('cpu', {})
 
+    if not any(key in cpu_settings for key in ('workers', 'corelist_workers')):
+        verify_vpp_minimum_cpus()
+
+    if 'cpu' in config['settings']:
         # Check if there are enough CPU cores to skip according to config
         if 'skip_cores' in cpu_settings:
             skip_cores = int(cpu_settings['skip_cores'])
