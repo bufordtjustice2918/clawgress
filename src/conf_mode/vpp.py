@@ -47,7 +47,7 @@ from vyos.vpp.config_verify import (
     verify_dev_driver,
     verify_vpp_minimum_cpus,
     verify_vpp_minimum_memory,
-    verify_vpp_settings_cpu_and_corelist_workers,
+    verify_vpp_settings_cpu,
     verify_vpp_settings_cpu_corelist_workers,
     verify_vpp_cpu_main_core,
     verify_vpp_settings_cpu_skip_cores,
@@ -405,13 +405,13 @@ def verify(config):
         verify_vpp_minimum_cpus()
 
     if 'cpu' in config['settings']:
+        # Check whether the workers and corelist-workers are configured properly
+        verify_vpp_settings_cpu(cpu_settings)
+
         # Check if there are enough CPU cores to skip according to config
         if 'skip_cores' in cpu_settings:
             skip_cores = int(cpu_settings['skip_cores'])
             verify_vpp_settings_cpu_skip_cores(skip_cores)
-
-        # Check whether the workers and corelist-workers are configured properly
-        verify_vpp_settings_cpu_and_corelist_workers(cpu_settings)
 
         # Check if there are enough CPU cores to add workers
         if 'workers' in cpu_settings:
