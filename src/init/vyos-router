@@ -314,6 +314,17 @@ bind_mount_boot ()
     fi
 }
 
+bind_mount_slash_config ()
+{
+    if [ -d /opt/vyatta/etc/config ]
+    then
+        if [ ! -d /config ] ; then
+            mkdir /config
+        fi
+        mount --bind /opt/vyatta/etc/config /config
+    fi
+}
+
 clear_or_override_config_files ()
 {
     for conf in snmp/snmpd.conf snmp/snmptrapd.conf snmp/snmp.conf \
@@ -586,6 +597,8 @@ start ()
     done
 
     bind_mount_boot
+
+    disabled bind_mount_slash_config || bind_mount_slash_config
 
     disabled configure || load_bootfile || overall_status=1
     log_end_msg $?
