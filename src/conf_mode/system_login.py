@@ -33,6 +33,7 @@ from vyos.config import Config
 from vyos.configdep import set_dependents
 from vyos.configdep import call_dependents
 from vyos.configverify import verify_vrf
+from vyos.defaults import SSH_DSA_DEPRECATION_WARNING
 from vyos.template import render
 from vyos.template import is_ipv4
 from vyos.utils.auth import EPasswdStrength
@@ -56,7 +57,7 @@ radius_config_file = "/etc/pam_radius_auth.conf"
 tacacs_pam_config_file = "/etc/tacplus_servers"
 tacacs_nss_config_file = "/etc/tacplus_nss.conf"
 nss_config_file = "/etc/nsswitch.conf"
-login_motd_dsa_warning = r'/run/motd.d/90-vyos-user-dsa-deprecation-warning'
+login_motd_dsa_warning = r'/run/motd.d/92-vyos-user-dsa-deprecation-warning'
 
 # Minimum UID used when adding system users
 MIN_USER_UID: int = 1000
@@ -77,11 +78,8 @@ SYSTEM_USER_SKIP_LIST: list = ['radius_user', 'radius_priv_user', 'tacacs0', 'ta
                               'tacacs12', 'tacacs13', 'tacacs14', 'tacacs15']
 
 # As of OpenSSH 9.8p1 in Debian trixie, DSA keys are no longer supported
-SSH_DSA_DEPRECATION_WARNING: str = \
-'The following users are using SSH-DSS keys for authentication. Support for ' \
-'SSH-DSS keys is deprecated and will be removed in VyOS 1.6. Please update ' \
-'affected user keys to a supported algorithm (e.g., RSA, ECDSA, or ED25519) ' \
-'to avoid authentication failures after the upgrade.'
+SSH_DSA_DEPRECATION_WARNING: str = f'{SSH_DSA_DEPRECATION_WARNING} '\
+'The following users are using SSH-DSS keys for authentication.'
 
 def get_local_users(min_uid=MIN_USER_UID, max_uid=MAX_USER_UID):
     """Return list of dynamically allocated users (see Debian Policy Manual)"""

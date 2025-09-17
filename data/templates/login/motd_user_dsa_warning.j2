@@ -6,7 +6,7 @@
 {%                 if key_options.type is vyos_defined('ssh-dss') %}
 {%                     if ns.gen_header %}
 {%                         set ns.gen_header = False %}
-
+---
 {{ ssh_dsa_deprecation_warning | wordwrap(72) }}
 
 {%                     endif %}
