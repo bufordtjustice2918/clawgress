@@ -326,9 +326,9 @@ def show_server_pool_statistics(
     inet_suffix = '6' if family == 'inet6' else '4'
 
     if vrf:
-        service = f'kea-dhcp{inet_suffix}-server@{vrf}.service'
+        service = f'kea-dhcp{inet_suffix}@{vrf}.service'
     else:
-        service = f'kea-dhcp{inet_suffix}-server.service'
+        service = f'kea-dhcp{inet_suffix}.service'
 
     if not is_systemd_service_running(service):
         Warning(stale_warn_msg)
@@ -376,9 +376,9 @@ def show_server_leases(
     inet_suffix = '6' if family == 'inet6' else '4'
 
     if vrf:
-        service = f'kea-dhcp{inet_suffix}-server@{vrf}.service'
+        service = f'kea-dhcp{inet_suffix}@{vrf}.service'
     else:
-        service = f'kea-dhcp{inet_suffix}-server.service'
+        service = f'kea-dhcp{inet_suffix}.service'
 
     if not is_systemd_service_running(service):
         Warning(stale_warn_msg)
@@ -437,9 +437,9 @@ def show_server_static_mappings(
     inet_suffix = '6' if family == 'inet6' else '4'
 
     if vrf:
-        service = f'kea-dhcp{inet_suffix}-server@{vrf}.service'
+        service = f'kea-dhcp{inet_suffix}@{vrf}.service'
     else:
-        service = f'kea-dhcp{inet_suffix}-server.service'
+        service = f'kea-dhcp{inet_suffix}.service'
 
     if not is_systemd_service_running(service):
         Warning(stale_warn_msg)

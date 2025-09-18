@@ -221,7 +221,10 @@ Depends:
 # For "service dhcp-relay"
   isc-dhcp-relay,
 # For "service dhcp-server"
-  kea,
+  isc-kea-dhcp4,
+  isc-kea-dhcp6,
+  isc-kea-dhcp-ddns,
+  isc-kea-hooks,
 # End "service dhcp-server"
 # For "service lldp"
   lldpd,
