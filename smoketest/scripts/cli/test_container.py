@@ -117,13 +117,14 @@ class TestContainer(VyOSUnitTestSHIM.TestCase):
     def test_name_server(self):
         cont_name = 'dns-test'
         net_name = 'net-test'
-        name_server = '192.168.0.1'
+        name_servers = ['192.168.0.1', '192.168.0.2']
         prefix = '192.0.2.0/24'
 
         self.cli_set(base_path + ['network', net_name, 'prefix', prefix])
 
         self.cli_set(base_path + ['name', cont_name, 'image', busybox_image])
-        self.cli_set(base_path + ['name', cont_name, 'name-server', name_server])
+        for name_server in name_servers:
+            self.cli_set(base_path + ['name', cont_name, 'name-server', name_server])
         self.cli_set(
             base_path
             + [
@@ -144,7 +145,7 @@ class TestContainer(VyOSUnitTestSHIM.TestCase):
         self.cli_commit()
 
         n = cmd_to_json(f'sudo podman inspect {cont_name}')
-        self.assertEqual(n['HostConfig']['Dns'][0], name_server)
+        self.assertEqual(n['HostConfig']['Dns'], name_servers)
 
         tmp = cmd(f'sudo podman exec -it {cont_name} cat /etc/resolv.conf')
         self.assertIn(name_server, tmp)

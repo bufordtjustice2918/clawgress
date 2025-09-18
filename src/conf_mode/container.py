@@ -443,10 +443,14 @@ def generate_run_arguments(name, container_config, host_ident):
     if 'allow_host_pid' in container_config:
       host_pid = '--pid host'
 
-    name_server = ''
+    name_server = []
     if 'name_server' in container_config:
         for ns in container_config['name_server']:
-            name_server += f'--dns {ns}'
+            name_server.append(f'--dns {ns}')
+    if name_server:
+        name_server = ' '.join(name_server)
+    else:
+        name_server = ''
 
     container_base_cmd = f'--detach --interactive --tty --replace {capabilities} {privileged} --cpus {cpu_quota} {sysctl_opt} ' \
                          f'--memory {memory}m --shm-size {shared_memory}m --memory-swap 0 --restart {restart} --log-driver={log_driver} ' \
