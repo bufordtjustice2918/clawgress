@@ -1445,6 +1445,56 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         self.assertEqual(sysctl_read('vm.max_map_count'), '65530')
         self.assertEqual(sysctl_read('kernel.shmmax'), '8589934592')
 
+    def test_20_vpp_pppoe_mapping(self):
+        config_file = '/run/accel-pppd/pppoe.conf'
+        pool = "TEST-POOL"
+        vni = '23'
+        pppoe_base = ['service', 'pppoe-server']
+
+        self.cli_set(['interfaces', 'ethernet', interface, 'vif', vni])
+
+        # Basic pppoe-server config
+        self.cli_set(pppoe_base + ['authentication', 'mode', 'noauth'])
+        self.cli_set(pppoe_base + ['gateway-address', '192.0.2.1'])
+        self.cli_set(pppoe_base + ['client-ip-pool', pool, 'range', '192.0.2.0/24'])
+        self.cli_set(pppoe_base + ['default-pool', pool])
+
+        # Enable PPPoE control-plane integration with VPP
+        self.cli_set(pppoe_base + ['interface', interface, 'vpp-cp'])
+        self.cli_set(pppoe_base + ['interface', f'{interface}.{vni}', 'vpp-cp'])
+
+        self.cli_commit()
+
+        # Validate configuration values
+        config = read_file(config_file)
+
+        # Validate configuration
+        self.assertIn(f'interface={interface},vpp-cp=true', config)
+        self.assertIn(f'interface={interface}.{vni},vpp-cp=true', config)
+
+        # Check pppoe mapping
+        _, out = rc_cmd('sudo vppctl show pppoe control-plane binding')
+        self.assertRegex(out, rf'{interface}\s+tap4096')
+        self.assertRegex(out, rf'{interface}.{vni}\s+tap4096.23')
+
+        # check if dependency is called and mapping is correct after changes in vpp script
+        self.cli_set(
+            base_path + ['settings', 'interface', interface, 'dpdk-options', 'promisc']
+        )
+        self.cli_commit()
+
+        # Check pppoe mapping
+        _, out = rc_cmd('sudo vppctl show pppoe control-plane binding')
+        self.assertRegex(out, rf'{interface}\s+tap4096')
+        self.assertRegex(out, rf'{interface}.{vni}\s+tap4096.23')
+
+        # delete PPPoE config
+        self.cli_delete(pppoe_base)
+
+        # delete vif Ethernet interface
+        self.cli_delete(['interfaces', 'ethernet', interface, 'vif'])
+        self.cli_commit()
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
