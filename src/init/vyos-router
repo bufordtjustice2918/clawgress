@@ -120,7 +120,6 @@ mount_encrypted_config() {
                 return 1
             fi
 
-            mount /dev/mapper/vyos_config /config
             mount /dev/mapper/vyos_config $vyatta_sysconfdir/config
 
             echo "Mounted encrypted config volume"
@@ -143,7 +142,6 @@ unmount_encrypted_config() {
                 return
             fi
 
-            umount /config
             umount $vyatta_sysconfdir/config
 
             cryptsetup close vyos_config

@@ -29,9 +29,12 @@ from vyos.tpm import read_tpm_key
 from vyos.tpm import write_tpm_key
 from vyos.utils.io import ask_input, ask_yes_no
 from vyos.utils.process import cmd
+from vyos.defaults import directories
 
 persistpath_cmd = '/opt/vyatta/sbin/vyos-persistpath'
-mount_paths = ['/config', '/opt/vyatta/etc/config']
+# mount_path is /opt/vyatta/etc/config as of this writing
+mount_path = directories['config']
+mount_path_old = f'{mount_path}.old'
 dm_device = '/dev/mapper/vyos_config'
 
 def is_opened():
@@ -68,9 +71,8 @@ def load_config(key):
 
     cmd(f'cryptsetup -q open {image_path} vyos_config --key-file={key_file}')
 
-    for path in mount_paths:
-        cmd(f'mount /dev/mapper/vyos_config {path}')
-        cmd(f'chgrp -R vyattacfg {path}')
+    cmd(f'mount /dev/mapper/vyos_config {mount_path}')
+    cmd(f'chgrp -R vyattacfg {mount_path}')
 
     os.unlink(key_file)
 
@@ -125,8 +127,8 @@ def encrypt_config(key, recovery_key=None, is_tpm=True):
     with TemporaryDirectory() as d:
         cmd(f'mount /dev/mapper/vyos_config {d}')
 
-        # Move /config to encrypted volume
-        shutil.copytree('/config', d, copy_function=shutil.move, dirs_exist_ok=True)
+        # Move mount_path to encrypted volume
+        shutil.copytree(mount_path, d, copy_function=shutil.move, dirs_exist_ok=True)
 
         cmd(f'umount {d}')
 
@@ -135,9 +137,8 @@ def encrypt_config(key, recovery_key=None, is_tpm=True):
     if recovery_key:
         os.unlink(recovery_key_file)
 
-    for path in mount_paths:
-        cmd(f'mount /dev/mapper/vyos_config {path}')
-        cmd(f'chgrp vyattacfg {path}')
+    cmd(f'mount /dev/mapper/vyos_config {mount_path}')
+    cmd(f'chgrp vyattacfg {mount_path}')
 
     return True
 
@@ -161,23 +162,23 @@ def decrypt_config(key):
 
         cmd(f'cryptsetup -q open {image_path} vyos_config --key-file={key_file}')
 
-    # unmount encrypted volume mount points
-    for path in mount_paths:
-        if os.path.ismount(path):
-            cmd(f'umount {path}')
+    # unmount encrypted volume mount point
+    if os.path.ismount(mount_path):
+        cmd(f'umount {mount_path}')
 
-    # If /config is populated, move to /config.old
-    if len(os.listdir('/config')) > 0:
-        print('Moving existing /config folder to /config.old')
-        shutil.move('/config', '/config.old')
+    # If /opt/vyatta/etc/config is populated, move to /opt/vyatta/etc/config.old
+    if len(os.listdir(mount_path)) > 0:
+        print(f'Moving existing {mount_path} folder to {mount_path_old}')
+        shutil.move(mount_path, mount_path_old)
 
-    # Temporarily mount encrypted volume and migrate files to /config on rootfs
+    # Temporarily mount encrypted volume and migrate files to
+    # /opt/vyatta/etc/config on rootfs
     with TemporaryDirectory() as d:
         cmd(f'mount /dev/mapper/vyos_config {d}')
 
-        # Move encrypted volume to /config
-        shutil.copytree(d, '/config', copy_function=shutil.move, dirs_exist_ok=True)
-        cmd(f'chgrp -R vyattacfg /config')
+        # Move encrypted volume to /opt/vyatta/etc/config
+        shutil.copytree(d, mount_path, copy_function=shutil.move, dirs_exist_ok=True)
+        cmd(f'chgrp -R vyattacfg {mount_path}')
 
         cmd(f'umount {d}')
 
@@ -235,7 +236,7 @@ if __name__ == '__main__':
     if args.enable and not tpm_exists:
         print('WARNING: VyOS will boot into a default config when encrypted without a TPM')
         print('You will need to manually login with default credentials and use "encryption load"')
-        print('to mount the encrypted volume and use "load /config/config.boot"')
+        print(f'to mount the encrypted volume and use "load {mount_path}/config.boot"')
 
         if not ask_yes_no('Are you sure you want to proceed?'):
             sys.exit(0)
@@ -256,12 +257,12 @@ if __name__ == '__main__':
             decrypt_config(key or recovery_key)
 
             print('Encrypted config volume has been disabled')
-            print('Contents have been migrated to /config on rootfs')
+            print(f'Contents have been migrated to {mount_path} on rootfs')
         elif args.load:
             load_config(key or recovery_key)
 
             print('Encrypted config volume has been mounted')
-            print('Use "load /config/config.boot" to load configuration')
+            print(f'Use "load {mount_path}/config.boot" to load configuration')
         elif args.enable and tpm_exists:
             encrypt_config(key, recovery_key)
 
