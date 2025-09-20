@@ -357,6 +357,8 @@ Depends:
 # End "run monitor traffic"
 # For "show hardware dmi"
   dmidecode,
+# For "show protocols static arp"
+  net-tools,
 # For "run show hardware storage smart"
   smartmontools,
 # For "run show hardware scsi"
