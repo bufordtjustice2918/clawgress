@@ -90,7 +90,7 @@ def evaluate_strength(passwd: str) -> dict[str, str]:
 def make_password_hash(password):
     """ Makes a password hash for /etc/shadow using mkpasswd """
 
-    mkpassword = 'mkpasswd --method=sha-512 --stdin'
+    mkpassword = 'mkpasswd --method=yescrypt --stdin'
     return cmd(mkpassword, input=password, timeout=5)
 
 def split_ssh_public_key(key_string, defaultname=""):
