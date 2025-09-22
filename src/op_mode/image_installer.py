@@ -1135,11 +1135,12 @@ def add_image(image_path: str, vrf: str = None, username: str = '',
         if set_as_default:
             grub.set_default(image_name, root_dir)
 
-        cmdline_options = get_cli_kernel_options(
-            f'{target_config_dir}/config.boot')
-        grub_util.update_kernel_cmdline_options(' '.join(cmdline_options),
-                                                root_dir=root_dir,
-                                                version=image_name)
+        if Path(f'{target_config_dir}/config.boot').exists():
+            cmdline_options = get_cli_kernel_options(
+                f'{target_config_dir}/config.boot')
+            grub_util.update_kernel_cmdline_options(' '.join(cmdline_options),
+                                                    root_dir=root_dir,
+                                                    version=image_name)
 
     except OSError as e:
         # if no space error, remove image dir and cleanup
