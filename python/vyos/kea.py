@@ -60,7 +60,7 @@ kea6_options = {
     'capwap_controller': 'capwap-ac-v6',
 }
 
-kea_ctrl_socket = '/run/kea/dhcp{inet}{vrf_append}-ctrl-socket'
+kea_ctrl_socket = '/var/run/kea/dhcp{inet}{vrf_append}-ctrl-socket'
 
 
 def _format_hex_string(in_str):

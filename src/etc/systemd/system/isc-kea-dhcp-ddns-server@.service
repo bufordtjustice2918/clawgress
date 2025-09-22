@@ -14,8 +14,8 @@ RuntimeDirectoryPreserve=yes
 LogsDirectory=kea
 LogsDirectoryMode=0750
 StateDirectory=kea
-ExecStart=sudo /bin/ip vrf exec %i /usr/sbin/kea-dhcp-ddns -c /run/kea/kea-%i-dhcp-ddns.conf
-ExecStartPost=/bin/sh -c 'sleep 10 && sudo /usr/bin/chown _kea:_kea /run/kea/kea-%i-dhcp-ddns* && sudo /usr/bin/chown _kea:_kea /run/kea/logger_lockfile'
+ExecStart=sudo /bin/ip vrf exec %i /usr/sbin/kea-dhcp-ddns -c /var/run/kea/kea-%i-dhcp-ddns.conf
+ExecStartPost=/bin/sh -c 'sleep 10 && sudo /usr/bin/chown _kea:_kea /var/run/kea/kea-%i-dhcp-ddns* && sudo /usr/bin/chown _kea:_kea /run/kea/logger_lockfile'
 Restart=on-failure
 
 [Install]
