@@ -37,6 +37,8 @@ from psutil import disk_partitions
 
 from vyos.base import Warning
 from vyos.configtree import ConfigTree
+from vyos.defaults import base_dir
+from vyos.defaults import directories
 from vyos.remote import download
 from vyos.system import disk
 from vyos.system import grub
@@ -116,6 +118,7 @@ CONST_MIN_ROOT_SIZE: int = 1610612736  # 1.5 GB
 CONST_RESERVED_SPACE: int = (2 + 1 + 256) * 1024**2
 
 # define directories and paths
+DIR_CONFIG: str = directories['config']
 DIR_INSTALLATION: str = '/mnt/installation'
 DIR_ROOTFS_SRC: str = f'{DIR_INSTALLATION}/root_src'
 DIR_ROOTFS_DST: str = f'{DIR_INSTALLATION}/root_dst'
@@ -125,8 +128,8 @@ DIR_KERNEL_SRC: str = '/boot/'
 FILE_ROOTFS_SRC: str = '/usr/lib/live/mount/medium/live/filesystem.squashfs'
 ISO_DOWNLOAD_PATH: str = ''
 
-external_download_script = '/usr/libexec/vyos/simple-download.py'
-external_latest_image_url_script = '/usr/libexec/vyos/latest-image-url.py'
+external_download_script: str = f'{base_dir}/simple-download.py'
+external_latest_image_url_script: str = f'{base_dir}/latest-image-url.py'
 
 # default boot variables
 DEFAULT_BOOT_VARS: dict[str, str] = {
@@ -344,7 +347,7 @@ def copy_preserve_owner(src: str, dst: str, *, follow_symlinks=True):
 
 def copy_previous_installation_data(target_dir: str) -> None:
     if Path('/mnt/config').exists():
-        copytree('/mnt/config', f'{target_dir}/opt/vyatta/etc/config',
+        copytree('/mnt/config', f'{target_dir}{DIR_CONFIG}',
                  dirs_exist_ok=True)
     if Path('/mnt/ssh').exists():
         copytree('/mnt/ssh', f'{target_dir}/etc/ssh',
@@ -697,7 +700,7 @@ def migrate_config() -> bool:
     Returns:
         bool: user's decision
     """
-    active_config_path: Path = Path('/opt/vyatta/etc/config/config.boot')
+    active_config_path: Path = Path(f'{DIR_CONFIG}/config.boot')
     if active_config_path.exists():
         if ask_yes_no(MSG_INPUT_CONFIG_FOUND, default=True):
             return True
@@ -882,7 +885,7 @@ def install_image() -> None:
                                   valid_responses=['K', 'S'])
     console_dict: dict[str, str] = {'K': 'tty', 'S': 'ttyS'}
 
-    config_boot_list = ['/opt/vyatta/etc/config/config.boot',
+    config_boot_list = [f'{DIR_CONFIG}/config.boot',
                         '/opt/vyatta/etc/config.boot.default']
     default_config = config_boot_list[0]
 
@@ -918,7 +921,7 @@ def install_image() -> None:
         # a config dir. It is the deepest one, so the comand will
         # create all the rest in a single step
         print('Creating a configuration file')
-        target_config_dir: str = f'{DIR_DST_ROOT}/boot/{image_name}/rw/opt/vyatta/etc/config/'
+        target_config_dir: str = f'{DIR_DST_ROOT}/boot/{image_name}/rw{DIR_CONFIG}/'
         Path(target_config_dir).mkdir(parents=True)
         chown(target_config_dir, group='vyattacfg')
         chmod_2775(target_config_dir)
@@ -1085,7 +1088,7 @@ def add_image(image_path: str, vrf: str = None, username: str = '',
 
         # a config dir. It is the deepest one, so the comand will
         # create all the rest in a single step
-        target_config_dir: str = f'{root_dir}/boot/{image_name}/rw/opt/vyatta/etc/config/'
+        target_config_dir: str = f'{root_dir}/boot/{image_name}/rw{DIR_CONFIG}/'
         # copy config
         if no_prompt or migrate_config():
             print('Copying configuration directory')
@@ -1093,7 +1096,7 @@ def add_image(image_path: str, vrf: str = None, username: str = '',
             Path(target_config_dir).mkdir(parents=True)
             chown(target_config_dir, group='vyattacfg')
             chmod_2775(target_config_dir)
-            copytree('/opt/vyatta/etc/config/', target_config_dir, symlinks=True,
+            copytree(f'{DIR_CONFIG}/', target_config_dir, symlinks=True,
                      copy_function=copy_preserve_owner, dirs_exist_ok=True)
 
             # Record information from which image we upgraded to the new one.
