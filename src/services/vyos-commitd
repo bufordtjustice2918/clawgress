@@ -73,6 +73,9 @@ class Session:
     # pylint: disable=too-many-instance-attributes
 
     session_id: str = ''
+    session_pid: int = None
+    sudo_user: str = None
+    user: str = None
     dry_run: bool = False
     atomic: bool = False
     background: bool = False
@@ -227,6 +230,18 @@ def initialization(session: Session) -> Session:
     session.set_init(True, '')
 
     config = Config(config_source=configsource)
+
+    # required by protobuf schema; non-existence will raise early error
+    if session.session_pid:
+        os.environ['SESSION_PID'] = str(session.session_pid)
+
+    # required by protobuf schema; may be empty string
+    if session.sudo_user:
+        os.environ['SUDO_USER'] = session.sudo_user
+
+    # required by protobuf schema; may be empty string
+    if session.user:
+        os.environ['USER'] = session.user
 
     dependent_func: dict[str, list[typing.Callable]] = {}
     setattr(config, 'dependent_func', dependent_func)
