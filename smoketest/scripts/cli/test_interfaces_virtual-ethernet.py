@@ -17,9 +17,10 @@
 import unittest
 
 from netifaces import interfaces
+from base_interfaces_test import BasicInterfaceTest
+from base_vyostest_shim import VyOSUnitTestSHIM
 
 from vyos.utils.process import process_named_running
-from base_interfaces_test import BasicInterfaceTest
 
 class VEthInterfaceTest(BasicInterfaceTest.TestCase):
     @classmethod
@@ -55,4 +56,4 @@ class VEthInterfaceTest(BasicInterfaceTest.TestCase):
         super(VEthInterfaceTest, cls).tearDownClass()
 
 if __name__ == '__main__':
-    unittest.main(verbosity=2)
+    unittest.main(verbosity=2, failfast=VyOSUnitTestSHIM.TestCase.debug_on())

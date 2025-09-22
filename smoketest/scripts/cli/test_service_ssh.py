@@ -494,4 +494,4 @@ class TestServiceSSH(VyOSUnitTestSHIM.TestCase):
         self.assertFalse(os.path.exists(f'/home/{test_user}/.ssh/authorized_principals'))
 
 if __name__ == '__main__':
-    unittest.main(verbosity=2)
+    unittest.main(verbosity=2, failfast=VyOSUnitTestSHIM.TestCase.debug_on())

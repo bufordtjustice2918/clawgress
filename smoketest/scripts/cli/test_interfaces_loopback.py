@@ -19,6 +19,7 @@ import unittest
 from base_interfaces_test import BasicInterfaceTest
 from base_interfaces_test import MSG_TESTCASE_UNSUPPORTED
 from netifaces import interfaces
+from base_vyostest_shim import VyOSUnitTestSHIM
 
 from vyos.utils.network import is_intf_addr_assigned
 
@@ -57,4 +58,4 @@ class LoopbackInterfaceTest(BasicInterfaceTest.TestCase):
         self.skipTest(MSG_TESTCASE_UNSUPPORTED)
 
 if __name__ == '__main__':
-    unittest.main(verbosity=2)
+    unittest.main(verbosity=2, failfast=VyOSUnitTestSHIM.TestCase.debug_on())

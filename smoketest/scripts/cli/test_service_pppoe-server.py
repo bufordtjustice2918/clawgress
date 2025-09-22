@@ -17,6 +17,7 @@
 import unittest
 
 from base_accel_ppp_test import BasicAccelPPPTest
+from base_vyostest_shim import VyOSUnitTestSHIM
 
 from configparser import ConfigParser
 from vyos.utils.file import read_file
@@ -226,4 +227,4 @@ class TestServicePPPoEServer(BasicAccelPPPTest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main(verbosity=2)
+    unittest.main(verbosity=2, failfast=VyOSUnitTestSHIM.TestCase.debug_on())

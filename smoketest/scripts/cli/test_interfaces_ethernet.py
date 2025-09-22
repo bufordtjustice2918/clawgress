@@ -25,6 +25,8 @@ from netifaces import AF_INET6
 from netifaces import ifaddresses
 
 from base_interfaces_test import BasicInterfaceTest
+from base_vyostest_shim import VyOSUnitTestSHIM
+
 from vyos.configsession import ConfigSessionError
 from vyos.ifconfig import Section
 from vyos.utils.file import read_file
@@ -240,4 +242,4 @@ class EthernetInterfaceTest(BasicInterfaceTest.TestCase):
         self.cli_delete(self._base_path + [interface, 'switchdev'])
 
 if __name__ == '__main__':
-    unittest.main(verbosity=2)
+    unittest.main(verbosity=2, failfast=VyOSUnitTestSHIM.TestCase.debug_on())

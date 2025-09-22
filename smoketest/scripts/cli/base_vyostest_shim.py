@@ -54,12 +54,16 @@ class VyOSUnitTestSHIM:
         # Time to wait after a commit to ensure the CStore is up to date
         # only required for testcases using FRR
         _commit_guard_time = 0
+
+        @staticmethod
+        def debug_on():
+            return os.path.exists('/tmp/vyos.smoketest.debug')
+
         @classmethod
         def setUpClass(cls):
             cls._session = ConfigSession(os.getpid())
             cls._session.save_config(save_config)
-            if os.path.exists('/tmp/vyos.smoketest.debug'):
-                cls.debug = True
+            cls.debug = cls.debug_on()
             pass
 
         @classmethod

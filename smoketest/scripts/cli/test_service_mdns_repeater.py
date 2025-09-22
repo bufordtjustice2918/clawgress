@@ -173,4 +173,4 @@ class TestServiceMDNSrepeater(VyOSUnitTestSHIM.TestCase):
         self.assertEqual(conf['server']['cache-entries-max'], cache_entries)
 
 if __name__ == '__main__':
-    unittest.main(verbosity=2)
+    unittest.main(verbosity=2, failfast=VyOSUnitTestSHIM.TestCase.debug_on())

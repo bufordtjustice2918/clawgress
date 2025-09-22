@@ -18,6 +18,7 @@ import os
 import unittest
 
 from base_interfaces_test import BasicInterfaceTest
+from base_vyostest_shim import VyOSUnitTestSHIM
 
 from vyos.ifconfig import Section
 from vyos.ifconfig.interface import Interface
@@ -334,4 +335,4 @@ class BondingInterfaceTest(BasicInterfaceTest.TestCase):
             id = int(id) + 1
 
 if __name__ == '__main__':
-    unittest.main(verbosity=2)
+    unittest.main(verbosity=2, failfast=VyOSUnitTestSHIM.TestCase.debug_on())

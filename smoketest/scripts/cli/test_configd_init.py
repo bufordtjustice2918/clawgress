@@ -17,6 +17,8 @@
 import unittest
 from time import sleep
 
+from base_vyostest_shim import VyOSUnitTestSHIM
+
 from vyos.utils.process import is_systemd_service_running
 from vyos.utils.process import cmd
 
@@ -36,4 +38,4 @@ class TestConfigdInit(unittest.TestCase):
             cmd('sudo systemctl stop vyos-configd.service')
 
 if __name__ == '__main__':
-    unittest.main(verbosity=2)
+    unittest.main(verbosity=2, failfast=VyOSUnitTestSHIM.TestCase.debug_on())
