@@ -18,7 +18,7 @@ RuntimeDirectoryMode=0750
 LogsDirectory=kea
 LogsDirectoryMode=0750
 StateDirectory=kea
-ExecStart=sudo /bin/ip vrf exec %i /usr/sbin/kea-dhcp4 -c /var/run/kea/kea-%i-dhcp4.conf
+ExecStart=sudo -E /bin/ip vrf exec %i /usr/sbin/kea-dhcp4 -c /var/run/kea/kea-%i-dhcp4.conf
 ExecStartPost=/bin/sh -c 'sleep 10 && sudo /usr/bin/chown _kea:_kea /var/run/kea/dhcp4-%i-ctrl* && sudo /usr/bin/chown _kea:_kea /var/run/kea/kea-%i-dhcp4* && sudo /usr/bin/chown _kea:_kea /run/kea/logger_lockfile'
 Restart=on-failure
 
