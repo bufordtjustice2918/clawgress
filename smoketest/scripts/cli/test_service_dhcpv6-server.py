@@ -26,7 +26,7 @@ from vyos.utils.process import process_named_running
 from vyos.utils.file import read_file
 
 PROCESS_NAME = 'kea-dhcp6'
-KEA6_CONF = '/run/kea/kea-dhcp6.conf'
+KEA6_CONF = '/var/run/kea/kea-dhcp6.conf'
 base_path = ['service', 'dhcpv6-server']
 
 subnet = '2001:db8:f00::/64'

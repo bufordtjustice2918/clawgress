@@ -652,7 +652,7 @@ class VRFTest(VyOSUnitTestSHIM.TestCase):
 
         # declare fiels
         process_name = 'kea-dhcp4'
-        kea4_conf = f'/run/kea/kea-{vrf}-dhcp4.conf'
+        kea4_conf = f'/var/run/kea/kea-{vrf}-dhcp4.conf'
 
         # create interface
         cidr_mask = subnet.split('/')[-1]
@@ -791,7 +791,7 @@ class VRFTest(VyOSUnitTestSHIM.TestCase):
 
         # declare fiels
         process_name = 'kea-dhcp6'
-        kea6_conf = f'/run/kea/kea-{vrf}-dhcp6.conf'
+        kea6_conf = f'/var/run/kea/kea-{vrf}-dhcp6.conf'
 
         # create interface
         self.cli_set(['interfaces', 'dummy', interface, 'address', f'{interface_addr}'])

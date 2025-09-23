@@ -1,6 +1,6 @@
 [Unit]
-Description=Kea IPv6 DHCP daemon
-Documentation=man:kea-dhcp6(8)
+Description=Kea DDNS Service
+Documentation=man:kea-dhcp-ddns(8)
 Wants=network-online.target
 After=vyos-router.service
 
@@ -14,8 +14,8 @@ RuntimeDirectoryPreserve=yes
 LogsDirectory=kea
 LogsDirectoryMode=0750
 StateDirectory=kea
-ExecStart=sudo /bin/ip vrf exec %i /usr/sbin/kea-dhcp6 -c /run/kea/kea-%i-dhcp6.conf
-ExecStartPost=/bin/sh -c 'sleep 10 && sudo /usr/bin/chown _kea:_kea /run/kea/dhcp6-%i-ctrl* && sudo /usr/bin/chown _kea:_kea /run/kea/kea-%i-dhcp6* && sudo /usr/bin/chown _kea:_kea /run/kea/logger_lockfile'
+ExecStart=sudo /bin/ip vrf exec %i /usr/sbin/kea-dhcp-ddns -c /var/run/kea/kea-%i-dhcp-ddns.conf
+ExecStartPost=/bin/sh -c 'sleep 10 && sudo /usr/bin/chown _kea:_kea /var/run/kea/kea-%i-dhcp-ddns* && sudo /usr/bin/chown _kea:_kea /run/kea/logger_lockfile'
 Restart=on-failure
 
 [Install]

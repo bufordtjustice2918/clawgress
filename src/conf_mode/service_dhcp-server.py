@@ -582,9 +582,9 @@ def apply(dhcp):
     # if running in vrf, set base diffrently
     if argv and len(argv) > 1:
         vrf_name = argv[1]
-        services = [f'kea-dhcp4@{vrf_name}', f'kea-dhcp-ddns@{vrf_name}']
+        services = [f'isc-kea-dhcp4-server@{vrf_name}', f'isc-kea-dhcp-ddns-server@{vrf_name}']
     else:
-        services = ['kea-dhcp4', 'kea-dhcp-ddns']
+        services = ['isc-kea-dhcp4-server', 'isc-kea-dhcp-ddns-server']
 
     if not dhcp or 'disable' in dhcp:
         for service in services:
@@ -598,7 +598,7 @@ def apply(dhcp):
     for service in services:
         action = 'restart'
 
-        if 'kea-dhcp-ddns-server' in service and 'dynamic_dns_update' not in dhcp:
+        if 'isc-kea-dhcp-ddns-server' in service and 'dynamic_dns_update' not in dhcp:
             action = 'stop'
 
         call(f'systemctl {action} {service}.service')

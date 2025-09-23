@@ -33,9 +33,9 @@ from vyos.template import dec_ip
 
 PROCESS_NAME = 'kea-dhcp4'
 D2_PROCESS_NAME = 'kea-dhcp-ddns'
-KEA4_CONF = '/run/kea/kea-dhcp4.conf'
-KEA4_D2_CONF = '/run/kea/kea-dhcp-ddns.conf'
-KEA4_CTRL = '/run/kea/dhcp4-ctrl-socket'
+KEA4_CONF = '/var/run/kea/kea-dhcp4.conf'
+KEA4_D2_CONF = '/var/run/kea/kea-dhcp-ddns.conf'
+KEA4_CTRL = '/var/run/kea/dhcp4-ctrl-socket'
 HOSTSD_CLIENT = '/usr/bin/vyos-hostsd-client'
 base_path = ['service', 'dhcp-server']
 interface = 'dum8765'
