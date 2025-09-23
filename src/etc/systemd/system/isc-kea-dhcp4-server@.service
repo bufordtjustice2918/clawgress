@@ -14,6 +14,7 @@ ConfigurationDirectory=kea
 ConfigurationDirectoryMode=0750
 RuntimeDirectory=kea lock/kea
 RuntimeDirectoryPreserve=yes
+RuntimeDirectoryMode=0750
 LogsDirectory=kea
 LogsDirectoryMode=0750
 StateDirectory=kea
