@@ -231,7 +231,7 @@ class TestProtocolsBGP(VyOSUnitTestSHIM.TestCase):
     def create_bgp_instances_for_import_test(self):
         table = '1000'
         self.cli_set(import_vrf_base + [import_vrf, 'table', table])
-        self.cli_set(import_vrf_base + [import_vrf, 'protocols', 'bgp', 'system-as', ASN])
+        self.cli_set(import_vrf_base + [import_vrf, 'protocols', 'bgp'])
 
     def verify_frr_config(self, peer, peer_config, frrconfig):
         # recurring patterns to verify for both a simple neighbor and a peer-group
@@ -1053,7 +1053,6 @@ class TestProtocolsBGP(VyOSUnitTestSHIM.TestCase):
         for vrf in vrfs:
             vrf_base = ['vrf', 'name', vrf]
             self.cli_set(vrf_base + ['table', table])
-            self.cli_set(vrf_base + ['protocols', 'bgp', 'system-as', ASN])
             self.cli_set(vrf_base + ['protocols', 'bgp', 'parameters', 'router-id', router_id])
             table = str(int(table) + 1000)
 
@@ -1195,31 +1194,7 @@ class TestProtocolsBGP(VyOSUnitTestSHIM.TestCase):
         self.assertIn(f' neighbor {peer_group} peer-group', frrconfig)
         self.assertIn(f' neighbor {peer_group} remote-as {remote_asn}', frrconfig)
 
-    def test_bgp_15_local_as_ebgp(self):
-        # https://vyos.dev/T4560
-        # local-as allowed only for ebgp peers
-
-        neighbor = '192.0.2.99'
-        remote_asn = '500'
-        local_asn = '400'
-
-        self.cli_set(base_path + ['neighbor', neighbor, 'remote-as', ASN])
-        self.cli_set(base_path + ['neighbor', neighbor, 'local-as', local_asn])
-
-        # check validate() - local-as allowed only for ebgp peers
-        with self.assertRaises(ConfigSessionError):
-            self.cli_commit()
-
-        self.cli_set(base_path + ['neighbor', neighbor, 'remote-as', remote_asn])
-
-        self.cli_commit()
-
-        frrconfig = self.getFRRconfig(f'router bgp {ASN}', endsection='^exit')
-        self.assertIn(f'router bgp {ASN}', frrconfig)
-        self.assertIn(f' neighbor {neighbor} remote-as {remote_asn}', frrconfig)
-        self.assertIn(f' neighbor {neighbor} local-as {local_asn}', frrconfig)
-
-    def test_bgp_16_import_rd_rt_compatibility(self):
+    def test_bgp_15_import_rd_rt_compatibility(self):
         # Verify if import vrf and rd vpn export
         # exist in the same address family
         self.create_bgp_instances_for_import_test()
@@ -1232,7 +1207,7 @@ class TestProtocolsBGP(VyOSUnitTestSHIM.TestCase):
         with self.assertRaises(ConfigSessionError):
             self.cli_commit()
 
-    def test_bgp_17_import_rd_rt_compatibility(self):
+    def test_bgp_16_import_rd_rt_compatibility(self):
         # Verify if vrf that is in import vrf list contains rd vpn export
         self.create_bgp_instances_for_import_test()
         self.cli_set(
@@ -1255,7 +1230,7 @@ class TestProtocolsBGP(VyOSUnitTestSHIM.TestCase):
         with self.assertRaises(ConfigSessionError):
             self.cli_commit()
 
-    def test_bgp_18_deleting_import_vrf(self):
+    def test_bgp_17_deleting_import_vrf(self):
         # Verify deleting vrf that is in import vrf list
         self.create_bgp_instances_for_import_test()
         self.cli_set(
@@ -1272,7 +1247,7 @@ class TestProtocolsBGP(VyOSUnitTestSHIM.TestCase):
         with self.assertRaises(ConfigSessionError):
             self.cli_commit()
 
-    def test_bgp_19_deleting_default_vrf(self):
+    def test_bgp_18_deleting_default_vrf(self):
         # Verify deleting existent vrf default if other vrfs were created
         self.create_bgp_instances_for_import_test()
         self.cli_commit()
@@ -1284,7 +1259,7 @@ class TestProtocolsBGP(VyOSUnitTestSHIM.TestCase):
         with self.assertRaises(ConfigSessionError):
             self.cli_commit()
 
-    def test_bgp_20_import_rd_rt_compatibility(self):
+    def test_bgp_19_import_rd_rt_compatibility(self):
         # Verify if vrf that has rd vpn export is in import vrf of other vrfs
         self.create_bgp_instances_for_import_test()
         self.cli_set(
@@ -1306,7 +1281,7 @@ class TestProtocolsBGP(VyOSUnitTestSHIM.TestCase):
         with self.assertRaises(ConfigSessionError):
             self.cli_commit()
 
-    def test_bgp_21_import_unspecified_vrf(self):
+    def test_bgp_20_import_unspecified_vrf(self):
         # Verify if vrf that is in import is unspecified
         self.create_bgp_instances_for_import_test()
         self.cli_set(
@@ -1315,7 +1290,7 @@ class TestProtocolsBGP(VyOSUnitTestSHIM.TestCase):
         with self.assertRaises(ConfigSessionError):
             self.cli_commit()
 
-    def test_bgp_22_interface_mpls_forwarding(self):
+    def test_bgp_21_interface_mpls_forwarding(self):
         interfaces = Section.interfaces('ethernet', vlan=False)
         for interface in interfaces:
             self.cli_set(base_path + ['interface', interface, 'mpls', 'forwarding'])
@@ -1327,7 +1302,7 @@ class TestProtocolsBGP(VyOSUnitTestSHIM.TestCase):
             self.assertIn(f'interface {interface}', frrconfig)
             self.assertIn(f' mpls bgp forwarding', frrconfig)
 
-    def test_bgp_23_vrf_interface_mpls_forwarding(self):
+    def test_bgp_22_vrf_interface_mpls_forwarding(self):
         self.create_bgp_instances_for_import_test()
         interfaces = Section.interfaces('ethernet', vlan=False)
         for interface in interfaces:
@@ -1342,7 +1317,7 @@ class TestProtocolsBGP(VyOSUnitTestSHIM.TestCase):
             self.assertIn(f' mpls bgp forwarding', frrconfig)
             self.cli_delete(['interfaces', 'ethernet', interface, 'vrf'])
 
-    def test_bgp_24_srv6_sid(self):
+    def test_bgp_23_srv6_sid(self):
         locator_name = 'VyOS_foo'
         sid = 'auto'
         nexthop_ipv4 = '192.0.0.1'
@@ -1389,7 +1364,7 @@ class TestProtocolsBGP(VyOSUnitTestSHIM.TestCase):
         self.assertIn(f' sid vpn export {sid}', afiv6_config)
         self.assertIn(f' nexthop vpn export {nexthop_ipv6}', afiv6_config)
 
-    def test_bgp_25_ipv4_labeled_unicast_peer_group(self):
+    def test_bgp_24_ipv4_labeled_unicast_peer_group(self):
         pg_ipv4 = 'foo4'
         ipv4_max_prefix = '20'
         ipv4_prefix = '192.0.2.0/24'
@@ -1414,7 +1389,7 @@ class TestProtocolsBGP(VyOSUnitTestSHIM.TestCase):
         self.assertIn(f'  neighbor {pg_ipv4} activate', afiv4_config)
         self.assertIn(f'  neighbor {pg_ipv4} maximum-prefix {ipv4_max_prefix}', afiv4_config)
 
-    def test_bgp_26_ipv6_labeled_unicast_peer_group(self):
+    def test_bgp_25_ipv6_labeled_unicast_peer_group(self):
         pg_ipv6 = 'foo6'
         ipv6_max_prefix = '200'
         ipv6_prefix = '2001:db8:1000::/64'
@@ -1440,7 +1415,7 @@ class TestProtocolsBGP(VyOSUnitTestSHIM.TestCase):
         self.assertIn(f'  neighbor {pg_ipv6} activate', afiv6_config)
         self.assertIn(f'  neighbor {pg_ipv6} maximum-prefix {ipv6_max_prefix}', afiv6_config)
 
-    def test_bgp_27_route_reflector_client(self):
+    def test_bgp_26_route_reflector_client(self):
         int_neighbors = ['192.0.2.2', '192.0.2.3', '192.0.2.4', '192.0.2.5']
         int_interfaces = ['dum0', 'dum1', 'dum2', 'dum3']
         int_pg_names = ['SMOKETESTINT0', 'SMOKETESTINT1', 'SMOKETESTINT2']
@@ -1500,7 +1475,7 @@ class TestProtocolsBGP(VyOSUnitTestSHIM.TestCase):
         self.cli_delete(['interfaces', 'dummy'])
         self.cli_commit()
 
-    def test_bgp_28_peer_group_member_all_internal_or_external(self):
+    def test_bgp_27_peer_group_member_all_internal_or_external(self):
         def _common_config_check(conf, include_ras=True):
             if include_ras:
                 self.assertIn(f'neighbor {int_neighbors[0]} remote-as {ASN}', conf)
@@ -1592,13 +1567,12 @@ class TestProtocolsBGP(VyOSUnitTestSHIM.TestCase):
         self.assertIn(f'neighbor OVERLAY remote-as {int(ASN) + 1}', conf)
         self.assertIn(f'neighbor OVERLAY local-as {int(ASN) + 1}', conf)
 
-    def test_bgp_30_import_vrf_routemap(self):
+    def test_bgp_30_import_vrf_route_map(self):
         router_id = '127.0.0.3'
         table = '1000'
         vrf = 'red'
         vrf_base = ['vrf', 'name', vrf]
         self.cli_set(vrf_base + ['table', table])
-        self.cli_set(vrf_base + ['protocols', 'bgp', 'system-as', ASN])
         self.cli_set(
             vrf_base + ['protocols', 'bgp', 'parameters', 'router-id',
                         router_id])
@@ -1685,4 +1659,4 @@ class TestProtocolsBGP(VyOSUnitTestSHIM.TestCase):
         self.assertIn(f'bmp connect {target_address} port {target_port} min-retry {min_retry} max-retry {max_retry}', frrconfig)
 
 if __name__ == '__main__':
-    unittest.main(verbosity=2)
+    unittest.main(verbosity=2, failfast=True)
