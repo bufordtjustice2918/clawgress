@@ -34,6 +34,7 @@ mount_path = directories['config']
 mount_path_old = f'{mount_path}.old'
 dm_device = '/dev/mapper/vyos_config'
 
+
 def is_opened():
     return os.path.exists(dm_device)
 
@@ -146,6 +147,29 @@ def config_backup_folder(base):
         idx += 1
     return f'{base}.{idx}'
 
+def test_decrypt(key):
+    if not key:
+        return
+
+    persist_path = cmd(persistpath_cmd).strip()
+    image_name = get_running_image()
+    image_path = os.path.join(persist_path, 'luks', image_name)
+
+    key_file = None
+
+    if not is_opened():
+        with NamedTemporaryFile(dir='/dev/shm', delete=False) as f:
+            f.write(key)
+            key_file = f.name
+
+        try:
+            cmd(f'cryptsetup -q open {image_path} vyos_config --key-file={key_file}')
+            os.unlink(key_file)
+            return True
+        except:
+            return False
+    return False
+
 def decrypt_config(key):
     if not key:
         return
@@ -257,10 +281,10 @@ if __name__ == '__main__':
                 else:
                     key = Fernet.generate_key()
             elif args.disable or args.load:
-                if existing_key:
+                if existing_key and test_decrypt(existing_key):
                     need_recovery = False
                 else:
-                    print('Failed to read key from TPM, recovery key required')
+                    print('TPM key invalid or not found, recovery key required')
                     need_recovery = True
         else:
             need_recovery = True
