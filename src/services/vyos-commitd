@@ -288,6 +288,37 @@ def run_script(script_name: str, config: Config, args: list) -> tuple[bool, str]
     return True, ''
 
 
+def call_frr_render(frr, config):
+    # pylint: disable=redefined-outer-name
+    def _call_frr_render(frr, config):
+        # pylint: disable=broad-exception-caught
+        try:
+            tmp = get_frrender_dict(config)
+            if frr.generate(tmp):
+                # only apply a new FRR configuration if anything changed
+                # in comparison to the previous applied configuration
+                frr.apply()
+
+        except ConfigError as e:
+            logger.error(e)
+            return False, str(e)
+        except Exception:
+            tb = traceback.format_exc()
+            logger.error(tb)
+            return False, tb
+
+        return True, ''
+
+    with redirect_stdout(io.StringIO()) as o:
+        result, err_out = _call_frr_render(frr, config)
+    amb_out = o.getvalue()
+    o.close()
+
+    out = amb_out + err_out
+
+    return result, out
+
+
 def process_call_data(call: Call, config: Config, last: bool = False) -> None:
     # pylint: disable=too-many-locals
 
@@ -319,8 +350,6 @@ def process_call_data(call: Call, config: Config, last: bool = False) -> None:
 
     out = amb_out + err_out
 
-    call.set_reply(success, out)
-
     logger.info(f'[{script_name}] {out}')
 
     if last:
@@ -328,11 +357,11 @@ def process_call_data(call: Call, config: Config, last: bool = False) -> None:
         logger.debug(f'scripts_called: {scripts_called}')
 
     if last and success:
-        tmp = get_frrender_dict(config)
-        if frr.generate(tmp):
-            # only apply a new FRR configuration if anything changed
-            # in comparison to the previous applied configuration
-            frr.apply()
+        s, o = call_frr_render(frr, config)
+        success = s
+        out = out + o
+
+    call.set_reply(success, out)
 
 
 def process_session_data(session: Session) -> Session:
