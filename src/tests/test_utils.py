@@ -24,3 +24,15 @@ class TestVyOSUtils(TestCase):
     def test_sysctl_read(self):
         from vyos.utils.system import sysctl_read
         self.assertEqual(sysctl_read('net.ipv4.conf.lo.forwarding'), '1')
+
+    def test_list_strip(self):
+        from vyos.utils.list import list_strip
+
+        lst = ['a', 'b', 'c', 'd', 'e']
+        sub = ['a', 'b']
+        rsb = ['d', 'e']
+        non = ['a', 'e']
+        self.assertEqual(list_strip(lst, sub), ['c', 'd', 'e'])
+        self.assertEqual(list_strip(lst, rsb, right=True), ['a', 'b', 'c'])
+        self.assertEqual(list_strip(lst, non), [])
+        self.assertEqual(list_strip(sub, lst), [])
