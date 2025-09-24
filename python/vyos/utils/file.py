@@ -14,6 +14,8 @@
 # License along with this library.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
+import tempfile
+
 from vyos.utils.permission import chown
 
 def makedir(path, user=None, group=None):
@@ -185,3 +187,84 @@ def wait_for_file_write_complete(file_path, pre_hook=None, timeout=None, sleep_i
     """ Waits for a process to close a file after opening it in write mode. """
     wait_for_inotify(file_path,
       event_type='IN_CLOSE_WRITE', pre_hook=pre_hook, timeout=timeout, sleep_interval=sleep_interval)
+
+
+def copy_chown(source, target):
+    # pylint: disable=import-outside-toplevel
+    import shutil
+    import stat
+
+    shutil.copy2(source, target)
+    st = os.stat(source)
+    os.chown(target, st[stat.ST_UID], st[stat.ST_GID])
+
+
+def write_file_sync(file_path, data: str, mode='w'):
+    """Write file with explicit sync of file and directory"""
+    # pylint: disable=consider-using-with
+    file_dir = os.path.dirname(file_path)
+
+    # write and sync file
+    try:
+        file = open(file_path, mode)
+        file.write(data)
+        file.flush()
+        os.fsync(file.fileno())
+        file.close()
+    except OSError as e:
+        try:
+            file.close()
+        except OSError:
+            pass
+        raise e
+
+    # sync directory entry
+    try:
+        fd = os.open(file_dir, os.O_DIRECTORY | os.O_RDONLY)
+        os.fsync(fd)
+        os.close(fd)
+    except OSError as e:
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+        raise e
+
+
+def write_file_atomic(file_path, data: str, mode='w'):
+    """Use os.rename for 'atomic' write.
+
+    Note that this requires an euid/egid of that of the source file for the
+    chown operation.
+
+    Note that this calls write_file_sync, above.
+    """
+    # pylint: disable=consider-using-with,raise-missing-from
+    file_dir = os.path.dirname(file_path)
+    temp_file = tempfile.NamedTemporaryFile(delete=False, dir=file_dir).name
+
+    def cleanup():
+        if os.path.exists(temp_file):
+            try:
+                os.unlink(temp_file)
+            except OSError:
+                pass
+
+    if os.path.exists(file_path):
+        try:
+            copy_chown(file_path, temp_file)
+        except OSError as e:
+            cleanup()
+            raise OSError(f'copy_chown {e}')
+
+    try:
+        write_file_sync(temp_file, data, mode=mode)
+    except OSError as e:
+        cleanup()
+        raise OSError(f'write_file_sync {e}')
+
+    try:
+        os.rename(temp_file, file_path)
+    except OSError as e:
+        cleanup()
+        raise OSError(f'rename {e}')
