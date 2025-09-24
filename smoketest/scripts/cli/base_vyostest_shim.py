@@ -106,6 +106,11 @@ class VyOSUnitTestSHIM:
 
             return out
 
+        def cli_save(self, file):
+            if self.debug:
+                print('save')
+            self._session.save_config(file)
+
         def op_mode(self, path : list) -> None:
             """
             Execute OP-mode command and return stdout
