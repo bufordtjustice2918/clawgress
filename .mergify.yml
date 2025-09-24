@@ -1,0 +1,25 @@
+# pull_request_rules:
+#   - name: merge automatically when CI passes and PR is approved
+#     conditions:
+#       - conflict
+#     actions:
+#       comment:
+#         message: Your PR is in conflict, {{author}}. You should fix it.
+
+pull_request_rules:
+  - name: Label conflicting pull requests
+    description: Add a label to a pull request with conflict to spot it easily
+    conditions:
+      - conflict
+      - '-closed'
+    actions:
+      label:
+        toggle:
+          - conflict
+
+  - name: comment when a pull request is merged
+    conditions:
+      - merged
+    actions:
+      comment:
+        message: Thank you for your contribution @{{author}}! Your pull request has been merged.
