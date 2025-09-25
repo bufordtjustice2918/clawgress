@@ -257,6 +257,12 @@ def verify(config):
                     'both be specified, or neither must be specified'
                 )
 
+            # Either both protocol and ports are set, or both no protocol and no ports
+            if (rule_config['protocol'] != 'all') != has_local_port:
+                raise ConfigError(
+                    f'{error_msg} protocol and ports must either both be specified or both omitted'
+                )
+
             ext_address = rule_config['external']['address']
             port = rule_config['external'].get('port')
             local_address = rule_config['local']['address']
@@ -333,6 +339,12 @@ def verify(config):
             ):
                 raise ConfigError(
                     f'{rule_config["external_interface"]} must be a VPP interface for exclude rule {rule}'
+                )
+
+            # Either both protocol and local-port are set, or both no protocol and no port
+            if (rule_config['protocol'] != 'all') != ('local_port' in rule_config):
+                raise ConfigError(
+                    f'Protocol and local-port must either both be specified or both omitted for exclude rule {rule}'
                 )
 
 

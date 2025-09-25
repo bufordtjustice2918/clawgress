@@ -1323,6 +1323,13 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         self.cli_set(
             base_nat + ['exclude', 'rule', '100', 'local-port', exclude_local_port]
         )
+
+        # cannot set local-port without specifying protocol
+        # expect raise ConfigError
+        with self.assertRaises(ConfigSessionError):
+            self.cli_commit()
+
+        self.cli_set(base_nat + ['exclude', 'rule', '100', 'protocol', 'tcp'])
         self.cli_set(
             base_nat + ['static', 'rule', '100', 'external', 'address', static_ext_addr]
         )
