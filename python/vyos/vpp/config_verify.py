@@ -134,6 +134,7 @@ def verify_dev_driver(iface_name: str, driver_type: str) -> bool:
         'ice',
         'igc',
         'ixgbe',
+        'ixgbevf',
         'liquidio',
         'mlx4_core',
         'mlx5_core',
