@@ -160,6 +160,17 @@ class VyOSUnitTestSHIM:
                     print(f'FRR configuration still empty after {empty_retry} retires!')
             return out
 
+        def getFRRopmode(self, command : str, json : bool=False):
+            from json import loads
+            if json: command += f' json'
+            out = cmd(f'vtysh -c "{command}"')
+            if json:
+                out = loads(out)
+            if self.debug:
+                print(f'\n\ncommand "{command}" returned:\n')
+                pprint.pprint(out)
+            return out
+
         @staticmethod
         def ssh_send_cmd(command, username, password, key_filename=None,
                          hostname='localhost'):
