@@ -392,13 +392,7 @@ class ConfigSession(object):
         return out
 
     def save_config(self, file_path):
-        if self._vyconf_session is None:
-            out = self.__run_command(SAVE_CONFIG + [file_path])
-        else:
-            out, _ = self._vyconf_session.save_config(
-                file=file_path, append_version=True
-            )
-
+        out = self.__run_command(SAVE_CONFIG + [file_path])
         return out
 
     def install_image(self, url):
