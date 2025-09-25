@@ -276,6 +276,36 @@ def process_node_data(config, data, _last: bool = False) -> tuple[Response, str]
     return result, out
 
 
+def call_frr_render(frr, config):
+    def _call_frr_render(frr, config):
+        # pylint: disable=broad-exception-caught
+        try:
+            tmp = get_frrender_dict(config)
+            if frr.generate(tmp):
+                # only apply a new FRR configuration if anything changed
+                # in comparison to the previous applied configuration
+                frr.apply()
+
+        except ConfigError as e:
+            logger.error(e)
+            return Response.ERROR_COMMIT_APPLY, str(e)
+        except Exception:
+            tb = traceback.format_exc()
+            logger.error(tb)
+            return Response.ERROR_COMMIT_APPLY, tb
+
+        return Response.SUCCESS, ''
+
+    with redirect_stdout(io.StringIO()) as o:
+        result, err_out = _call_frr_render(frr, config)
+    amb_out = o.getvalue()
+    o.close()
+
+    out = amb_out + err_out
+
+    return result, out
+
+
 def send_result(sock, err, msg):
     err_no = err.value
     err_name = err.name
@@ -345,17 +375,16 @@ if __name__ == '__main__':
             config = initialization(socket)
         elif message['type'] == 'node':
             res, out = process_node_data(config, message['data'], message['last'])
-            send_result(socket, res, out)
 
             if message['last'] and config:
                 scripts_called = getattr(config, 'scripts_called', [])
                 logger.debug(f'scripts_called: {scripts_called}')
 
                 if res == Response.SUCCESS:
-                    tmp = get_frrender_dict(config)
-                    if frr.generate(tmp):
-                        # only apply a new FRR configuration if anything changed
-                        # in comparison to the previous applied configuration
-                        frr.apply()
+                    r, o = call_frr_render(frr, config)
+                    res = r
+                    out = out + o
+
+            send_result(socket, res, out)
         else:
             logger.critical(f'Unexpected message: {message}')
