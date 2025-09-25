@@ -109,7 +109,8 @@ def verify(options):
                     )
 
     if 'kernel' in options:
-        cpu_vendor = get_cpus()[0]['vendor_id']
+        _cpu_info = get_cpus()[0]
+        cpu_vendor = _cpu_info.get('vendor_id', 'unknown')
         if 'amd_pstate_driver' in options['kernel'] and cpu_vendor != 'AuthenticAMD':
             raise ConfigError(
                 f'AMD pstate driver cannot be used with "{cpu_vendor}" CPU!'
