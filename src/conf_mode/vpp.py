@@ -107,6 +107,7 @@ drivers_support_interrupt: dict[str, list] = {
     'igb': ['xdp'],
     'igc': ['dpdk', 'xdp'],
     'ixgbe': ['dpdk', 'xdp'],
+    'ixgbevf': ['dpdk'],
     'qede': ['dpdk', 'xdp'],
     'vmxnet3': ['xdp'],
     'virtio_net': ['xdp'],
