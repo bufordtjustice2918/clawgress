@@ -725,7 +725,7 @@
               <properties>
                 <help>default-log-level</help>
                 <completionHelp>
-                  <list>alert crit debug disabled emerg err info notice warn</list>
+                  <list>alert crit debug disabled emerg error info notice warn</list>
                 </completionHelp>
                 <valueHelp>
                   <format>alert</format>
@@ -748,7 +748,7 @@
                   <description>Emergency</description>
                 </valueHelp>
                 <valueHelp>
-                  <format>err</format>
+                  <format>error</format>
                   <description>Error</description>
                 </valueHelp>
                 <valueHelp>
@@ -764,7 +764,7 @@
                   <description>Warning</description>
                 </valueHelp>
                 <constraint>
-                  <regex>(alert|crit|debug|disabled|emerg|err|info|notice|warn)</regex>
+                  <regex>(alert|crit|debug|disabled|emerg|error|info|notice|warn)</regex>
                 </constraint>
               </properties>
             </leafNode>
