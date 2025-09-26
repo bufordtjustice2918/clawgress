@@ -200,7 +200,7 @@ def verify(config_dict):
             if 'dependent_vrfs' in bgp:
                 for vrf, vrf_options in bgp['dependent_vrfs'].items():
                     if vrf != 'default':
-                        if dict_search('protocols.bgp', vrf_options):
+                        if 'protocols' in vrf_options and 'bgp' in vrf_options['protocols']:
                             dependent_vrfs = ', '.join(bgp['dependent_vrfs'].keys())
                             raise ConfigError(f'Cannot delete default BGP instance, ' \
                                               f'dependent VRF instance(s): {dependent_vrfs}')
@@ -343,7 +343,7 @@ def verify(config_dict):
                             peer_group = peer_config['interface']['v6only']['peer_group']
                             if 'remote_as' in peer_config['interface']['v6only'] and 'remote_as' in bgp['peer_group'][peer_group]:
                                 raise ConfigError(f'Peer-group member "{peer}" cannot override remote-as of peer-group "{peer_group}"!')
-                            
+
                 for afi in ['ipv4_unicast', 'ipv4_multicast', 'ipv4_labeled_unicast', 'ipv4_flowspec',
                             'ipv6_unicast', 'ipv6_multicast', 'ipv6_labeled_unicast', 'ipv6_flowspec',
                             'l2vpn_evpn']:
