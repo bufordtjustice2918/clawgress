@@ -21,6 +21,7 @@ import signal
 import time
 
 from collections import namedtuple
+from vyos.template import get_dhcp_router
 from vyos.utils.process import rc_cmd
 from vyos.utils.process import run
 from pathlib import Path
@@ -170,6 +171,7 @@ NextHopNamedTuple = namedtuple(
     'NextHopConfig',
     [
         'route',
+        'dhcp_interface',
         'next_hop',
         'vrf',
         'vrf_opt',
@@ -187,7 +189,9 @@ NextHopNamedTuple = namedtuple(
 )
 
 
-def get_nexthop_config_vars(destination, vrf, vrf_opt, nexthop_config, next_hop):
+def get_nexthop_config_vars(
+    destination, vrf, vrf_opt, nexthop_config, next_hop, dhcp_interface
+):
     port = nexthop_config.get('check').get('port')
 
     targets = tuple(
@@ -215,10 +219,13 @@ def get_nexthop_config_vars(destination, vrf, vrf_opt, nexthop_config, next_hop)
 
     return NextHopNamedTuple(
         route=destination,
+        dhcp_interface=dhcp_interface,
         next_hop=next_hop,
         vrf=vrf,
         vrf_opt=vrf_opt,
-        conf_iface=nexthop_config.get('interface'),
+        # For next-hop interface is mandatory
+        # For dhcp-interface it may be not given, then dhcp-interface is used
+        conf_iface=nexthop_config.get('interface', dhcp_interface),
         conf_metric=int(nexthop_config.get('metric')),
         port=port,
         port_opt=f'port {port}' if port else '',
@@ -245,10 +252,22 @@ RouteNamedTuple = namedtuple(
 
 def get_route_config(route, route_config, config_path, vrf):
     vrf_opt = f'vrf {vrf}' if vrf else ''
-    nexthops = tuple(
-        get_nexthop_config_vars(route, vrf, vrf_opt, nexthop_config, next_hop)
-        for next_hop, nexthop_config in route_config.get('next_hop').items()
-    )
+    nexthops = []
+    if route_config.get('next_hop'):
+        nexthops.extend(
+            get_nexthop_config_vars(route, vrf, vrf_opt, nexthop_config, next_hop, None)
+            for next_hop, nexthop_config in route_config.get('next_hop').items()
+        )
+    if route_config.get('dhcp_interface'):
+        nexthops.extend(
+            get_nexthop_config_vars(
+                route, vrf, vrf_opt, dhcp_nexthop_config, None, interface
+            )
+            for interface, dhcp_nexthop_config in route_config.get(
+                'dhcp_interface'
+            ).items()
+        )
+    nexthops = tuple(nexthops)
     return RouteNamedTuple(
         destination=route,
         vrf=vrf,
@@ -399,6 +418,55 @@ def update_configuration(last_modification_times, all_routes, config_dir):
     print_debug(f"All routes: {all_routes}")
 
 
+def process_dhcp_interface(nhc, nexthop_by_dhcp_nexthop):
+    """
+    Processes NextHopNamedTuple with dhcp_interface != None
+    Return NextHopNamedTuple with next_hop equal to DHCP gateway of nhc.
+        If there is no gateway for nhc, return None
+
+    Args:
+        nhc(NextHopNamedTuple): configuration with dhcp_interface
+        nexthop_by_dhcp_nexthop(dict): dict with previous returned values
+    """
+    cur_dhcpgw = get_dhcp_router(nhc.dhcp_interface)
+    if not cur_dhcpgw:
+        cur_dhcpgw = False
+
+    if nhc in nexthop_by_dhcp_nexthop:
+        prev_dhcpgw = nexthop_by_dhcp_nexthop[nhc].next_hop
+    else:
+        prev_dhcpgw = False
+
+    # Equal - do nothing, just return previous value
+    if prev_dhcpgw == cur_dhcpgw:
+        if not cur_dhcpgw:
+            return None
+        return nexthop_by_dhcp_nexthop[nhc]
+
+    print_debug(
+        f"DHCP Gateway changed for interface {nhc.dhcp_interface} from '{prev_dhcpgw}' to '{cur_dhcpgw}'"
+    )
+
+    # dhcpgw differ and there was previous dhcpgw
+    if prev_dhcpgw:
+        prevnhc = nexthop_by_dhcp_nexthop.pop(nhc)
+        print_debug(
+            f"Deleting previous nexthop {prevnhc} because of DHCP interface change"
+        )
+        ip_args = get_ip_command_args(prevnhc)
+        if is_route_exists(ip_args):
+            delete_route(ip_args)
+
+    newnhc = None
+    # dhcpgw differ and there is new dhcpgw
+    if cur_dhcpgw:
+        newnhc = nhc._replace(next_hop=cur_dhcpgw, dhcp_interface=None)
+        print_debug(f"Saving new nexthop {newnhc} because of DHCP interface change")
+        nexthop_by_dhcp_nexthop[nhc] = newnhc
+
+    return newnhc
+
+
 if __name__ == '__main__':
     print_debug(f"{my_name} started")
 
@@ -426,6 +494,11 @@ if __name__ == '__main__':
     signal.signal(signal.SIGINT, kill_handler)
     signal.signal(signal.SIGTERM, kill_handler)
 
+    # keys: NextHopNamedTuple with dhcp_interface != None
+    # values: NextHopNamedTuple with next_hop != None
+    # Translates nexthop with dhcp_interface to ususal nexthop
+    nexthop_by_dhcp_nexthop = {}
+
     had_sleeps = True
     while not kill_called:
         # Check in case daemon was launched without routes
@@ -443,6 +516,11 @@ if __name__ == '__main__':
             vrf_opt = route_config.vrf_opt
 
             for nhc in route_config.nexthops:
+                if nhc.dhcp_interface:
+                    nhc = process_dhcp_interface(nhc, nexthop_by_dhcp_nexthop)
+                    if not nhc:
+                        continue
+
                 next_hop = nhc.next_hop
                 ip_args = get_ip_command_args(nhc)
 
@@ -478,7 +556,7 @@ if __name__ == '__main__':
                             f'    [ TARGET_FAIL ] target checks fails for [{nhc.pretty_targets}], do nothing'
                         )
                         journal.send(
-                            f'Check fail for route {route} target {nhc.pretty_targets} proto {nhc.proto} '
+                            f'Check fail for route {route} interface "{nhc.conf_iface}" target {nhc.pretty_targets} proto {nhc.proto} '
                             f'{nhc.port_opt}',
                             SYSLOG_IDENTIFIER=my_name,
                         )
