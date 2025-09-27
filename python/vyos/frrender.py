@@ -34,6 +34,10 @@ def debug(message):
         return
     print(message)
 
+ERROR_RELOAD_TEST: str = 'The system encountered an error while rendering the ' \
+    'new routing daemon configuration. To ensure network stability and avoid ' \
+    'potential connectivity disruptions, the configuration was not applied!'
+
 frr_protocols = ['babel', 'bfd', 'bgp', 'eigrp', 'isis', 'mpls', 'nhrp',
                  'openfabric', 'ospf', 'ospfv3', 'pim', 'pim6', 'rip',
                  'ripng', 'rpki', 'segment_routing', 'static']
@@ -748,6 +752,13 @@ class FRRender:
         return True
 
     def apply(self, count_max=5):
+        # Do a config reload test
+        cmdline = f'/usr/lib/frr/frr-reload.py --test'
+        rc, emsg = rc_cmd(f'{cmdline} {self._frr_conf}')
+        if rc != 0:
+            debug(emsg)
+            raise ConfigError(ERROR_RELOAD_TEST)
+
         count = 0
         emsg = ''
         while count < count_max:
