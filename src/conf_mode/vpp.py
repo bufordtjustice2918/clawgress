@@ -216,20 +216,6 @@ def get_config(config=None):
             # to be reinitialized after the commit
             set_dependents('ethernet', conf, removed_iface)
 
-    # NAT dependency
-    if conf.exists(['vpp', 'nat44']):
-        set_dependents('vpp_nat', conf)
-    if conf.exists(['vpp', 'nat', 'cgnat']):
-        set_dependents('vpp_nat_cgnat', conf)
-
-    # sFlow dependency
-    if conf.exists(['vpp', 'sflow']):
-        set_dependents('vpp_sflow', conf)
-
-    # ACL dependency
-    if conf.exists(['vpp', 'acl']):
-        set_dependents('vpp_acl', conf)
-
     # Get interfaces that are used in PPPoe for control-plane integration
     pppoe_conf = conf.get_config_dict(
         ['service', 'pppoe-server'],
@@ -386,6 +372,20 @@ def get_config(config=None):
             }
             eth_ifaces_persist[iface]['bus_id'] = control_host.get_bus_name(iface)
             eth_ifaces_persist[iface]['dev_id'] = control_host.get_dev_id(iface)
+
+    # NAT dependency
+    if conf.exists(['vpp', 'nat44']):
+        set_dependents('vpp_nat', conf)
+    if conf.exists(['vpp', 'nat', 'cgnat']):
+        set_dependents('vpp_nat_cgnat', conf)
+
+    # sFlow dependency
+    if conf.exists(['vpp', 'sflow']):
+        set_dependents('vpp_sflow', conf)
+
+    # ACL dependency
+    if conf.exists(['vpp', 'acl']):
+        set_dependents('vpp_acl', conf)
 
     # PPPoE dependency
     if pppoe_map_ifaces:
