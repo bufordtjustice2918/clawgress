@@ -182,4 +182,4 @@ class TestServiceLLDP(VyOSUnitTestSHIM.TestCase):
             self.assertIn(f'configure ports {interface} lldp status rx-and-tx', config)
 
 if __name__ == '__main__':
-    unittest.main(verbosity=2)
+    unittest.main(verbosity=2, failfast=VyOSUnitTestSHIM.TestCase.debug_on())

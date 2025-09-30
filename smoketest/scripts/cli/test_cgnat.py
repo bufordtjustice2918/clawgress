@@ -20,10 +20,8 @@ import unittest
 from base_vyostest_shim import VyOSUnitTestSHIM
 from vyos.configsession import ConfigSessionError
 
-
 base_path = ['nat', 'cgnat']
 nftables_cgnat_config = '/run/nftables-cgnat.nft'
-
 
 class TestCGNAT(VyOSUnitTestSHIM.TestCase):
     @classmethod
@@ -135,4 +133,4 @@ class TestCGNAT(VyOSUnitTestSHIM.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main(verbosity=2)
+    unittest.main(verbosity=2, failfast=VyOSUnitTestSHIM.TestCase.debug_on())

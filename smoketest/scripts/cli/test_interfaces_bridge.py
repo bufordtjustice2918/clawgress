@@ -17,10 +17,11 @@
 import os
 import json
 import unittest
-
-from base_interfaces_test import BasicInterfaceTest
 from copy import deepcopy
 from glob import glob
+
+from base_interfaces_test import BasicInterfaceTest
+from base_vyostest_shim import VyOSUnitTestSHIM
 
 from vyos.configsession import ConfigSessionError
 from vyos.ifconfig import Section
@@ -535,4 +536,4 @@ class BridgeInterfaceTest(BasicInterfaceTest.TestCase):
         self.assertEqual(tmp, '1')
 
 if __name__ == '__main__':
-    unittest.main(verbosity=2)
+    unittest.main(verbosity=2, failfast=VyOSUnitTestSHIM.TestCase.debug_on())

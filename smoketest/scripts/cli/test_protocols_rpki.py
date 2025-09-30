@@ -324,4 +324,4 @@ class TestProtocolsRPKI(VyOSUnitTestSHIM.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main(verbosity=2)
+    unittest.main(verbosity=2, failfast=VyOSUnitTestSHIM.TestCase.debug_on())

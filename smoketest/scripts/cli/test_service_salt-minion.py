@@ -102,4 +102,4 @@ class TestServiceSALT(VyOSUnitTestSHIM.TestCase):
         self.assertIn(f'source_interface_name: {interface}', conf)
 
 if __name__ == '__main__':
-    unittest.main(verbosity=2)
+    unittest.main(verbosity=2, failfast=VyOSUnitTestSHIM.TestCase.debug_on())

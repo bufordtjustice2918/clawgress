@@ -54,12 +54,16 @@ class VyOSUnitTestSHIM:
         # Time to wait after a commit to ensure the CStore is up to date
         # only required for testcases using FRR
         _commit_guard_time = 0
+
+        @staticmethod
+        def debug_on():
+            return os.path.exists('/tmp/vyos.smoketest.debug')
+
         @classmethod
         def setUpClass(cls):
             cls._session = ConfigSession(os.getpid())
             cls._session.save_config(save_config)
-            if os.path.exists('/tmp/vyos.smoketest.debug'):
-                cls.debug = True
+            cls.debug = cls.debug_on()
             pass
 
         @classmethod
@@ -154,6 +158,17 @@ class VyOSUnitTestSHIM:
                     out = cmd(command)
                 if not out:
                     print(f'FRR configuration still empty after {empty_retry} retires!')
+            return out
+
+        def getFRRopmode(self, command : str, json : bool=False):
+            from json import loads
+            if json: command += f' json'
+            out = cmd(f'vtysh -c "{command}"')
+            if json:
+                out = loads(out)
+            if self.debug:
+                print(f'\n\ncommand "{command}" returned:\n')
+                pprint.pprint(out)
             return out
 
         @staticmethod

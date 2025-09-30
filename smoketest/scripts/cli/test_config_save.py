@@ -14,7 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
 import os
 import unittest
 
@@ -23,7 +22,6 @@ from vyos.utils.config import read_saved_value
 from vyos.defaults import directories
 
 from base_vyostest_shim import VyOSUnitTestSHIM
-
 
 class TestConfigDep(VyOSUnitTestSHIM.TestCase):
     def test_disk_resident(self):

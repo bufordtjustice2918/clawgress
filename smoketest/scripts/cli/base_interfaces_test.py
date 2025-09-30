@@ -15,9 +15,9 @@
 import re
 
 from json import loads
-from netifaces import AF_INET
-from netifaces import AF_INET6
-from netifaces import ifaddresses
+from netifaces import ifaddresses # pylint: disable = no-name-in-module
+from socket import AF_INET
+from socket import AF_INET6
 from systemd import journal
 
 from base_vyostest_shim import VyOSUnitTestSHIM
