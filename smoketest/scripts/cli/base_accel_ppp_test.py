@@ -26,6 +26,11 @@ from vyos.utils.process import cmd
 
 class BasicAccelPPPTest:
     class TestCase(VyOSUnitTestSHIM.TestCase):
+        _base_path = None
+        _config_file = None
+        _chap_secrets = None
+        _protocol_section = None
+
         @classmethod
         def setUpClass(cls):
             cls._process_name = "accel-pppd"

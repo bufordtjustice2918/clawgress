@@ -15,8 +15,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
+from netifaces import interfaces # pylint: disable = no-name-in-module
 
-from netifaces import interfaces
 from base_interfaces_test import BasicInterfaceTest
 from base_vyostest_shim import VyOSUnitTestSHIM
 

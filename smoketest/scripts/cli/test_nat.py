@@ -18,7 +18,10 @@ import os
 import unittest
 
 from base_vyostest_shim import VyOSUnitTestSHIM
+from time import sleep
+
 from vyos.configsession import ConfigSessionError
+from vyos.utils.process import run
 
 base_path = ['nat']
 src_path = base_path + ['source']

@@ -19,7 +19,7 @@ import unittest
 
 from glob import glob
 from ipaddress import IPv4Network
-from netifaces import interfaces
+from netifaces import interfaces # pylint: disable = no-name-in-module
 
 from base_vyostest_shim import VyOSUnitTestSHIM
 

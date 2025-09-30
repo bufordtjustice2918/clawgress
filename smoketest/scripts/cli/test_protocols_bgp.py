@@ -714,10 +714,10 @@ class TestProtocolsBGP(VyOSUnitTestSHIM.TestCase):
                 for table, table_config in proto_config.items():
                     self.cli_set(proto_path + [table])
                     if 'metric' in table_config:
-                        self.cli_set(proto_path + [table, 'metric'], value=table_config['metric'])
+                        self.cli_set(proto_path + [table, 'metric'], value=table_config.get('metric'))
                     if 'route_map' in table_config:
-                        self.cli_set(['policy', 'route-map', table_config['route_map'], 'rule', '10', 'action'], value='permit')
-                        self.cli_set(proto_path + [table, 'route-map'], value=table_config['route_map'])
+                        self.cli_set(['policy', 'route-map', table_config.get('route_map'), 'rule', '10', 'action'], value='permit')
+                        self.cli_set(proto_path + [table, 'route-map'], value=table_config.get('route_map'))
             else:
                 self.cli_set(proto_path)
                 if 'metric' in proto_config:
@@ -846,10 +846,10 @@ class TestProtocolsBGP(VyOSUnitTestSHIM.TestCase):
                 for table, table_config in proto_config.items():
                     self.cli_set(proto_path + [table])
                     if 'metric' in table_config:
-                        self.cli_set(proto_path + [table, 'metric'], value=table_config['metric'])
+                        self.cli_set(proto_path + [table, 'metric'], value=table_config.get('metric'))
                     if 'route_map' in table_config:
-                        self.cli_set(['policy', 'route-map', table_config['route_map'], 'rule', '10', 'action'], value='permit')
-                        self.cli_set(proto_path + [table, 'route-map'], value=table_config['route_map'])
+                        self.cli_set(['policy', 'route-map', table_config.get('route_map'), 'rule', '10', 'action'], value='permit')
+                        self.cli_set(proto_path + [table, 'route-map'], value=table_config.get('route_map'))
             else:
                 self.cli_set(proto_path)
                 if 'metric' in proto_config:

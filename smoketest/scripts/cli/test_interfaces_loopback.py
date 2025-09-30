@@ -15,10 +15,10 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
+from netifaces import interfaces # pylint: disable = no-name-in-module
 
 from base_interfaces_test import BasicInterfaceTest
 from base_interfaces_test import MSG_TESTCASE_UNSUPPORTED
-from netifaces import interfaces
 from base_vyostest_shim import VyOSUnitTestSHIM
 
 from vyos.utils.network import is_intf_addr_assigned
