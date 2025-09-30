@@ -5,17 +5,10 @@ Wants=network-online.target
 After=vyos-router.service
 
 [Service]
-User=_kea
+User=root
 AmbientCapabilities=CAP_NET_BIND_SERVICE
 Environment="KEA_LOCKFILE_DIR=/run/lock/kea"
-ConfigurationDirectory=kea
-RuntimeDirectory=kea lock/kea
-RuntimeDirectoryPreserve=yes
-LogsDirectory=kea
-LogsDirectoryMode=0750
-StateDirectory=kea
-ExecStart=sudo /bin/ip vrf exec %i /usr/sbin/kea-dhcp-ddns -c /var/run/kea/kea-%i-dhcp-ddns.conf
-ExecStartPost=/bin/sh -c 'sleep 10 && sudo /usr/bin/chown _kea:_kea /var/run/kea/kea-%i-dhcp-ddns* && sudo /usr/bin/chown _kea:_kea /run/kea/logger_lockfile'
+ExecStart=/usr/libexec/vyos/system/kea-vrf-helper %i  /usr/sbin/kea-dhcp-ddns -c /var/run/kea/kea-%i-dhcp-ddns.conf
 Restart=on-failure
 
 [Install]

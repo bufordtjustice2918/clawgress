@@ -504,6 +504,18 @@ start ()
     nfct helper add tns inet6 tcp
     nft --file /usr/share/vyos/vyos-firewall-init.conf || log_failure_msg "could not initiate firewall rules"
 
+    # Create needed kea directories
+    mkdir -p /var/run/kea /run/lock/kea
+    chmod 750 /var/run/kea /run/lock/kea
+    chown _kea:_kea /var/run/kea /run/lock/kea
+    if [ -d /opt/vyatta/etc/config ]; then
+        if [ ! -d /opt/vyatta/etc/config/dhcp ]; then
+            mkdir /opt/vyatta/etc/config/dhcp
+            chmod 750 /opt/vyatta/etc/config/dhcp
+            chown _kea:vyattacfg /opt/vyatta/etc/config/dhcp
+        fi
+    fi
+
     # Ensure rsyslog is the default syslog daemon
     SYSTEMD_SYSLOG="/etc/systemd/system/syslog.service"
     SYSTEMD_RSYSLOG="/lib/systemd/system/rsyslog.service"
