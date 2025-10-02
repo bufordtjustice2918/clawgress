@@ -185,7 +185,7 @@ def get_config(config=None):
             pki.update({'changed':{}})
         pki['changed'].update({key.replace('-', '_') : tmp})
 
-    # We only merge on the defaults of there is a configuration at all
+    # We only merge on the defaults if there is a configuration at all
     if conf.exists(base):
         # We have gathered the dict representation of the CLI, but there are default
         # options which we need to update into the dictionary retrived.
@@ -369,7 +369,12 @@ def verify(pki):
                     listen_address = cert_conf['acme']['listen_address']
 
                 if 'used_by' not in cert_conf['acme']:
-                    if not check_port_availability(listen_address, 80):
+                    # A call to check_port_availability() will always fail during system
+                    # boot when listen_address is set and the address is not yet assigned
+                    # to an interface. This happens b/c PKI subsystem is called prior
+                    # to any inteface - e.g. ethernet - and thus the OS will always
+                    # be unable to bind() a socket() to a non existing IP address.
+                    if boot_configuration_complete() and not check_port_availability(listen_address, 80):
                         raise ConfigError('Port 80 is already in use and not available '\
                                           f'to provide ACME challenge for "{name}"!')
 
