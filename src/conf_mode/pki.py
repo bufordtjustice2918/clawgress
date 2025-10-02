@@ -265,11 +265,18 @@ def get_config(config=None):
                 continue
             if not dict_search('system.load_balancing.haproxy', pki):
                 continue
+            # Determine which service depends on ACME issued certificates
             used_by = []
+            # We start with HAProxy
             for cert_list, _ in dict_search_recursive(
                 pki['system']['load_balancing']['haproxy'], 'certificate'):
                 if name in cert_list:
                     used_by.append('haproxy')
+            # Check if OpenConnect consumes an ACME certificate
+            tmp = dict_search('system.vpn.openconnect.ssl.certificate', pki)
+            if tmp and tmp in cert_list:
+                used_by.append('openconnect')
+
             if used_by:
                 pki['certificate'][name]['acme'].update({'used_by': used_by})
 
