@@ -45,7 +45,7 @@ system {
         kernel {
             memory {
                 hugepage-size 2M {
-                    hugepage-count "2048"
+                    hugepage-count "1800"
                 }
             }
         }
