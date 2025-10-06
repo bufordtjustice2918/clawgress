@@ -88,6 +88,7 @@ def migrate(config: ConfigTree) -> None:
                             continue
 
                         allowas_in_value = 0
+                        print(neighbor, afi)
                         # Check if there is any allowas-in definition for a peer-group
                         if peer_group and config.exists(afi_peer_group_base + allowas_in_numer):
                             allowas_in_value = int(config.return_value(afi_peer_group_base + allowas_in_numer))
