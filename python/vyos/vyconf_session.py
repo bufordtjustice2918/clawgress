@@ -16,6 +16,7 @@
 #
 
 import os
+import weakref
 import tempfile
 from functools import wraps
 from typing import Type
@@ -64,6 +65,12 @@ class VyconfSession:
             self.__token = token
 
         self.in_config_session = in_config_session()
+
+        if not self.in_config_session:
+            # op-mode sessions are ephemeral
+            # config-mode sessions are persistent, and managed by caller (CLI or ConfigSession)
+            self._finalizer = weakref.finalize(self, self._teardown, self.__token)
+
         if self.in_config_session:
             out = vyconf_client.send_request(
                 'enter_configuration_mode', token=self.__token
@@ -73,8 +80,12 @@ class VyconfSession:
 
         self.on_error = on_error
 
+    @classmethod
+    def _teardown(cls, token):
+        vyconf_client.send_request('teardown', token)
+
     def teardown(self):
-        vyconf_client.send_request('teardown', token=self.__token)
+        self._teardown(self.__token)
 
     def exit_config_mode(self):
         if self.session_changed():
@@ -128,6 +139,11 @@ class VyconfSession:
             if res is not None:
                 out = out + res
         return out
+
+    @config_mode
+    def discard(self) -> tuple[str, int]:
+        out = vyconf_client.send_request('discard', token=self.__token)
+        return self.output(out), out.status
 
     @raise_exception
     @config_mode
@@ -186,12 +202,6 @@ class VyconfSession:
         release_commit_lock_file(lock_fd)
 
         return pre_out + self.output(out) + post_out, out.status
-
-    @raise_exception
-    @config_mode
-    def discard(self) -> tuple[str, int]:
-        out = vyconf_client.send_request('discard', token=self.__token)
-        return self.output(out), out.status
 
     @raise_exception
     @config_mode
