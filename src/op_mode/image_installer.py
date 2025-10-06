@@ -1113,9 +1113,6 @@ def add_image(image_path: str, vrf: str = None, username: str = '',
 
                 # Now remove from current image
                 Path('/opt/vyatta/etc/config/first_boot').unlink()
-
-                cmdline_options = get_cli_kernel_options(
-                    f'/opt/vyatta/etc/config/config.boot')
             else:
                 print('Copying configuration directory')
                 # copytree preserves perms but not ownership:
@@ -1129,17 +1126,11 @@ def add_image(image_path: str, vrf: str = None, username: str = '',
                 # This can be used for a future automatic rollback into the old image.
                 tmp = {'previous_image' : image.get_running_image()}
                 write_file(f'{target_config_dir}/first_boot', dumps(tmp))
-
-                cmdline_options = get_cli_kernel_options(
-                    f'{target_config_dir}/config.boot')
         else:
             Path(target_config_dir).mkdir(parents=True)
             chown(target_config_dir, group='vyattacfg')
             chmod_2775(target_config_dir)
             Path(f'{target_config_dir}/.vyatta_config').touch()
-
-            cmdline_options = get_cli_kernel_options(
-                f'{target_config_dir}/config.boot')
 
         target_ssh_dir: str = f'{root_dir}/boot/{image_name}/rw/etc/ssh/'
         if no_prompt or copy_ssh_host_keys():
