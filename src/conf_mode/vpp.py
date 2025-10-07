@@ -373,6 +373,11 @@ def get_config(config=None):
             eth_ifaces_persist[iface]['bus_id'] = control_host.get_bus_name(iface)
             eth_ifaces_persist[iface]['dev_id'] = control_host.get_dev_id(iface)
 
+    # kernel-interfaces dependency
+    if effective_config.get('kernel_interfaces'):
+        for iface in config.get('kernel_interfaces', {}):
+            set_dependents('vpp_kernel_interface', conf, iface)
+
     # NAT dependency
     if conf.exists(['vpp', 'nat44']):
         set_dependents('vpp_nat', conf)
