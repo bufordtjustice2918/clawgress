@@ -112,7 +112,10 @@ vpp {
             driver "dpdk"
         }
         interface eth3 {
-            driver "dpdk"
+            driver "xdp"
+            xdp-options {
+                no-syscall-lock
+            }
         }
         interface eth4 {
             driver "dpdk"

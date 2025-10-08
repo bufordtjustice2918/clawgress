@@ -1101,7 +1101,7 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
 
         # DPDK driver expect only dpdk-options and not xdp-options to be set
         # expect raise ConfigError
-        self.cli_set(base_interface_path + ['xdp-options', 'no-syscall-lock'])
+        self.cli_set(base_interface_path + ['xdp-options', 'zero-copy'])
 
         with self.assertRaises(ConfigSessionError):
             self.cli_commit()
