@@ -875,10 +875,10 @@
               </completionHelp>
             </properties>
             <standalone>
-              <help>Show last 10 lines of /var/log/messages file</help>
-              <command>tail -n 10 /var/log/messages</command>
+              <help>Show given number of the latest log messages (default: 10)</help>
+              <command>journalctl --reverse --lines 10</command>
             </standalone>
-            <command>tail -n "$4" /var/log/messages | ${VYATTA_PAGER:-cat}</command>
+            <command>journalctl --reverse --lines "$4"</command>
           </tagNode>
           <leafNode name="vpn">
             <properties>
