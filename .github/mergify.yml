@@ -7,4 +7,4 @@ pull_request_rules:
     actions:
       label:
         toggle:
-          - conflict
+          - conflicts
