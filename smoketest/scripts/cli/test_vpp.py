@@ -31,6 +31,7 @@ from vyos.utils.process import process_named_running
 from vyos.utils.file import read_file
 from vyos.utils.process import rc_cmd
 from vyos.utils.system import sysctl_read
+from vyos.system import image
 
 PROCESS_NAME = 'vpp_main'
 VPP_CONF = '/run/vpp/vpp.conf'
@@ -1476,6 +1477,39 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         # delete vif Ethernet interface
         self.cli_delete(['interfaces', 'ethernet', interface, 'vif'])
         self.cli_commit()
+
+    def test_20_kernel_options_hugepages(self):
+        default_hp_size = '2M'
+        hp_size_1g = '1G'
+        hp_size_2m = '2M'
+        hp_count_1g = '2'
+        hp_count_2m = '512'
+        memory_path = ['system', 'option', 'kernel', 'memory']
+
+        self.cli_set(memory_path + ['default-hugepage-size', default_hp_size])
+        self.cli_set(
+            memory_path + ['hugepage-size', hp_size_2m, 'hugepage-count', hp_count_2m]
+        )
+        self.cli_set(
+            memory_path + ['hugepage-size', hp_size_1g, 'hugepage-count', '2000']
+        )
+        # very big number of 1G hugepages, not enough memory for configuring them
+        # expect raise ConfigError
+        with self.assertRaises(ConfigSessionError):
+            self.cli_commit()
+
+        self.cli_set(
+            memory_path + ['hugepage-size', hp_size_1g, 'hugepage-count', hp_count_1g]
+        )
+        self.cli_commit()
+
+        # Read GRUB config file for current running image
+        tmp = read_file(
+            f'{image.grub.GRUB_DIR_VYOS_VERS}/{image.get_running_image()}.cfg'
+        )
+        self.assertIn(f' default_hugepagesz={default_hp_size}', tmp)
+        self.assertIn(f' hugepagesz={hp_size_1g} hugepages={hp_count_1g}', tmp)
+        self.assertIn(f' hugepagesz={hp_size_2m} hugepages={hp_count_2m}', tmp)
 
 
 if __name__ == '__main__':
