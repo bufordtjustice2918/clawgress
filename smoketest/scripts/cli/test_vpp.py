@@ -613,7 +613,6 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         self.cli_delete(base_path + ['interfaces', 'loopback', interface_loopback])
         self.cli_commit()
 
-    @unittest.skip('Skipping temporary bonding, sometimes get recursion T7117')
     def test_06_vpp_bonding(self):
         interface_bond = 'bond23'
         interface_kernel = 'vpptun23'
