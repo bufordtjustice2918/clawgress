@@ -604,7 +604,7 @@ def initialize_interface(iface, driver, iface_config) -> None:
     try:
         if control_host.get_eth_driver(f'defunct_{iface}') == 'mlx5_core':
             control_host.rename_iface(f'defunct_{iface}', iface)
-    except FileNotFoundError:
+    except Exception:
         pass
 
     # Replace a driver with original for VMBus interfaces and rename it
