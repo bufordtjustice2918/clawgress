@@ -724,11 +724,13 @@ class FRRender:
         # Enable FRR logging
         output += 'log facility daemon\n'
         output += 'log timestamp precision 3\n'
-        # Exdtend logging depending on operating mode
+        # Extend logging depending on operating mode
         if os.path.exists(frr_debug_enable):
             output += 'log syslog informational\n'
+            output += 'log unique-id\n'
         else:
             output += 'log syslog notifications\n'
+            output += 'no log unique-id\n'
 
         # Enable SNMP agentx support
         # SNMP AgentX support cannot be disabled once enabled
