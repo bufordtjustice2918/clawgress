@@ -255,6 +255,8 @@ def get_frrender_dict(conf, argv=None) -> dict:
                                    no_tag_node_value_mangle=True,
                                    with_recursive_defaults=True)
         dict.update({'bfd' : bfd})
+    elif conf.exists_effective(bfd_cli_path):
+        dict.update({'bfd' : {'deleted' : ''}})
 
     # We need to check the CLI if the BGP node is present and thus load in all the default
     # values present on the CLI - that's why we have if conf.exists()
