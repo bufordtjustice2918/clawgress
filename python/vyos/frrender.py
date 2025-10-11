@@ -724,6 +724,7 @@ class FRRender:
         # Enable FRR logging
         output += 'log syslog\n'
         output += 'log facility daemon\n'
+        output += 'log timestamp precision 3\n'
 
         # Enable SNMP agentx support
         # SNMP AgentX support cannot be disabled once enabled
