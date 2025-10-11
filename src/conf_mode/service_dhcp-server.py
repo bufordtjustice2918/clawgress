@@ -25,6 +25,7 @@ from ipaddress import ip_network
 from netaddr import IPRange
 
 from vyos.config import Config
+from vyos.kea import kea_test_config
 from vyos.pki import wrap_certificate
 from vyos.pki import wrap_private_key
 from vyos.template import render
@@ -594,6 +595,10 @@ def apply(dhcp):
             os.unlink(config_file)
 
         return None
+
+    result, output = kea_test_config('kea-dhcp4', config_file)
+    if not result:
+        raise ConfigError(f'Unexpected error with Kea configuration:\n{output}')
 
     for service in services:
         action = 'restart'
