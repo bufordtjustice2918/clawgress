@@ -243,6 +243,8 @@ def get_frrender_dict(conf, argv=None) -> dict:
                                      get_first_key=True,
                                      with_recursive_defaults=True)
         dict.update({'babel' : babel})
+    elif conf.exists_effective(babel_cli_path):
+        dict.update({'babel' : {'deleted' : ''}})
 
     # We need to check the CLI if the BFD node is present and thus load in all the default
     # values present on the CLI - that's why we have if conf.exists()
