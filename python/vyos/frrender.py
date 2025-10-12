@@ -243,6 +243,8 @@ def get_frrender_dict(conf, argv=None) -> dict:
                                      get_first_key=True,
                                      with_recursive_defaults=True)
         dict.update({'babel' : babel})
+    elif conf.exists_effective(babel_cli_path):
+        dict.update({'babel' : {'deleted' : ''}})
 
     # We need to check the CLI if the BFD node is present and thus load in all the default
     # values present on the CLI - that's why we have if conf.exists()
@@ -253,6 +255,8 @@ def get_frrender_dict(conf, argv=None) -> dict:
                                    no_tag_node_value_mangle=True,
                                    with_recursive_defaults=True)
         dict.update({'bfd' : bfd})
+    elif conf.exists_effective(bfd_cli_path):
+        dict.update({'bfd' : {'deleted' : ''}})
 
     # We need to check the CLI if the BGP node is present and thus load in all the default
     # values present on the CLI - that's why we have if conf.exists()
@@ -716,9 +720,18 @@ class FRRender:
         debug('FRR:        START CONFIGURATION RENDERING')
         # we can not reload an empty file, thus we always embed the marker
         output = '!\n'
+
         # Enable FRR logging
-        output += 'log syslog\n'
-        output += 'log facility local7\n'
+        output += 'log facility daemon\n'
+        output += 'log timestamp precision 3\n'
+        # Extend logging depending on operating mode
+        if os.path.exists(frr_debug_enable):
+            output += 'log syslog informational\n'
+            output += 'log unique-id\n'
+        else:
+            output += 'log syslog notifications\n'
+            output += 'no log unique-id\n'
+
         # Enable SNMP agentx support
         # SNMP AgentX support cannot be disabled once enabled
         if 'snmp' in config_dict:
