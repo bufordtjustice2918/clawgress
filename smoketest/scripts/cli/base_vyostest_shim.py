@@ -12,10 +12,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import importlib.util
 import os
-import unittest
 import paramiko
 import pprint
+import re
+import sys
+import unittest
 
 from time import sleep
 from typing import Type
@@ -36,6 +39,7 @@ save_config = '/tmp/vyos-smoketest-save'
 # Using this approach we can not render a live system useless while running any
 # kind of smoketest. In addition it adds debug capabilities like printing the
 # command used to execute the test.
+
 class VyOSUnitTestSHIM:
     class TestCase(unittest.TestCase):
         # if enabled in derived class, print out each and every set/del command
@@ -50,6 +54,17 @@ class VyOSUnitTestSHIM:
 
         @classmethod
         def setUpClass(cls):
+            # Import frr-reload.py functionality
+            file_path = '/usr/lib/frr/frr-reload.py'
+            module_name = 'frr_reload'
+
+            spec = importlib.util.spec_from_file_location(module_name, file_path)
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[module_name] = module
+            spec.loader.exec_module(module)
+            Vtysh = getattr(module, 'Vtysh')
+            cls._vtysh = Vtysh(bindir='/usr/bin', confdir='/etc/frr')
+
             cls._session = ConfigSession(os.getpid())
             cls._session.save_config(save_config)
             cls.debug = cls.debug_on()
@@ -93,8 +108,7 @@ class VyOSUnitTestSHIM:
                 sleep(0.250)
             # Return the output of commit
             # Necessary for testing Warning cases
-            out = self._session.commit()
-            return out
+            return self._session.commit()
 
         def cli_save(self, file):
             if self.debug:
@@ -114,37 +128,52 @@ class VyOSUnitTestSHIM:
                 pprint.pprint(out)
             return out
 
-        def getFRRconfig(self, string=None, end='$', endsection='^!',
-                         substring=None, endsubsection=None, empty_retry=0):
+        def getFRRconfig(self, start_section:str=None, stop_section='^!',
+                         start_subsection:str=None, stop_subsection='^ exit') -> str:
             """
             Retrieve current "running configuration" from FRR
 
-            string:        search for a specific start string in the configuration
-            end:           end of the section to search for (line ending)
-            endsection:    end of the configuration
-            substring:     search section under the result found by string
-            endsubsection: end of the subsection (usually something with "exit")
+            start_section:    search for a specific start string in the configuration
+            stop_section:     end of the configuration
+            start_subsection: search section under the result found by string
+            stop_subsection:  end of the subsection (usually something with "exit")
             """
-            command = f'vtysh -c "show run no-header"'
-            if string:
-                command += f' | sed -n "/^{string}{end}/,/{endsection}/p"'
-                if substring and endsubsection:
-                    command += f' | sed -n "/^{substring}/,/{endsubsection}/p"'
-            out = cmd(command)
+            frr_config = self._vtysh.mark_show_run()
+            if not start_section:
+                return frr_config
+
+            extracted = []
+            in_section = False
+            for line in frr_config.splitlines():
+                if not in_section:
+                    if re.match(start_section, line):
+                        in_section = True
+                        extracted.append(line)
+                else:
+                    extracted.append(line)
+                    if re.match(stop_section, line):
+                        break
+            output = '\n'.join(extracted)
+
+            # Use extracted list when searching for optional subsection
+            # used by e.g. BGP address-family check
+            if start_subsection:
+                extracted_subsection = []
+                in_subsection = False
+                for line in extracted:
+                    if not in_subsection:
+                        if re.match(start_subsection, line):
+                            in_subsection = True
+                            extracted_subsection.append(line)
+                    else:
+                        extracted_subsection.append(line)
+                        if re.match(stop_subsection, line):
+                            break
+                output = '\n'.join(extracted_subsection)
+
             if self.debug:
-                print(f'\n\ncommand "{command}" returned:\n')
-                pprint.pprint(out)
-            if empty_retry > 0:
-                retry_count = 0
-                while not out and retry_count < empty_retry:
-                    if self.debug and retry_count % 10 == 0:
-                        print(f"Attempt {retry_count}: FRR config is still empty. Retrying...")
-                    retry_count += 1
-                    sleep(1)
-                    out = cmd(command)
-                if not out:
-                    print(f'FRR configuration still empty after {empty_retry} retires!')
-            return out
+                print(output)
+            return output
 
         def getFRRopmode(self, command : str, json : bool=False):
             from json import loads

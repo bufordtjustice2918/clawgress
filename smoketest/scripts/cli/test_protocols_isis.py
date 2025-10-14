@@ -87,7 +87,7 @@ class TestProtocolsISIS(VyOSUnitTestSHIM.TestCase):
         self.cli_commit()
 
         # Verify all changes
-        tmp = self.getFRRconfig(f'router isis {domain}', endsection='^exit')
+        tmp = self.getFRRconfig(f'router isis {domain}', stop_section='^exit')
         self.assertIn(f' net {net}', tmp)
         self.assertIn(f' metric-style {metric_style}', tmp)
         self.assertIn(f' log-adjacency-changes', tmp)
@@ -95,7 +95,7 @@ class TestProtocolsISIS(VyOSUnitTestSHIM.TestCase):
             self.assertIn(f' redistribute ipv4 {proto} level-2 route-map {route_map}', tmp)
 
         for interface in self._interfaces:
-            tmp = self.getFRRconfig(f'interface {interface}', endsection='^exit')
+            tmp = self.getFRRconfig(f'interface {interface}', stop_section='^exit')
             self.assertIn(f' ip router isis {domain}', tmp)
             self.assertIn(f' ipv6 router isis {domain}', tmp)
 
@@ -124,11 +124,11 @@ class TestProtocolsISIS(VyOSUnitTestSHIM.TestCase):
         self.cli_commit()
 
         # Verify FRR isisd configuration
-        tmp = self.getFRRconfig(f'router isis {domain}', endsection='^exit')
+        tmp = self.getFRRconfig(f'router isis {domain}', stop_section='^exit')
         self.assertIn(f'router isis {domain}', tmp)
         self.assertIn(f' net {net}', tmp)
 
-        tmp = self.getFRRconfig(f'router isis {domain} vrf {vrf}', endsection='^exit')
+        tmp = self.getFRRconfig(f'router isis {domain} vrf {vrf}', stop_section='^exit')
         self.assertIn(f'router isis {domain} vrf {vrf}', tmp)
         self.assertIn(f' net {net}', tmp)
         self.assertIn(f' advertise-high-metrics', tmp)
@@ -155,7 +155,7 @@ class TestProtocolsISIS(VyOSUnitTestSHIM.TestCase):
         self.cli_commit()
 
         # Verify all changes
-        tmp = self.getFRRconfig(f'router isis {domain}', endsection='^exit')
+        tmp = self.getFRRconfig(f'router isis {domain}', stop_section='^exit')
         self.assertIn(f' net {net}', tmp)
 
         for afi in ['ipv4', 'ipv6']:
@@ -189,13 +189,13 @@ class TestProtocolsISIS(VyOSUnitTestSHIM.TestCase):
         self.cli_commit()
 
         # Verify all changes
-        tmp = self.getFRRconfig(f'router isis {domain}', endsection='exit')
+        tmp = self.getFRRconfig(f'router isis {domain}', stop_section='exit')
         self.assertIn(f' net {net}', tmp)
         self.assertIn(f' domain-password clear {password}', tmp)
         self.assertIn(f' area-password clear {password}', tmp)
 
         for interface in self._interfaces:
-            tmp = self.getFRRconfig(f'interface {interface}', endsection='^exit')
+            tmp = self.getFRRconfig(f'interface {interface}', stop_section='^exit')
             self.assertIn(f' isis password clear {password}-{interface}', tmp)
 
     def test_isis_06_spf_delay_bfd(self):
@@ -237,12 +237,12 @@ class TestProtocolsISIS(VyOSUnitTestSHIM.TestCase):
         self.cli_commit()
 
         # Verify all changes
-        tmp = self.getFRRconfig(f'router isis {domain}', endsection='^exit')
+        tmp = self.getFRRconfig(f'router isis {domain}', stop_section='^exit')
         self.assertIn(f' net {net}', tmp)
         self.assertIn(f' spf-delay-ietf init-delay {init_delay} short-delay {short_delay} long-delay {long_delay} holddown {holddown} time-to-learn {time_to_learn}', tmp)
 
         for interface in self._interfaces:
-            tmp = self.getFRRconfig(f'interface {interface}', endsection='^exit')
+            tmp = self.getFRRconfig(f'interface {interface}', stop_section='^exit')
             self.assertIn(f' ip router isis {domain}', tmp)
             self.assertIn(f' ipv6 router isis {domain}', tmp)
             self.assertIn(f' isis network {network}', tmp)
@@ -286,7 +286,7 @@ class TestProtocolsISIS(VyOSUnitTestSHIM.TestCase):
         self.cli_commit()
 
         # Verify all changes
-        tmp = self.getFRRconfig(f'router isis {domain}', endsection='^exit')
+        tmp = self.getFRRconfig(f'router isis {domain}', stop_section='^exit')
         self.assertIn(f' net {net}', tmp)
         self.assertIn(f' segment-routing on', tmp)
         self.assertIn(f' segment-routing global-block {global_block_low} {global_block_high} local-block {local_block_low} {local_block_high}', tmp)
@@ -308,7 +308,7 @@ class TestProtocolsISIS(VyOSUnitTestSHIM.TestCase):
         self.cli_commit()
 
         # Verify main ISIS changes
-        tmp = self.getFRRconfig(f'router isis {domain}', endsection='^exit')
+        tmp = self.getFRRconfig(f'router isis {domain}', stop_section='^exit')
         self.assertIn(f' net {net}', tmp)
         self.assertIn(f' mpls ldp-sync', tmp)
         self.assertIn(f' mpls ldp-sync holddown {holddown}', tmp)
@@ -321,7 +321,7 @@ class TestProtocolsISIS(VyOSUnitTestSHIM.TestCase):
 
         for interface in self._interfaces:
             # Verify interface changes for holddown
-            tmp = self.getFRRconfig(f'interface {interface}', endsection='^exit')
+            tmp = self.getFRRconfig(f'interface {interface}', stop_section='^exit')
             self.assertIn(f'interface {interface}', tmp)
             self.assertIn(f' ip router isis {domain}', tmp)
             self.assertIn(f' ipv6 router isis {domain}', tmp)
@@ -335,7 +335,7 @@ class TestProtocolsISIS(VyOSUnitTestSHIM.TestCase):
 
         for interface in self._interfaces:
             # Verify interface changes for disable
-            tmp = self.getFRRconfig(f'interface {interface}', endsection='^exit')
+            tmp = self.getFRRconfig(f'interface {interface}', stop_section='^exit')
             self.assertIn(f'interface {interface}', tmp)
             self.assertIn(f' ip router isis {domain}', tmp)
             self.assertIn(f' ipv6 router isis {domain}', tmp)
@@ -358,7 +358,7 @@ class TestProtocolsISIS(VyOSUnitTestSHIM.TestCase):
         for level in ['level-1', 'level-2']:
             self.cli_set(base_path + ['fast-reroute', 'lfa', 'remote', 'prefix-list', prefix_list, level])
             self.cli_commit()
-            tmp = self.getFRRconfig(f'router isis {domain}', endsection='^exit')
+            tmp = self.getFRRconfig(f'router isis {domain}', stop_section='^exit')
             self.assertIn(f' net {net}', tmp)
             self.assertIn(f' fast-reroute remote-lfa prefix-list {prefix_list} {level}', tmp)
             self.cli_delete(base_path + ['fast-reroute'])
@@ -368,7 +368,7 @@ class TestProtocolsISIS(VyOSUnitTestSHIM.TestCase):
         for level in ['level-1', 'level-2']:
             self.cli_set(base_path + ['fast-reroute', 'lfa', 'local', 'load-sharing', 'disable', level])
             self.cli_commit()
-            tmp = self.getFRRconfig(f'router isis {domain}', endsection='^exit')
+            tmp = self.getFRRconfig(f'router isis {domain}', stop_section='^exit')
             self.assertIn(f' net {net}', tmp)
             self.assertIn(f' fast-reroute load-sharing disable {level}', tmp)
             self.cli_delete(base_path + ['fast-reroute'])
@@ -379,7 +379,7 @@ class TestProtocolsISIS(VyOSUnitTestSHIM.TestCase):
             for level in ['level-1', 'level-2']:
                 self.cli_set(base_path + ['fast-reroute', 'lfa', 'local', 'priority-limit', priority, level])
                 self.cli_commit()
-                tmp = self.getFRRconfig(f'router isis {domain}', endsection='^exit')
+                tmp = self.getFRRconfig(f'router isis {domain}', stop_section='^exit')
                 self.assertIn(f' net {net}', tmp)
                 self.assertIn(f' fast-reroute priority-limit {priority} {level}', tmp)
                 self.cli_delete(base_path + ['fast-reroute'])
@@ -391,7 +391,7 @@ class TestProtocolsISIS(VyOSUnitTestSHIM.TestCase):
             for level in ['level-1', 'level-2']:
                 self.cli_set(base_path + ['fast-reroute', 'lfa', 'local', 'tiebreaker', tiebreaker, 'index', index, level])
                 self.cli_commit()
-                tmp = self.getFRRconfig(f'router isis {domain}', endsection='^exit')
+                tmp = self.getFRRconfig(f'router isis {domain}', stop_section='^exit')
                 self.assertIn(f' net {net}', tmp)
                 self.assertIn(f' fast-reroute lfa tiebreaker {tiebreaker} index {index} {level}', tmp)
                 self.cli_delete(base_path + ['fast-reroute'])
@@ -411,7 +411,7 @@ class TestProtocolsISIS(VyOSUnitTestSHIM.TestCase):
         for topology in topologies:
             self.cli_set(base_path + ['topology', topology])
             self.cli_commit()
-            tmp = self.getFRRconfig(f'router isis {domain}', endsection='^exit')
+            tmp = self.getFRRconfig(f'router isis {domain}', stop_section='^exit')
             self.assertIn(f' net {net}', tmp)
             self.assertIn(f' topology {topology}', tmp)
 
@@ -427,7 +427,7 @@ class TestProtocolsISIS(VyOSUnitTestSHIM.TestCase):
         self.cli_commit()
 
         # Verify main ISIS changes
-        tmp = self.getFRRconfig(f'router isis {domain}', endsection='^exit')
+        tmp = self.getFRRconfig(f'router isis {domain}', stop_section='^exit')
         self.assertIn(f' net {net}', tmp)
         self.assertIn(f' segment-routing srv6', tmp)
         self.assertIn(f'  locator {locator}', tmp)
@@ -453,7 +453,7 @@ class TestProtocolsISIS(VyOSUnitTestSHIM.TestCase):
         self.cli_commit()
 
         # Verify interface ISIS changes
-        tmp = self.getFRRconfig(f'interface {interface}', endsection='^exit')
+        tmp = self.getFRRconfig(f'interface {interface}', stop_section='^exit')
         self.assertIn(f' isis fast-reroute lfa level-1', tmp)
         self.assertIn(f' isis fast-reroute lfa level-1 exclude interface {interface}', tmp)
         self.assertIn(f' isis fast-reroute remote-lfa maximum-metric {rla_metric} level-1', tmp)
@@ -471,7 +471,7 @@ class TestProtocolsISIS(VyOSUnitTestSHIM.TestCase):
         self.cli_commit()
 
         # Verify interface ISIS changes
-        tmp = self.getFRRconfig(f'interface {interface}', endsection='^exit')
+        tmp = self.getFRRconfig(f'interface {interface}', stop_section='^exit')
         self.assertIn(f' isis fast-reroute ti-lfa level-1 node-protection link-fallback', tmp)
 
 if __name__ == '__main__':

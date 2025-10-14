@@ -123,7 +123,7 @@ class TestProtocolsSegmentRouting(VyOSUnitTestSHIM.TestCase):
                 sysctl_read(f'net.ipv6.conf.{interface}.seg6_require_hmac'), '0'
             )  # default
 
-        frrconfig = self.getFRRconfig('segment-routing', endsection='^exit')
+        frrconfig = self.getFRRconfig('segment-routing', stop_section='^exit')
         self.assertIn('segment-routing', frrconfig)
         self.assertIn(' srv6', frrconfig)
         self.assertIn('  locators', frrconfig)

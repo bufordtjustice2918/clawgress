@@ -65,11 +65,11 @@ class TestProtocolsPIM(VyOSUnitTestSHIM.TestCase):
         self.cli_commit()
 
         # Verify FRR pimd configuration
-        frrconfig = self.getFRRconfig('router pim', endsection='^exit')
+        frrconfig = self.getFRRconfig('router pim', stop_section='^exit')
         self.assertIn(f' rp {rp} {group}', frrconfig)
 
         for interface in interfaces:
-            frrconfig = self.getFRRconfig(f'interface {interface}', endsection='^exit')
+            frrconfig = self.getFRRconfig(f'interface {interface}', stop_section='^exit')
             self.assertIn(f'interface {interface}', frrconfig)
             self.assertIn(f' ip pim', frrconfig)
             self.assertIn(f' ip pim bfd', frrconfig)
@@ -116,7 +116,7 @@ class TestProtocolsPIM(VyOSUnitTestSHIM.TestCase):
         self.cli_commit()
 
         # Verify FRR pimd configuration
-        frrconfig = self.getFRRconfig('router pim', endsection='^exit')
+        frrconfig = self.getFRRconfig('router pim', stop_section='^exit')
         self.assertIn(f' no send-v6-secondary', frrconfig)
         self.assertIn(f' rp {rp} {group}', frrconfig)
         self.assertIn(f' register-suppress-time {register_suppress_time}', frrconfig)
@@ -182,7 +182,7 @@ class TestProtocolsPIM(VyOSUnitTestSHIM.TestCase):
         self.assertIn(f'ip igmp watermark-warn {watermark_warning}', frrconfig)
 
         for interface in interfaces:
-            frrconfig = self.getFRRconfig(f'interface {interface}', endsection='^exit')
+            frrconfig = self.getFRRconfig(f'interface {interface}', stop_section='^exit')
             self.assertIn(f'interface {interface}', frrconfig)
             self.assertIn(f' ip igmp', frrconfig)
             self.assertIn(f' ip igmp version {version}', frrconfig)

@@ -24,11 +24,11 @@ from vyos.utils.file import read_file
 from vyos.utils.process import process_named_running
 
 base_path = ['protocols', 'rpki']
-base_frr_config_args = {'string': 'rpki', 'endsection': '^exit'}
+base_frr_config_args = {'start_section': 'rpki', 'stop_section': '^exit'}
 vrf = 'blue'
 vrf_path = ['vrf', 'name', vrf]
-vrf_frr_config_args = {'string': f'vrf {vrf}', 'endsection':'^exit-vrf',
-                'substring': ' rpki', 'endsubsection': '^ exit'}
+vrf_frr_config_args = {'start_section': f'vrf {vrf}', 'stop_section':'^exit-vrf',
+                'start_subsection': ' rpki', 'stop_subsection': '^ exit'}
 rpki_key_name = 'rpki-smoketest'
 rpki_key_type = 'ssh-rsa'
 

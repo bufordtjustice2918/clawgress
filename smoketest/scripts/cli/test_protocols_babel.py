@@ -62,7 +62,7 @@ class TestProtocolsBABEL(VyOSUnitTestSHIM.TestCase):
 
         self.cli_commit()
 
-        frrconfig = self.getFRRconfig('router babel', endsection='^exit')
+        frrconfig = self.getFRRconfig('router babel', stop_section='^exit')
         self.assertIn(f' babel diversity', frrconfig)
         self.assertIn(f' babel diversity-factor {diversity_factor}', frrconfig)
         self.assertIn(f' babel resend-delay {resend_delay}', frrconfig)
@@ -81,7 +81,7 @@ class TestProtocolsBABEL(VyOSUnitTestSHIM.TestCase):
 
         self.cli_commit()
 
-        frrconfig = self.getFRRconfig('router babel', endsection='^exit', empty_retry=5)
+        frrconfig = self.getFRRconfig('router babel', stop_section='^exit')
         for protocol in ipv4_protos:
             self.assertIn(f' redistribute ipv4 {protocol}', frrconfig)
         for protocol in ipv6_protos:
@@ -150,7 +150,7 @@ class TestProtocolsBABEL(VyOSUnitTestSHIM.TestCase):
 
         self.cli_commit()
 
-        frrconfig = self.getFRRconfig('router babel', endsection='^exit')
+        frrconfig = self.getFRRconfig('router babel', stop_section='^exit')
         self.assertIn(f' distribute-list {access_list_in4} in', frrconfig)
         self.assertIn(f' distribute-list {access_list_out4} out', frrconfig)
         self.assertIn(f' ipv6 distribute-list {access_list_in6} in', frrconfig)
@@ -198,11 +198,11 @@ class TestProtocolsBABEL(VyOSUnitTestSHIM.TestCase):
 
         self.cli_commit()
 
-        frrconfig = self.getFRRconfig('router babel', endsection='^exit')
+        frrconfig = self.getFRRconfig('router babel', stop_section='^exit')
         for interface in self._interfaces:
             self.assertIn(f' network {interface}', frrconfig)
 
-            iface_config = self.getFRRconfig(f'interface {interface}', endsection='^exit')
+            iface_config = self.getFRRconfig(f'interface {interface}', stop_section='^exit')
             self.assertIn(f' babel channel {channel}', iface_config)
             self.assertIn(f' babel enable-timestamps', iface_config)
             self.assertIn(f' babel update-interval {def_update_interval}', iface_config)

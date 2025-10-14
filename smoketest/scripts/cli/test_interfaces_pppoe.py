@@ -305,7 +305,7 @@ class PPPoEInterfaceTest(VyOSUnitTestSHIM.TestCase):
                 # Get corresponding PD assigned prefix for this site/connection
                 pd_prefix = IPv6Network(f"{ipv6}/56", strict=False)
                 # Prefix must be within the PD pool
-                self.assertIn(pd_prefix, IPv6Network(ipv6_pool_pd))
+                self.assertTrue(pd_prefix.subnet_of(IPv6Network(ipv6_pool_pd)))
                 # Calculate the assigned IP address from the prefix delegation
                 network_addr = str(pd_prefix.network_address) # 2001:db8:8003::
                 generated_sla_addr = network_addr[:-1] + f'{sla_id}::{address}'

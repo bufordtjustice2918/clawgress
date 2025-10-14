@@ -182,9 +182,9 @@ class TestProtocolsStatic(VyOSUnitTestSHIM.TestCase):
         self.cli_delete(['vrf'])
         self.cli_commit()
 
-        v4route = self.getFRRconfig('ip route', end='')
+        v4route = self.getFRRconfig('ip route')
         self.assertFalse(v4route)
-        v6route = self.getFRRconfig('ipv6 route', end='')
+        v6route = self.getFRRconfig('ipv6 route')
         self.assertFalse(v6route)
 
     def test_01_static(self):
@@ -251,7 +251,7 @@ class TestProtocolsStatic(VyOSUnitTestSHIM.TestCase):
         self.cli_commit()
 
         # Verify FRR bgpd configuration
-        frrconfig = self.getFRRconfig('ip route', end='')
+        frrconfig = self.getFRRconfig('ip route')
 
         # Verify routes
         for route, route_config in routes.items():
@@ -365,7 +365,7 @@ class TestProtocolsStatic(VyOSUnitTestSHIM.TestCase):
         self.cli_commit()
 
         # Verify FRR bgpd configuration
-        frrconfig = self.getFRRconfig('ip route', end='')
+        frrconfig = self.getFRRconfig('ip route')
 
         for table in tables:
             # Verify routes
@@ -482,7 +482,7 @@ class TestProtocolsStatic(VyOSUnitTestSHIM.TestCase):
             self.assertEqual(tmp['linkinfo']['info_kind'],          'vrf')
 
             # Verify FRR bgpd configuration
-            frrconfig = self.getFRRconfig(f'vrf {vrf}', endsection='^exit-vrf')
+            frrconfig = self.getFRRconfig(f'vrf {vrf}', stop_section='^exit-vrf')
             self.assertIn(f'vrf {vrf}', frrconfig)
 
             # Verify routes
@@ -555,7 +555,7 @@ class TestProtocolsStatic(VyOSUnitTestSHIM.TestCase):
         self.cli_commit()
 
         # Verify FRR configuration
-        frrconfig = self.getFRRconfig('ip mroute', end='')
+        frrconfig = self.getFRRconfig('ip mroute')
         for route, route_config in multicast_routes.items():
             if 'next_hop' in route_config:
                 for next_hop, next_hop_config in route_config['next_hop'].items():
@@ -594,7 +594,7 @@ class TestProtocolsStatic(VyOSUnitTestSHIM.TestCase):
         sleep(5)
 
         router = get_dhcp_router(interface)
-        frrconfig = self.getFRRconfig('')
+        frrconfig = self.getFRRconfig()
         self.assertIn(rf'ip route 0.0.0.0/0 {router} {interface} tag 210 {default_distance}', frrconfig)
 
         # T6991: Default route is missing when there is no "protocols static"
@@ -606,7 +606,7 @@ class TestProtocolsStatic(VyOSUnitTestSHIM.TestCase):
         self.cli_commit()
 
         # Re-check FRR configuration that default route is still present
-        frrconfig = self.getFRRconfig('')
+        frrconfig = self.getFRRconfig()
         self.assertIn(rf'ip route 0.0.0.0/0 {router} {interface} tag 210 {default_distance}', frrconfig)
 
         self.cli_delete(interface_path + ['address'])
@@ -637,7 +637,7 @@ class TestProtocolsStatic(VyOSUnitTestSHIM.TestCase):
         sleep(5)
 
         router = get_dhcp_router(interface)
-        frrconfig = self.getFRRconfig(f'vrf {vrf}', endsection='^exit-vrf')
+        frrconfig = self.getFRRconfig(f'vrf {vrf}', stop_section='^exit-vrf')
         self.assertIn(rf'ip route 0.0.0.0/0 {router} {interface} tag 210 {default_distance}', frrconfig)
 
         self.cli_delete(interface_path + ['address'])
