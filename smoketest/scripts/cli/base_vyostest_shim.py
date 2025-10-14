@@ -29,14 +29,6 @@ from vyos.utils.process import run
 
 save_config = '/tmp/vyos-smoketest-save'
 
-# The commit process is not finished until all pending files from
-# VYATTA_CHANGES_ONLY_DIR are copied to VYATTA_ACTIVE_CONFIGURATION_DIR. This
-# is done inside libvyatta-cfg1 and the FUSE UnionFS part. On large non-
-# interactive commits FUSE UnionFS might not replicate the real state in time,
-# leading to errors when querying the working and effective configuration.
-# TO BE DELETED AFTER SWITCH TO IN MEMORY CONFIG
-CSTORE_GUARD_TIME = 4
-
 # This class acts as shim between individual Smoketests developed for VyOS and
 # the Python UnitTest framework. Before every test is loaded, we dump the current
 # system configuration and reload it after the test - despite the test results.
@@ -51,9 +43,6 @@ class VyOSUnitTestSHIM:
         # trigger the certain failure condition.
         # Use "self.debug = True" in derived classes setUp() method
         debug = False
-        # Time to wait after a commit to ensure the CStore is up to date
-        # only required for testcases using FRR
-        _commit_guard_time = 0
 
         @staticmethod
         def debug_on():
@@ -105,9 +94,6 @@ class VyOSUnitTestSHIM:
             # Return the output of commit
             # Necessary for testing Warning cases
             out = self._session.commit()
-            # Wait for CStore completion for fast non-interactive commits
-            sleep(self._commit_guard_time)
-
             return out
 
         def cli_save(self, file):

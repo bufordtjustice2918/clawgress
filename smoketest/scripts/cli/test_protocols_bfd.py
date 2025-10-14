@@ -17,7 +17,6 @@
 import unittest
 
 from base_vyostest_shim import VyOSUnitTestSHIM
-from base_vyostest_shim import CSTORE_GUARD_TIME
 
 from vyos.configsession import ConfigSessionError
 from vyos.frrender import bfd_daemon
@@ -87,9 +86,6 @@ class TestProtocolsBFD(VyOSUnitTestSHIM.TestCase):
 
         # Retrieve FRR daemon PID - it is not allowed to crash, thus PID must remain the same
         cls.daemon_pid = process_named_running(bfd_daemon)
-
-        # Enable CSTORE guard time required by FRR related tests
-        cls._commit_guard_time = CSTORE_GUARD_TIME
 
         # ensure we can also run this test on a live system - so lets clean
         # out the current configuration :)
