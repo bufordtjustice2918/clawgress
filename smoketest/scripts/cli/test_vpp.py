@@ -1256,7 +1256,7 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         config = read_file(VPP_CONF)
         self.assertIn('interface ipip', config)
 
-    def test_15_vpp_cgnat(self):
+    def test_15_1_vpp_cgnat(self):
         base_cgnat = base_path + ['nat', 'cgnat']
         iface_out = 'eth0'
         iface_inside = 'eth1'
@@ -1294,6 +1294,50 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         self.assertIn(f'tcp established timeout: {timeout_tcp_est}sec', out)
         self.assertIn(f'tcp transitory timeout: {timeout_tcp_trans}sec', out)
         self.assertIn(f'icmp timeout: {timeout_icmp}sec', out)
+
+    def test_15_2_vpp_cgnat_bond_with_vifs(self):
+        base_cgnat = base_path + ['nat', 'cgnat']
+        base_kernel = base_path + ['kernel-interfaces']
+        base_bond = base_path + ['interfaces', 'bonding']
+        iface_kernel = 'vpptun0'
+        iface_bond = 'bond0'
+        vif_1 = '23'
+        vif_2 = '24'
+        iface_out = f'{iface_bond}.{vif_1}'
+        iface_inside = f'{iface_bond}.{vif_2}'
+        address_1 = '100.64.0.23/32'
+        address_2 = '192.0.2.1/32'
+
+        self.cli_set(base_bond + [iface_bond, 'kernel-interface', iface_kernel])
+        self.cli_set(base_bond + [iface_bond, 'member', 'interface', interface])
+
+        self.cli_set(base_kernel + [iface_kernel, 'vif', vif_1, 'address', address_1])
+        self.cli_set(base_kernel + [iface_kernel, 'vif', vif_2, 'address', address_2])
+
+        self.cli_set(base_cgnat + ['interface', 'inside', iface_inside])
+        self.cli_set(base_cgnat + ['interface', 'outside', iface_out])
+        self.cli_set(base_cgnat + ['rule', '100', 'inside-prefix', address_1])
+        self.cli_set(base_cgnat + ['rule', '100', 'outside-prefix', address_2])
+        self.cli_commit()
+
+        # Check interfaces
+        _, out = rc_cmd('sudo vppctl show det44 interfaces')
+        self.assertIn(f'BondEthernet0.{vif_2} in', out)
+        self.assertIn(f'BondEthernet0.{vif_1} out', out)
+
+        # Change bonding interface configuration
+        self.cli_set(base_bond + [iface_bond, 'mode', '802.3ad'])
+        self.cli_commit()
+
+        # Check interfaces
+        _, out = rc_cmd('sudo vppctl show det44 interfaces')
+        self.assertIn(f'BondEthernet0.{vif_2} in', out)
+        self.assertIn(f'BondEthernet0.{vif_1} out', out)
+
+        # Verify only expected interfaces are shown:
+        # header + inside + outside = 3 lines total
+        lines = out.split('\n')
+        self.assertTrue(len(lines) == 3)
 
     def test_16_vpp_nat(self):
         base_nat = base_path + ['nat44']
