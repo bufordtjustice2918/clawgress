@@ -378,7 +378,7 @@ class VPPControl:
         if mode != 'auto':
             mode_resolve: dict[str, int] = {'auto': 0, 'copy': 1, 'zero-copy': 2}
             api_call_args['mode'] = mode_resolve[mode]
-        if flags == 'no_systcall_lock':
+        if flags == 'no_syscall_lock':
             api_call_args['flags'] = 1
         return self.__vpp_api_client.api.af_xdp_create_v3(**api_call_args)
 

@@ -107,7 +107,6 @@ drivers_support_interrupt: dict[str, list] = {
     'igb': ['xdp'],
     'igc': ['dpdk', 'xdp'],
     'ixgbe': ['dpdk', 'xdp'],
-    'ixgbevf': ['dpdk'],
     'qede': ['dpdk', 'xdp'],
     'vmxnet3': ['xdp'],
     'virtio_net': ['xdp'],
@@ -338,7 +337,10 @@ def get_config(config=None):
                         )
                     if 'zero-copy' in iface_config['xdp_options']:
                         xdp_api_params['mode'] = 'zero-copy'
-                    if 'zero-copy' in iface_config['xdp_options']:
+                    if iface_config.get('rx_mode') in ('interrupt', 'adaptive') and any(
+                        key in config['settings'].get('cpu', {})
+                        for key in ('workers', 'corelist_workers')
+                    ):
                         xdp_api_params['flags'] = 'no_syscall_lock'
                     iface_config['xdp_api_params'] = xdp_api_params
 
