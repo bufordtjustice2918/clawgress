@@ -22,7 +22,6 @@ from json import loads
 from jmespath import search
 
 from base_vyostest_shim import VyOSUnitTestSHIM
-from base_vyostest_shim import CSTORE_GUARD_TIME
 
 from vyos.configsession import ConfigSessionError
 from vyos.ifconfig import Interface
@@ -55,9 +54,6 @@ class VRFTest(VyOSUnitTestSHIM.TestCase):
         else:
             for tmp in Section.interfaces('ethernet', vlan=False):
                 cls._interfaces.append(tmp)
-
-        # Enable CSTORE guard time required by FRR related tests
-        cls._commit_guard_time = CSTORE_GUARD_TIME
 
         # call base-classes classmethod
         super(VRFTest, cls).setUpClass()
@@ -156,7 +152,7 @@ class VRFTest(VyOSUnitTestSHIM.TestCase):
             regex = f'{table}\s+{vrf}\s+#\s+{description}'
             self.assertTrue(re.findall(regex, iproute2_config))
 
-            frrconfig = self.getFRRconfig(f'vrf {vrf}', endsection='^exit-vrf')
+            frrconfig = self.getFRRconfig(f'vrf {vrf}', stop_section='^exit-vrf')
             self.assertIn(f' vni {table}', frrconfig)
 
             self.assertEqual(int(table), get_vrf_tableid(vrf))
@@ -277,7 +273,7 @@ class VRFTest(VyOSUnitTestSHIM.TestCase):
 
             self.assertTrue(interface_exists(vrf))
 
-            frrconfig = self.getFRRconfig(f'vrf {vrf}', endsection='^exit-vrf')
+            frrconfig = self.getFRRconfig(f'vrf {vrf}', stop_section='^exit-vrf')
             self.assertIn(f' vni {table}', frrconfig)
             self.assertIn(f' ip route {prefix} {next_hop}', frrconfig)
 
@@ -361,7 +357,7 @@ class VRFTest(VyOSUnitTestSHIM.TestCase):
 
         # Verify route-map properly applied to FRR
         for vrf in vrfs:
-            frrconfig = self.getFRRconfig(f'vrf {vrf}', endsection='^exit-vrf')
+            frrconfig = self.getFRRconfig(f'vrf {vrf}', stop_section='^exit-vrf')
             self.assertIn(f'vrf {vrf}', frrconfig)
             for protocol in v4_protocols:
                 self.assertIn(f' ip protocol {protocol} route-map route-map-{vrf}-{protocol}', frrconfig)
@@ -376,7 +372,7 @@ class VRFTest(VyOSUnitTestSHIM.TestCase):
 
         # Verify route-map properly is removed from FRR
         for vrf in vrfs:
-            frrconfig = self.getFRRconfig(f'vrf {vrf}', endsection='^exit-vrf')
+            frrconfig = self.getFRRconfig(f'vrf {vrf}', stop_section='^exit-vrf')
             self.assertNotIn(f' ip protocol', frrconfig)
 
     def test_vrf_ip_ipv6_protocol_non_existing_route_map(self):
@@ -424,7 +420,7 @@ class VRFTest(VyOSUnitTestSHIM.TestCase):
 
         # Verify route-map properly applied to FRR
         for vrf in vrfs:
-            frrconfig = self.getFRRconfig(f'vrf {vrf}', endsection='^exit-vrf')
+            frrconfig = self.getFRRconfig(f'vrf {vrf}', stop_section='^exit-vrf')
             self.assertIn(f'vrf {vrf}', frrconfig)
             for protocol in v6_protocols:
                 # VyOS and FRR use a different name for OSPFv3 (IPv6)
@@ -443,7 +439,7 @@ class VRFTest(VyOSUnitTestSHIM.TestCase):
 
         # Verify route-map properly is removed from FRR
         for vrf in vrfs:
-            frrconfig = self.getFRRconfig(f'vrf {vrf}', endsection='^exit-vrf')
+            frrconfig = self.getFRRconfig(f'vrf {vrf}', stop_section='^exit-vrf')
             self.assertNotIn(f' ipv6 protocol', frrconfig)
 
     def test_vrf_vni_duplicates(self):
@@ -473,7 +469,7 @@ class VRFTest(VyOSUnitTestSHIM.TestCase):
         for vrf in vrfs:
             self.assertTrue(interface_exists(vrf))
 
-            frrconfig = self.getFRRconfig(f'vrf {vrf}', endsection='^exit-vrf')
+            frrconfig = self.getFRRconfig(f'vrf {vrf}', stop_section='^exit-vrf')
             self.assertIn(f' vni {table}', frrconfig)
             # Increment table ID for the next run
             table = str(int(table) + 1)
@@ -495,7 +491,7 @@ class VRFTest(VyOSUnitTestSHIM.TestCase):
         for vrf in vrfs:
             self.assertTrue(interface_exists(vrf))
 
-            frrconfig = self.getFRRconfig(f'vrf {vrf}', endsection='^exit-vrf')
+            frrconfig = self.getFRRconfig(f'vrf {vrf}', stop_section='^exit-vrf')
             self.assertIn(f' vni {table}', frrconfig)
             # Increment table ID for the next run
             table = str(int(table) + 1)
@@ -518,7 +514,7 @@ class VRFTest(VyOSUnitTestSHIM.TestCase):
         for vrf in vrfs:
             self.assertTrue(interface_exists(vrf))
 
-            frrconfig = self.getFRRconfig(f'vrf {vrf}', endsection='^exit-vrf')
+            frrconfig = self.getFRRconfig(f'vrf {vrf}', stop_section='^exit-vrf')
             self.assertIn(f' vni {table}', frrconfig)
             # Increment table ID for the next run
             table = str(int(table) + 2)
@@ -538,7 +534,7 @@ class VRFTest(VyOSUnitTestSHIM.TestCase):
         for vrf in vrfs:
             self.assertTrue(interface_exists(vrf))
 
-            frrconfig = self.getFRRconfig(f'vrf {vrf}', endsection='^exit-vrf')
+            frrconfig = self.getFRRconfig(f'vrf {vrf}', stop_section='^exit-vrf')
             self.assertIn(f' vni {table}', frrconfig)
             # Increment table ID for the next run
             table = str(int(table) + 2)
@@ -546,7 +542,7 @@ class VRFTest(VyOSUnitTestSHIM.TestCase):
         # Verify purple VRF/VNI
         self.assertTrue(interface_exists(purple))
         table = str(int(table) + 10)
-        frrconfig = self.getFRRconfig(f'vrf {purple}', endsection='^exit-vrf')
+        frrconfig = self.getFRRconfig(f'vrf {purple}', stop_section='^exit-vrf')
         self.assertIn(f' vni {table}', frrconfig)
 
         # Now delete all the VNIs
@@ -561,12 +557,12 @@ class VRFTest(VyOSUnitTestSHIM.TestCase):
         for vrf in vrfs:
             self.assertTrue(interface_exists(vrf))
 
-            frrconfig = self.getFRRconfig(f'vrf {vrf}', endsection='^exit-vrf')
+            frrconfig = self.getFRRconfig(f'vrf {vrf}', stop_section='^exit-vrf')
             self.assertNotIn('vni', frrconfig)
 
         # Verify purple VNI remains
         self.assertTrue(interface_exists(purple))
-        frrconfig = self.getFRRconfig(f'vrf {purple}', endsection='^exit-vrf')
+        frrconfig = self.getFRRconfig(f'vrf {purple}', stop_section='^exit-vrf')
         self.assertIn(f' vni {table}', frrconfig)
 
     def test_vrf_ip_ipv6_nht(self):
@@ -584,7 +580,7 @@ class VRFTest(VyOSUnitTestSHIM.TestCase):
 
         # Verify route-map properly applied to FRR
         for vrf in vrfs:
-            frrconfig = self.getFRRconfig(f'vrf {vrf}', endsection='^exit-vrf')
+            frrconfig = self.getFRRconfig(f'vrf {vrf}', stop_section='^exit-vrf')
             self.assertIn(f'vrf {vrf}', frrconfig)
             self.assertIn(f' no ip nht resolve-via-default', frrconfig)
             self.assertIn(f' no ipv6 nht resolve-via-default', frrconfig)
@@ -599,7 +595,7 @@ class VRFTest(VyOSUnitTestSHIM.TestCase):
 
         # Verify route-map properly is removed from FRR
         for vrf in vrfs:
-            frrconfig = self.getFRRconfig(f'vrf {vrf}', endsection='^exit-vrf')
+            frrconfig = self.getFRRconfig(f'vrf {vrf}', stop_section='^exit-vrf')
             self.assertNotIn(f' no ip nht resolve-via-default', frrconfig)
             self.assertNotIn(f' no ipv6 nht resolve-via-default', frrconfig)
 

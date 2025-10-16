@@ -229,7 +229,7 @@ class EthernetInterfaceTest(BasicInterfaceTest.TestCase):
         self.cli_commit()
 
         for interface in self._interfaces:
-            frrconfig = self.getFRRconfig(f'interface {interface}', endsection='^exit')
+            frrconfig = self.getFRRconfig(f'interface {interface}', stop_section='^exit')
             self.assertIn(' evpn mh uplink', frrconfig)
 
     def test_switchdev(self):

@@ -17,7 +17,6 @@
 import unittest
 
 from base_vyostest_shim import VyOSUnitTestSHIM
-from base_vyostest_shim import CSTORE_GUARD_TIME
 
 interface = 'eth0'
 mark = '100'
@@ -33,8 +32,6 @@ class TestPolicyLocalRoute(VyOSUnitTestSHIM.TestCase):
         # Clear out current configuration to allow running this test on a live system
         cls.cli_delete(cls, ['policy', 'local-route'])
         cls.cli_delete(cls, ['policy', 'local-route6'])
-        # Enable CSTORE guard time required by FRR related tests
-        cls._commit_guard_time = CSTORE_GUARD_TIME
 
         cls.cli_set(cls, ['vrf', 'name', vrf_name, 'table', vrf_rt_id])
 

@@ -17,7 +17,6 @@
 import unittest
 
 from base_vyostest_shim import VyOSUnitTestSHIM
-from base_vyostest_shim import CSTORE_GUARD_TIME
 
 from vyos.ifconfig import Section
 from vyos.frrender import rip_daemon
@@ -40,8 +39,6 @@ class TestProtocolsRIP(VyOSUnitTestSHIM.TestCase):
         # ensure we can also run this test on a live system - so lets clean
         # out the current configuration :)
         cls.cli_delete(cls, base_path)
-        # Enable CSTORE guard time required by FRR related tests
-        cls._commit_guard_time = CSTORE_GUARD_TIME
 
         cls.cli_set(cls, ['policy', 'access-list', acl_in, 'rule', '10', 'action', 'permit'])
         cls.cli_set(cls, ['policy', 'access-list', acl_in, 'rule', '10', 'source', 'any'])
@@ -69,7 +66,7 @@ class TestProtocolsRIP(VyOSUnitTestSHIM.TestCase):
         self.cli_delete(base_path)
         self.cli_commit()
 
-        frrconfig = self.getFRRconfig('router rip', endsection='^exit')
+        frrconfig = self.getFRRconfig('router rip', stop_section='^exit')
         self.assertNotIn(f'router rip', frrconfig)
 
         # check process health and continuity
@@ -119,7 +116,7 @@ class TestProtocolsRIP(VyOSUnitTestSHIM.TestCase):
         self.cli_commit()
 
         # Verify FRR ripd configuration
-        frrconfig = self.getFRRconfig('router rip', endsection='^exit')
+        frrconfig = self.getFRRconfig('router rip', stop_section='^exit')
         self.assertIn(f'router rip', frrconfig)
         self.assertIn(f' distance {distance}', frrconfig)
         self.assertIn(f' default-information originate', frrconfig)
@@ -178,10 +175,10 @@ class TestProtocolsRIP(VyOSUnitTestSHIM.TestCase):
         self.cli_commit()
 
         # Verify FRR configuration
-        frrconfig = self.getFRRconfig('router rip', endsection='^exit')
+        frrconfig = self.getFRRconfig('router rip', stop_section='^exit')
         self.assertIn(f'version {tx_version}', frrconfig)
 
-        frrconfig = self.getFRRconfig(f'interface {interface}', endsection='^exit')
+        frrconfig = self.getFRRconfig(f'interface {interface}', stop_section='^exit')
         self.assertIn(f' ip rip receive version {rx_version}', frrconfig)
         self.assertIn(f' ip rip send version {tx_version}', frrconfig)
 

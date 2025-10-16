@@ -17,9 +17,8 @@
 import unittest
 
 from base_vyostest_shim import VyOSUnitTestSHIM
-from base_vyostest_shim import CSTORE_GUARD_TIME
-
 from vyos.configsession import ConfigSessionError
+
 from vyos.ifconfig import Section
 from vyos.frrender import pim6_daemon
 from vyos.utils.process import process_named_running
@@ -36,8 +35,6 @@ class TestProtocolsPIMv6(VyOSUnitTestSHIM.TestCase):
         # ensure we can also run this test on a live system - so lets clean
         # out the current configuration :)
         cls.cli_delete(cls, base_path)
-        # Enable CSTORE guard time required by FRR related tests
-        cls._commit_guard_time = CSTORE_GUARD_TIME
 
     def tearDown(self):
         self.cli_delete(base_path)
@@ -56,7 +53,7 @@ class TestProtocolsPIMv6(VyOSUnitTestSHIM.TestCase):
 
         # Verify FRR pim6d configuration
         for interface in interfaces:
-            config = self.getFRRconfig(f'interface {interface}', endsection='^exit')
+            config = self.getFRRconfig(f'interface {interface}', stop_section='^exit')
             self.assertIn(f'interface {interface}', config)
             self.assertIn(f' ipv6 mld', config)
             self.assertNotIn(f' ipv6 mld version 1', config)
@@ -69,7 +66,7 @@ class TestProtocolsPIMv6(VyOSUnitTestSHIM.TestCase):
 
         # Verify FRR pim6d configuration
         for interface in interfaces:
-            config = self.getFRRconfig(f'interface {interface}', endsection='^exit')
+            config = self.getFRRconfig(f'interface {interface}', stop_section='^exit')
             self.assertIn(f'interface {interface}', config)
             self.assertIn(f' ipv6 mld', config)
             self.assertIn(f' ipv6 mld version 1', config)
@@ -92,7 +89,7 @@ class TestProtocolsPIMv6(VyOSUnitTestSHIM.TestCase):
 
         # Verify FRR pim6d configuration
         for interface in interfaces:
-            config = self.getFRRconfig(f'interface {interface}', endsection='^exit')
+            config = self.getFRRconfig(f'interface {interface}', stop_section='^exit')
             self.assertIn(f'interface {interface}', config)
             self.assertIn(f' ipv6 mld join-group ff18::1234', config)
 
@@ -104,7 +101,7 @@ class TestProtocolsPIMv6(VyOSUnitTestSHIM.TestCase):
 
         # Verify FRR pim6d configuration
         for interface in interfaces:
-            config = self.getFRRconfig(f'interface {interface}', endsection='^exit')
+            config = self.getFRRconfig(f'interface {interface}', stop_section='^exit')
             self.assertIn(f'interface {interface}', config)
             self.assertIn(f' ipv6 mld join-group ff38::5678 2001:db8::5678', config)
 
@@ -132,14 +129,14 @@ class TestProtocolsPIMv6(VyOSUnitTestSHIM.TestCase):
         self.cli_commit()
 
         # Verify FRR pim6d configuration
-        config = self.getFRRconfig('router pim6', endsection='^exit')
+        config = self.getFRRconfig('router pim6', stop_section='^exit')
         self.assertIn(f' join-prune-interval {join_prune_interval}', config)
         self.assertIn(f' keep-alive-timer {keep_alive_timer}', config)
         self.assertIn(f' packets {packets}', config)
         self.assertIn(f' register-suppress-time {register_suppress_time}', config)
 
         for interface in interfaces:
-            config = self.getFRRconfig(f'interface {interface}', endsection='^exit')
+            config = self.getFRRconfig(f'interface {interface}', stop_section='^exit')
             self.assertIn(f' ipv6 pim drpriority {dr_priority}', config)
             self.assertIn(f' ipv6 pim hello {hello}', config)
             self.assertIn(f' no ipv6 pim bsm', config)

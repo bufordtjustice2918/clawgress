@@ -103,7 +103,7 @@ class TestProtocolsNHRP(VyOSUnitTestSHIM.TestCase):
 
         self.cli_commit()
 
-        frrconfig = self.getFRRconfig(f'interface {tunnel_if}', endsection='^exit')
+        frrconfig = self.getFRRconfig(f'interface {tunnel_if}', stop_section='^exit')
         self.assertIn(f'interface {tunnel_if}', frrconfig)
         self.assertIn(f' ip nhrp authentication {nhrp_secret}', frrconfig)
         self.assertIn(f' ip nhrp holdtime {nhrp_holdtime}', frrconfig)

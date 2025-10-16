@@ -17,7 +17,6 @@
 import unittest
 
 from base_vyostest_shim import VyOSUnitTestSHIM
-from base_vyostest_shim import CSTORE_GUARD_TIME
 
 from vyos.configsession import ConfigSessionError
 from vyos.utils.process import cmd
@@ -33,8 +32,6 @@ class TestPolicy(VyOSUnitTestSHIM.TestCase):
         # out the current configuration :)
         cls.cli_delete(cls, base_path)
         cls.cli_delete(cls, ['vrf'])
-        # Enable CSTORE guard time required by FRR related tests
-        cls._commit_guard_time = CSTORE_GUARD_TIME
 
     def tearDown(self):
         self.cli_delete(base_path)
@@ -124,7 +121,7 @@ class TestPolicy(VyOSUnitTestSHIM.TestCase):
 
         self.cli_commit()
 
-        config = self.getFRRconfig('access-list', end='')
+        config = self.getFRRconfig('access-list')
         for acl, acl_config in acls.items():
             for rule, rule_config in acl_config['rule'].items():
                 tmp = f'access-list {acl} seq {rule}'
@@ -215,7 +212,7 @@ class TestPolicy(VyOSUnitTestSHIM.TestCase):
 
         self.cli_commit()
 
-        config = self.getFRRconfig('ipv6 access-list', end='')
+        config = self.getFRRconfig('ipv6 access-list')
         for acl, acl_config in acls.items():
             for rule, rule_config in acl_config['rule'].items():
                 tmp = f'ipv6 access-list {acl} seq {rule}'
@@ -313,7 +310,7 @@ class TestPolicy(VyOSUnitTestSHIM.TestCase):
 
         self.cli_commit()
 
-        config = self.getFRRconfig('bgp as-path access-list', end='')
+        config = self.getFRRconfig('bgp as-path access-list')
         for as_path, as_path_config in test_data.items():
             if 'rule' not in as_path_config:
                 continue
@@ -371,7 +368,7 @@ class TestPolicy(VyOSUnitTestSHIM.TestCase):
 
         self.cli_commit()
 
-        config = self.getFRRconfig('bgp community-list', end='')
+        config = self.getFRRconfig('bgp community-list')
         for comm_list, comm_list_config in test_data.items():
             if 'rule' not in comm_list_config:
                 continue
@@ -429,7 +426,7 @@ class TestPolicy(VyOSUnitTestSHIM.TestCase):
 
         self.cli_commit()
 
-        config = self.getFRRconfig('bgp extcommunity-list', end='')
+        config = self.getFRRconfig('bgp extcommunity-list')
         for comm_list, comm_list_config in test_data.items():
             if 'rule' not in comm_list_config:
                 continue
@@ -494,7 +491,7 @@ class TestPolicy(VyOSUnitTestSHIM.TestCase):
 
         self.cli_commit()
 
-        config = self.getFRRconfig('bgp large-community-list', end='')
+        config = self.getFRRconfig('bgp large-community-list')
         for comm_list, comm_list_config in test_data.items():
             if 'rule' not in comm_list_config:
                 continue
@@ -572,7 +569,7 @@ class TestPolicy(VyOSUnitTestSHIM.TestCase):
 
         self.cli_commit()
 
-        config = self.getFRRconfig('ip prefix-list', end='')
+        config = self.getFRRconfig('ip prefix-list')
         for prefix_list, prefix_list_config in test_data.items():
             if 'rule' not in prefix_list_config:
                 continue
@@ -655,7 +652,7 @@ class TestPolicy(VyOSUnitTestSHIM.TestCase):
 
         self.cli_commit()
 
-        config = self.getFRRconfig('ipv6 prefix-list', end='')
+        config = self.getFRRconfig('ipv6 prefix-list')
         for prefix_list, prefix_list_config in test_data.items():
             if 'rule' not in prefix_list_config:
                 continue
@@ -706,7 +703,7 @@ class TestPolicy(VyOSUnitTestSHIM.TestCase):
 
         self.cli_commit()
 
-        config = self.getFRRconfig('ip prefix-list', end='')
+        config = self.getFRRconfig('ip prefix-list')
         for rule in test_range:
             tmp = f'ip prefix-list {prefix_list} seq {rule} permit {prefix} le {rule}'
             self.assertIn(tmp, config)
@@ -2005,7 +2002,7 @@ class TestPolicy(VyOSUnitTestSHIM.TestCase):
         local_preference = base_local_preference
         table = base_table
         for route_map in route_maps:
-            config = self.getFRRconfig(f'route-map {route_map} permit {seq}', end='', endsection='^exit')
+            config = self.getFRRconfig(f'route-map {route_map} permit {seq}', stop_section='^exit')
             self.assertIn(f' set local-preference {local_preference}', config)
             self.assertIn(f' set table {table}', config)
             local_preference += 20
@@ -2018,7 +2015,7 @@ class TestPolicy(VyOSUnitTestSHIM.TestCase):
 
         local_preference = base_local_preference
         for route_map in route_maps:
-            config = self.getFRRconfig(f'route-map {route_map} permit {seq}', end='', endsection='^exit')
+            config = self.getFRRconfig(f'route-map {route_map} permit {seq}', stop_section='^exit')
             self.assertIn(f' set local-preference {local_preference}', config)
             local_preference += 20
 
@@ -2032,7 +2029,7 @@ class TestPolicy(VyOSUnitTestSHIM.TestCase):
         self.cli_commit()
 
         for route_map in route_maps:
-            config = self.getFRRconfig(f'route-map {route_map} permit {seq}', end='', endsection='^exit')
+            config = self.getFRRconfig(f'route-map {route_map} permit {seq}', stop_section='^exit')
             self.assertIn(f' set as-path prepend {prepend}', config)
 
         for route_map in route_maps:
@@ -2041,7 +2038,7 @@ class TestPolicy(VyOSUnitTestSHIM.TestCase):
             self.cli_commit()
 
         for route_map in route_maps:
-            config = self.getFRRconfig(f'route-map {route_map} permit {seq}', end='', endsection='^exit')
+            config = self.getFRRconfig(f'route-map {route_map} permit {seq}', stop_section='^exit')
             self.assertNotIn(f' set', config)
 
 def sort_ip(output):

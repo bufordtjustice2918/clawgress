@@ -42,14 +42,16 @@ class TestSystemIP(VyOSUnitTestSHIM.TestCase):
 
         self.cli_set(base_path + ['disable-forwarding'])
         self.cli_commit()
+
         self.assertEqual(sysctl_read('net.ipv4.conf.all.forwarding'), '0')
-        frrconfig = self.getFRRconfig('', end='')
+        frrconfig = self.getFRRconfig()
         self.assertIn('no ip forwarding', frrconfig)
 
         self.cli_delete(base_path + ['disable-forwarding'])
         self.cli_commit()
+
         self.assertEqual(sysctl_read('net.ipv4.conf.all.forwarding'), '1')
-        frrconfig = self.getFRRconfig('', end='')
+        frrconfig = self.getFRRconfig()
         self.assertNotIn('no ip forwarding', frrconfig)
 
     def test_system_ip_multipath(self):
@@ -89,7 +91,7 @@ class TestSystemIP(VyOSUnitTestSHIM.TestCase):
         self.cli_commit()
 
         # Verify route-map properly applied to FRR
-        frrconfig = self.getFRRconfig('ip protocol', end='')
+        frrconfig = self.getFRRconfig('ip protocol', stop_section='^end')
         for protocol in protocols:
             self.assertIn(f'ip protocol {protocol} route-map route-map-{protocol}', frrconfig)
 
@@ -100,7 +102,7 @@ class TestSystemIP(VyOSUnitTestSHIM.TestCase):
         self.cli_commit()
 
         # Verify route-map properly applied to FRR
-        frrconfig = self.getFRRconfig('ip protocol', end='')
+        frrconfig = self.getFRRconfig('ip protocol', stop_section='^end')
         self.assertNotIn(f'ip protocol', frrconfig)
 
     def test_system_ip_protocol_non_existing_route_map(self):
@@ -119,13 +121,13 @@ class TestSystemIP(VyOSUnitTestSHIM.TestCase):
         self.cli_set(base_path + ['nht', 'no-resolve-via-default'])
         self.cli_commit()
         # Verify CLI config applied to FRR
-        frrconfig = self.getFRRconfig('', end='')
+        frrconfig = self.getFRRconfig()
         self.assertIn(f'no ip nht resolve-via-default', frrconfig)
 
         self.cli_delete(base_path + ['nht', 'no-resolve-via-default'])
         self.cli_commit()
         # Verify CLI config removed to FRR
-        frrconfig = self.getFRRconfig('', end='')
+        frrconfig = self.getFRRconfig()
         self.assertNotIn(f'no ip nht resolve-via-default', frrconfig)
 
     def test_system_ip_import_table(self):
@@ -138,7 +140,7 @@ class TestSystemIP(VyOSUnitTestSHIM.TestCase):
 
         self.cli_commit()
         # Verify CLI config applied to FRR
-        frrconfig = self.getFRRconfig('', end='')
+        frrconfig = self.getFRRconfig()
         self.assertIn(f'ip import-table {table_num} distance {distance} route-map {route_map_in}', frrconfig)
 
         self.cli_delete(['policy', 'route-map', route_map_in])
@@ -146,7 +148,7 @@ class TestSystemIP(VyOSUnitTestSHIM.TestCase):
         self.cli_delete(base_path + ['import-table'])
         self.cli_commit()
         # Verify CLI config removed to FRR
-        frrconfig = self.getFRRconfig('', end='')
+        frrconfig = self.getFRRconfig()
         self.assertNotIn(f'ip import-table {table_num} distance {distance}', frrconfig)
 
 if __name__ == '__main__':

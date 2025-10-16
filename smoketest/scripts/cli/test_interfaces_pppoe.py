@@ -38,6 +38,21 @@ ipv4_pool: str = '100.64.0.0/18'
 ipv6_pool: str = '2001:db8:8000::/48'
 ipv6_pool_pd: str = '2001:db8:9000::/48'
 
+def calculate_ipv6_interface_address(prefix: IPv6Network, sla_id: int, interface_id: int):
+    # Ensure SLA-ID is 8 bits
+    if not (0 <= sla_id <= 0xFF):
+        raise ValueError('SLA-ID must be an 8-bit integer (0-255)')
+
+    # Ensure Interface ID is 64 bits
+    if not (0 <= interface_id <= 0xFFFFFFFFFFFFFFFF):
+        raise ValueError('Interface ID must be a 64-bit integer')
+
+    # Build the /64 subnet from the PD prefix len + SLA-ID
+    subnet_int = int(prefix.network_address) | (sla_id << 64)
+
+    # Calculate full interface address
+    return IPv6Address(subnet_int | interface_id)
+
 def get_config_value(interface, key):
     with open(config_file.format(interface), 'r') as f:
         for line in f:
@@ -231,10 +246,8 @@ class PPPoEInterfaceTest(VyOSUnitTestSHIM.TestCase):
 
     def test_pppoe_dhcpv6pd(self):
         # Check if PPPoE dialer can be configured with DHCPv6-PD
-        address = '1'
-        sla_id = '0'
-
-        # verify IPv6 DHCPv6-PD assignment on one dialer interface only - to not mix things up
+        address = 1
+        sla_id = 0xff
 
         for interface in self._interfaces:
             (user, passwd) = self.u_p_dict[interface]
@@ -254,17 +267,12 @@ class PPPoEInterfaceTest(VyOSUnitTestSHIM.TestCase):
             # prefix delegation stuff
             dhcpv6_pd_base = base_path + [interface, 'dhcpv6-options', 'pd', '0']
             self.cli_set(dhcpv6_pd_base + ['length', '56'])
-            self.cli_set(dhcpv6_pd_base + ['interface', delegate_if, 'address', address])
-            self.cli_set(dhcpv6_pd_base + ['interface', delegate_if, 'sla-id',  sla_id])
-
-            address = str(int(address) + 1)
-            sla_id = str(int(sla_id) + 2)
+            self.cli_set(dhcpv6_pd_base + ['interface', delegate_if, 'address'], value=str(address))
+            self.cli_set(dhcpv6_pd_base + ['interface', delegate_if, 'sla-id'], value=str(sla_id))
 
         # commit changes
         self.cli_commit()
 
-        address = '1'
-        sla_id = '0'
         for interface in self._interfaces:
             self.assertTrue(wait_for_interface(interface),
                             msg=f'Interface {interface} not found after {connect_timeout} seconds!')
@@ -293,6 +301,7 @@ class PPPoEInterfaceTest(VyOSUnitTestSHIM.TestCase):
             for addr_info in tmp['addr_info']:
                 if 'family' not in addr_info or addr_info['family'] != 'inet6':
                     continue
+
                 # Skip link-local interface address
                 ipv6 = IPv6Address(addr_info['local'])
                 if ipv6.is_link_local:
@@ -305,14 +314,10 @@ class PPPoEInterfaceTest(VyOSUnitTestSHIM.TestCase):
                 # Get corresponding PD assigned prefix for this site/connection
                 pd_prefix = IPv6Network(f"{ipv6}/56", strict=False)
                 # Prefix must be within the PD pool
-                self.assertIn(pd_prefix, IPv6Network(ipv6_pool_pd))
-                # Calculate the assigned IP address from the prefix delegation
-                network_addr = str(pd_prefix.network_address) # 2001:db8:8003::
-                generated_sla_addr = network_addr[:-1] + f'{sla_id}::{address}'
-                self.assertEqual(generated_sla_addr, ipv6)
+                self.assertTrue(pd_prefix.subnet_of(IPv6Network(ipv6_pool_pd)))
 
-                address = str(int(address) + 1)
-                sla_id = str(int(sla_id) + 2)
+                gen_addr = calculate_ipv6_interface_address(pd_prefix, sla_id, address)
+                self.assertEqual(gen_addr, ipv6)
 
             self.cli_delete(['interfaces', 'dummy', delegate_if])
 
