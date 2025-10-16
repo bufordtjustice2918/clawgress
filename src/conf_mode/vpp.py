@@ -749,11 +749,6 @@ def apply(config):
             # NAT44 settings
             nat44_settings = config['settings'].get('nat44', {})
 
-            enable_forwarding = True
-            if 'no_forwarding' in nat44_settings:
-                enable_forwarding = False
-            vpp_control.enable_disable_nat44_forwarding(enable_forwarding)
-
             vpp_control.set_nat44_session_limit(
                 int(nat44_settings.get('session_limit'))
             )
