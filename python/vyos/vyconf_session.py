@@ -18,6 +18,7 @@
 import os
 import weakref
 import tempfile
+import json
 from functools import wraps
 from typing import Type
 
@@ -126,6 +127,21 @@ class VyconfSession:
         if out.status:
             raise VyconfSessionError(self.output(out))
         return out.output
+
+    def show_sessions(
+        self, exclude_self: bool = False, exclude_other: bool = False
+    ) -> list | dict:
+        out = vyconf_client.send_request(
+            'show_sessions',
+            token=self.__token,
+            exclude_self=exclude_self,
+            exclude_other=exclude_other,
+        )
+
+        lst = json.loads(out.output)
+        if len(lst) == 1:
+            return lst[0]
+        return lst
 
     @staticmethod
     def config_mode(f):
