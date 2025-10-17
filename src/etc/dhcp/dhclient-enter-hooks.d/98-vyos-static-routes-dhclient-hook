@@ -28,15 +28,6 @@ fi
 # - RELEASE: lease released, remove routes
 # - STOP: dhclient stopped, remove routes
 if [ "$reason" == "PREINIT" ] || [ "$reason" == "EXPIRE" ] || [ "$reason" == "FAIL" ] || [ "$reason" == "RELEASE" ] || [ "$reason" == "STOP" ]; then
-    # Best effort wait for any active commit to finish
-    sudo python3 - <<PYEND
-from vyos.utils.commit import wait_for_commit_lock
-
-if __name__ == '__main__':
-    wait_for_commit_lock()
-    exit(0)
-PYEND
-
     # Re-generate static routes config to remove routes that depend on this interface
-    sudo /usr/libexec/vyos/conf_mode/protocols_static.py
+    sudo /usr/libexec/vyos/vyos-request-configd-update.py
 fi

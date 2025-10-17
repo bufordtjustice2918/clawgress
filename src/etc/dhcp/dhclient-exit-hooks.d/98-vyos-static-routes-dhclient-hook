@@ -35,14 +35,5 @@ elif [ "$reason" != "BOUND" ] && [ "$reason" != "EXPIRE" ] && [ "$reason" != "RE
     return 0
 fi
 
-# Best effort wait for any active commit to finish
-sudo python3 - <<PYEND
-from vyos.utils.commit import wait_for_commit_lock
-
-if __name__ == '__main__':
-    wait_for_commit_lock()
-    exit(0)
-PYEND
-
-# Now re-generate the static routes config
-sudo /usr/libexec/vyos/conf_mode/protocols_static.py
+# Re-generate the static routes config
+sudo /usr/libexec/vyos/vyos-request-configd-update.py

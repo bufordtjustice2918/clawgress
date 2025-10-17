@@ -30,10 +30,11 @@ from vyos.utils.file import write_file
 from vyos.template import render
 from vyos import ConfigError
 from vyos import airbag
+from vyos import defaults
 airbag.enable()
 
 config_file = '/etc/iproute2/rt_tables.d/vyos-static.conf'
-DHCP_HOOK_IFLIST = '/tmp/static_dhcp_interfaces'
+DHCP_HOOK_IFLIST = defaults.static_route_dhcp_interfaces_path
 
 def get_config(config=None):
     if config:
