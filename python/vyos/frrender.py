@@ -14,7 +14,11 @@
 # along with this library.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Library used to interface with FRRs mgmtd introduced in version 10.0
+Helper class attached to vyos-configd to interfact between our CLI configuration
+and FRR. Class will render one full FRR configuration and apply this via
+frr-reload.py, if the configuration has no errors.
+
+Will fail early if the rendered configuration has any errors.
 """
 
 import os
