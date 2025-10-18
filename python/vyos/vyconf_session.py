@@ -37,38 +37,47 @@ class VyconfSessionError(Exception):
     pass
 
 
+def new_session(pid: int, sudo_user: str, user: str):
+    out = vyconf_client.send_request(
+        'setup_session',
+        client_pid=pid,
+        client_sudo_user=sudo_user,
+        client_user=user,
+    )
+    return out.output
+
+
 class VyconfSession:
     def __init__(
         self, token: str = None, pid: int = None, on_error: Type[Exception] = None
     ):
-        self.pid = os.getpid() if pid is None else pid
+        self.pid = pid if pid else os.getpid()
         self.sudo_user = os.environ.get('SUDO_USER', None)
         self.user = os.environ.get('USER', None)
 
-        if token is None:
-            # CLI applications with arg pid=getppid() allow coordination
-            # with the ambient session; other uses (such as ConfigSession)
-            # may default to self pid
-            out = vyconf_client.send_request('session_of_pid', client_pid=self.pid)
-            if out.output is None:
-                out = vyconf_client.send_request(
-                    'setup_session',
-                    client_pid=self.pid,
-                    client_sudo_user=self.sudo_user,
-                    client_user=self.user,
-                )
-            self.__token = out.output
-        else:
-            out = vyconf_client.send_request('session_exists', token=token)
-            if out.status:
-                raise ValueError(f'No existing session for token: {token}')
-            self.__token = token
-
         self.in_config_session = in_config_session()
 
+        match token:
+            case None:
+                # config-mode sessions are persistent, and managed by caller (CLI or ConfigSession)
+                # op-mode sessions are ephemeral: a new session on init; teardown in finalizer
+                if self.in_config_session:
+                    out = vyconf_client.send_request(
+                        'session_of_pid', client_pid=self.pid
+                    )
+                    if out.output is None:
+                        self.__token = new_session(self.pid, self.sudo_user, self.user)
+                    else:
+                        self.__token = out.output
+                else:
+                    self.__token = new_session(self.pid, self.sudo_user, self.user)
+            case _:
+                out = vyconf_client.send_request('session_exists', token=token)
+                if out.status:
+                    raise ValueError(f'No existing session for token: {token}')
+                self.__token = token
+
         if not self.in_config_session:
-            # op-mode sessions are ephemeral
-            # config-mode sessions are persistent, and managed by caller (CLI or ConfigSession)
             self._finalizer = weakref.finalize(self, self._teardown, self.__token)
 
         if self.in_config_session:
