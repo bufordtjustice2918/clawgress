@@ -26,6 +26,7 @@ from vyos.xml_ref import default_value
 base_path = ['service', 'mdns', 'repeater']
 intf_base = ['interfaces', 'dummy']
 config_file = '/run/avahi-daemon/avahi-daemon.conf'
+PROCESS_NAME = 'avahi-daemon'
 
 class TestServiceMDNSrepeater(VyOSUnitTestSHIM.TestCase):
     @classmethod
@@ -57,12 +58,11 @@ class TestServiceMDNSrepeater(VyOSUnitTestSHIM.TestCase):
 
     def tearDown(self):
         # Check for running process
-        self.assertTrue(process_named_running('avahi-daemon'))
-
+        self.assertTrue(process_named_running(PROCESS_NAME))
         self.cli_delete(base_path)
         self.cli_commit()
         # Check that there is no longer a running process
-        self.assertFalse(process_named_running('avahi-daemon'))
+        self.assertFalse(process_named_running(PROCESS_NAME))
         # always forward to base class
         super().tearDown()
 
