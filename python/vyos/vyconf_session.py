@@ -67,6 +67,11 @@ class VyconfSession:
                     )
                     if out.output is None:
                         self.__token = new_session(self.pid, self.sudo_user, self.user)
+                        out = vyconf_client.send_request(
+                            'enter_configuration_mode', token=self.__token
+                        )
+                        if out.status:
+                            raise VyconfSessionError(self.output(out))
                     else:
                         self.__token = out.output
                 else:
@@ -79,13 +84,6 @@ class VyconfSession:
 
         if not self.in_config_session:
             self._finalizer = weakref.finalize(self, self._teardown, self.__token)
-
-        if self.in_config_session:
-            out = vyconf_client.send_request(
-                'enter_configuration_mode', token=self.__token
-            )
-            if out.status:
-                raise VyconfSessionError(self.output(out))
 
         self.on_error = on_error
 
