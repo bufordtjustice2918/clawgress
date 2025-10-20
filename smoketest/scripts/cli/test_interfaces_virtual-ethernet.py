@@ -20,6 +20,7 @@ from netifaces import interfaces # pylint: disable = no-name-in-module
 from base_interfaces_test import BasicInterfaceTest
 from base_vyostest_shim import VyOSUnitTestSHIM
 
+from vyos.frrender import mgmt_daemon
 from vyos.utils.process import process_named_running
 
 class VEthInterfaceTest(BasicInterfaceTest.TestCase):
@@ -46,6 +47,9 @@ class VEthInterfaceTest(BasicInterfaceTest.TestCase):
         # Verify that no previously interface remained on the system
         for intf in self._interfaces:
             self.assertNotIn(intf, interfaces())
+
+        # check process health and continuity
+        self.assertEqual(self.mgmt_daemon_pid, process_named_running(mgmt_daemon))
 
     @classmethod
     def tearDownClass(cls):
