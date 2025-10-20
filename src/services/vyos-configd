@@ -273,6 +273,8 @@ def process_node_data(config, data, _last: bool = False) -> tuple[Response, str]
 
     out = amb_out + err_out
 
+    logger.info(f'[{script_name}] {out}')
+
     return result, out
 
 
@@ -302,6 +304,7 @@ def call_frr_render(frr, config):
     o.close()
 
     out = amb_out + err_out
+    logger.info(out)
 
     return result, out
 
