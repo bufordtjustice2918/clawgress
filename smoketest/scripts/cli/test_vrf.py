@@ -20,6 +20,7 @@ import unittest
 
 from json import loads
 from jmespath import search
+from time import sleep
 
 from base_vyostest_shim import VyOSUnitTestSHIM
 
@@ -35,6 +36,7 @@ from vyos.utils.process import cmd
 from vyos.utils.system import sysctl_read
 from vyos.template import inc_ip
 from vyos.utils.process import process_named_running
+from vyos.xml_ref import default_value
 
 base_path = ['vrf']
 vrfs = ['red', 'green', 'blue', 'foo-bar', 'baz_foo']
@@ -772,6 +774,62 @@ class VRFTest(VyOSUnitTestSHIM.TestCase):
         self.cli_delete(['interfaces', 'dummy', interface, 'vrf'])
         self.cli_delete(base)
         self.cli_commit()
+
+    def test_dhcp_vrf_default_route(self):
+        # T7927 - when retrieving a default route via DHCP, check that additional
+        # calls into FRRender() keep the DHCP route in place
+
+        vrf_name = 'red15'
+        default_gateway = '192.0.2.1'
+        dhcp_if_server = 'veth0'
+        dhcp_if_client = 'veth1'
+
+        default_distance = default_value(['interfaces', 'virtual-ethernet',
+                                          dhcp_if_client, 'dhcp-options',
+                                          'default-route-distance'])
+
+        dhcp_pool_base = ['service', 'dhcp-server', 'shared-network-name',
+                          'FOO-4', 'subnet', '192.0.2.0/24']
+        veth_base = ['interfaces', 'virtual-ethernet']
+
+        # Start DHCP Server in VRF connected via veth pair to default VRF
+        self.cli_set(['vrf', 'name', vrf_name, 'table', '48752'])
+        self.cli_set(veth_base + [dhcp_if_server, 'address', '192.0.2.1/24'])
+        self.cli_set(veth_base + [dhcp_if_server, 'peer-name', dhcp_if_client])
+        self.cli_set(veth_base + [dhcp_if_client, 'peer-name', dhcp_if_server])
+        self.cli_set(veth_base + [dhcp_if_client, 'vrf', vrf_name])
+
+        self.cli_set(['service', 'dhcp-server', 'listen-interface', dhcp_if_server])
+        self.cli_set(dhcp_pool_base + ['option', 'default-router', default_gateway])
+        self.cli_set(dhcp_pool_base + ['range', 'uno', 'start', '192.0.2.10'])
+        self.cli_set(dhcp_pool_base + ['range', 'uno', 'stop', '192.0.2.30'])
+        self.cli_set(dhcp_pool_base + ['subnet-id', '1'])
+
+        self.cli_commit()
+
+        # Start DHCP client in VRF
+        self.cli_set(['interfaces', 'virtual-ethernet', dhcp_if_client, 'address', 'dhcp'])
+        self.cli_commit()
+
+        # We need to wait until DHCP client has started and an IP address has been received
+        sleep(8)
+
+        frrconfig = self.getFRRconfig('^vrf red', stop_section='^exit-vrf')
+        self.assertIn(f' ip route 0.0.0.0/0 {default_gateway} {dhcp_if_client} '\
+                      f'tag 210 {default_distance}', frrconfig)
+
+        # Change anything in FRR to re-trigger config generation. DHCP route
+        # must still be present
+        self.cli_set(['protocols', 'static', 'route', '10.0.0.0/24', 'blackhole'])
+        self.cli_commit()
+
+        frrconfig = self.getFRRconfig('^vrf red', stop_section='^exit-vrf')
+        self.assertIn(f' ip route 0.0.0.0/0 {default_gateway} {dhcp_if_client} '\
+                      f'tag 210 {default_distance}', frrconfig)
+
+        self.cli_delete(['interfaces', 'virtual-ethernet'])
+        self.cli_delete(['service', 'dhcp-server'])
+        self.cli_delete(['vrf', 'name', vrf_name])
 
     def test_dhcpv6_single_pool(self):
         # Prepare the vrf and other options

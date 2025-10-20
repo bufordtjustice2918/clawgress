@@ -14,15 +14,25 @@
 # along with this library.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Library used to interface with FRRs mgmtd introduced in version 10.0
+Helper class attached to vyos-configd to interfact between our CLI configuration
+and FRR. Class will render one full FRR configuration and apply this via
+frr-reload.py, if the configuration has no errors.
+
+Will fail early if the rendered configuration has any errors.
 """
 
 import os
 
+from copy import deepcopy
 from time import sleep
 
+from vyos.config import Config
+from vyos.config import config_dict_merge
+from vyos.configdict import get_dhcp_interfaces
+from vyos.configdict import get_pppoe_interfaces
 from vyos.defaults import frr_debug_enable
 from vyos.utils.dict import dict_search
+from vyos.utils.dict import dict_set_nested
 from vyos.utils.file import write_file
 from vyos.utils.process import cmd
 from vyos.utils.process import rc_cmd
@@ -58,12 +68,7 @@ ripng_daemon = 'ripngd'
 zebra_daemon = 'zebra'
 nhrp_daemon = 'nhrpd'
 
-def get_frrender_dict(conf, argv=None) -> dict:
-    from copy import deepcopy
-    from vyos.config import config_dict_merge
-    from vyos.configdict import get_dhcp_interfaces
-    from vyos.configdict import get_pppoe_interfaces
-
+def get_frrender_dict(conf: Config, argv=None) -> dict:
     # We need to re-set the CLI path to the root level, as this function uses
     # conf.exists() with an absolute path form the CLI root
     conf.set_level([])
@@ -435,17 +440,10 @@ def get_frrender_dict(conf, argv=None) -> dict:
 
     # T3680 - get a list of all interfaces currently configured to use DHCP
     tmp = get_dhcp_interfaces(conf)
-    if tmp:
-        if 'static' in dict:
-            dict['static'].update({'dhcp' : tmp})
-        else:
-            dict.update({'static' : {'dhcp' : tmp}})
+    if tmp: dict_set_nested('static.dhcp', tmp, dict)
+
     tmp = get_pppoe_interfaces(conf)
-    if tmp:
-        if 'static' in dict:
-            dict['static'].update({'pppoe' : tmp})
-        else:
-            dict.update({'static' : {'pppoe' : tmp}})
+    if tmp: dict_set_nested('static.pppoe', tmp, dict)
 
     # keep a re-usable list of dependent VRFs
     dependent_vrfs_default = {}
@@ -573,15 +571,16 @@ def get_frrender_dict(conf, argv=None) -> dict:
                 static = conf.get_config_dict(static_vrf_path, key_mangling=('-', '_'),
                                               get_first_key=True,
                                               no_tag_node_value_mangle=True)
-                # T3680 - get a list of all interfaces currently configured to use DHCP
-                tmp = get_dhcp_interfaces(conf, vrf_name)
-                if tmp: static.update({'dhcp' : tmp})
-                tmp = get_pppoe_interfaces(conf, vrf_name)
-                if tmp: static.update({'pppoe' : tmp})
-
                 vrf['name'][vrf_name]['protocols'].update({'static': static})
             elif conf.exists_effective(static_vrf_path):
                 vrf['name'][vrf_name]['protocols'].update({'static': {'deleted' : ''}})
+
+            # T3680 - get a list of all interfaces currently configured to use DHCP
+            tmp = get_dhcp_interfaces(conf, vrf_name)
+            if tmp: dict_set_nested(f'name.{vrf_name}.protocols.static.dhcp', tmp, vrf)
+
+            tmp = get_pppoe_interfaces(conf, vrf_name)
+            if tmp: dict_set_nested(f'name.{vrf_name}.protocols.static.pppoe', tmp, vrf)
 
             vrf_vni_path = ['vrf', 'name', vrf_name, 'vni']
             if conf.exists(vrf_vni_path):
