@@ -163,6 +163,8 @@ class TestServiceSSH(VyOSUnitTestSHIM.TestCase):
         # We can not use process_named_running here - we rather need to check
         # that the systemd service is no longer running
         self.assertFalse(is_systemd_service_running(PROCESS_NAME))
+        # always forward to base class
+        super().tearDown()
 
     def test_ssh_default(self):
         # Check if SSH service runs with default settings - used for checking

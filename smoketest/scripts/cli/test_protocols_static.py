@@ -187,6 +187,9 @@ class TestProtocolsStatic(VyOSUnitTestSHIM.TestCase):
         v6route = self.getFRRconfig('ipv6 route')
         self.assertFalse(v6route)
 
+        # always forward to base class
+        super().tearDown()
+
     def test_01_static(self):
         self.cli_set(['vrf', 'name', 'black', 'table', '43210'])
         for route, route_config in routes.items():

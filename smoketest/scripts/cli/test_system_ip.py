@@ -34,6 +34,8 @@ class TestSystemIP(VyOSUnitTestSHIM.TestCase):
     def tearDown(self):
         self.cli_delete(base_path)
         self.cli_commit()
+        # always forward to base class
+        super().tearDown()
 
     def test_system_ip_forwarding(self):
         # Test if IPv4 forwarding can be disabled globally, default is '1'

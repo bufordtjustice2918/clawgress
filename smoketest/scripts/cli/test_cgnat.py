@@ -37,6 +37,9 @@ class TestCGNAT(VyOSUnitTestSHIM.TestCase):
         self.cli_commit()
         self.assertFalse(os.path.exists(nftables_cgnat_config))
 
+        # always forward to base class
+        super().tearDown()
+
     def test_cgnat(self):
         internal_name = 'vyos-int-01'
         external_name = 'vyos-ext-01'

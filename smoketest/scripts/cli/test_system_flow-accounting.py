@@ -86,6 +86,8 @@ class TestSystemFlowAccounting(VyOSUnitTestSHIM.TestCase):
         self.assertFalse(is_module_loaded(module_name))
         self._assert_ingress_interfaces([])
         self._assert_egress_interfaces([])
+        # always forward to base class
+        super().tearDown()
 
     def test_basic(self):
         engine_id = '33'

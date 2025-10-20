@@ -67,6 +67,9 @@ class TestLoadBalancingWan(VyOSUnitTestSHIM.TestCase):
         for chain in removed_chains:
             self.verify_nftables_chain_exists('ip vyos_wanloadbalance', chain, inverse=True)
 
+        # always forward to base class
+        super().tearDown()
+
     def test_table_routes(self):
         ns1 = 'ns201'
         ns2 = 'ns202'

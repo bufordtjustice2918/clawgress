@@ -118,6 +118,9 @@ class TestInterfacesOpenVPN(VyOSUnitTestSHIM.TestCase):
         self.cli_delete(base_path)
         self.cli_commit()
 
+        # always forward to base class
+        super().tearDown()
+
     def test_openvpn_client_verify(self):
         # Create OpenVPN client interface and test verify() steps.
         interface = 'vtun2000'

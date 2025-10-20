@@ -182,6 +182,8 @@ class TestServiceStunnel(VyOSUnitTestSHIM.TestCase):
 
         # Check for stopped process
         self.assertFalse(process_named_running(PROCESS_NAME))
+        # always forward to base class
+        super().tearDown()
 
     def set_pki(self):
         self.cli_set(['pki', 'ca', 'ca-1', 'certificate', ca_certificate.replace('\n','')])

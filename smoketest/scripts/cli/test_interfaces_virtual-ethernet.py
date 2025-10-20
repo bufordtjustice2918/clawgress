@@ -36,9 +36,9 @@ class VEthInterfaceTest(BasicInterfaceTest.TestCase):
         super(VEthInterfaceTest, cls).setUpClass()
 
     # As we always need a pair of veth interfaces, we can not rely on the base
-    # class check to determine if there is a dhcp6c or dhclient instance running.
-    # This test will always fail as there is an instance running on the peer
-    # interface.
+    # class check to determine if there is a dhcp6c or dhclient instance
+    # running. This test will always fail as there is an instance still running
+    # on the peer interface.
     def tearDown(self):
         self.cli_delete(self._base_path)
         self.cli_commit()

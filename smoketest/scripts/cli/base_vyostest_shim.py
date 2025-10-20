@@ -68,7 +68,6 @@ class VyOSUnitTestSHIM:
             cls._session = ConfigSession(os.getpid())
             cls._session.save_config(save_config)
             cls.debug = cls.debug_on()
-            pass
 
         @classmethod
         def tearDownClass(cls):
@@ -82,6 +81,12 @@ class VyOSUnitTestSHIM:
             except (ConfigError, ConfigSessionError):
                 cls._session.discard()
                 cls.fail(cls)
+
+        def setUp(self):
+            pass
+
+        def tearDown(self):
+            pass
 
         def cli_set(self, path, value=None):
             if self.debug:

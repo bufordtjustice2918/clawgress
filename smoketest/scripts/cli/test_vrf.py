@@ -61,6 +61,9 @@ class VRFTest(VyOSUnitTestSHIM.TestCase):
         super(VRFTest, cls).setUpClass()
 
     def setUp(self):
+        # always forward to base class
+        super().setUp()
+
         # VRF strict_most ist always enabled
         tmp = read_file('/proc/sys/net/vrf/strict_mode')
         self.assertEqual(tmp, '1')
@@ -71,6 +74,8 @@ class VRFTest(VyOSUnitTestSHIM.TestCase):
         self.cli_commit()
         for vrf in vrfs:
             self.assertFalse(interface_exists(vrf))
+        # always forward to base class
+        super().tearDown()
 
     def walk_path(self, obj, path):
         current = obj

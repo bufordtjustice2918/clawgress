@@ -61,9 +61,10 @@ class TestServiceMDNSrepeater(VyOSUnitTestSHIM.TestCase):
 
         self.cli_delete(base_path)
         self.cli_commit()
-
         # Check that there is no longer a running process
         self.assertFalse(process_named_running('avahi-daemon'))
+        # always forward to base class
+        super().tearDown()
 
     def test_service_dual_stack(self):
         # mDNS browsing domains in addition to the default one (local)

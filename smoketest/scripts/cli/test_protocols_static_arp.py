@@ -49,6 +49,8 @@ class TestARP(VyOSUnitTestSHIM.TestCase):
         # delete test config
         self.cli_delete(base_path)
         self.cli_commit()
+        # always forward to base class
+        super().tearDown()
 
     def test_static_arp(self):
         test_data = {

@@ -32,6 +32,8 @@ class TestSystemOption(VyOSUnitTestSHIM.TestCase):
     def tearDown(self):
         self.cli_delete(base_path)
         self.cli_commit()
+        # always forward to base class
+        super().tearDown()
 
     def test_ctrl_alt_delete(self):
         self.cli_set(base_path + ['ctrl-alt-delete', 'reboot'])

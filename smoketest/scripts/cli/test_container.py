@@ -33,12 +33,10 @@ PROCESS_PIDFILE = '/run/vyos-container-{0}.service.pid'
 busybox_image = 'busybox:stable'
 busybox_image_path = '/usr/share/vyos/busybox-stable.tar'
 
-
 def cmd_to_json(command):
     c = cmd(command + ' --format=json')
     data = json.loads(c)[0]
     return data
-
 
 class TestContainer(VyOSUnitTestSHIM.TestCase):
     @classmethod
@@ -70,6 +68,8 @@ class TestContainer(VyOSUnitTestSHIM.TestCase):
         # Ensure systemd units are removed
         units = glob.glob('/run/systemd/system/vyos-container-*')
         self.assertEqual(units, [])
+        # always forward to base class
+        super().tearDown()
 
     def test_basic(self):
         cont_name = 'c1'
@@ -242,7 +242,7 @@ class TestContainer(VyOSUnitTestSHIM.TestCase):
         self.assertEqual(n['NetworkSettings']['Networks']['bridge1']['MacAddress'], '02:00:00:00:00:01')
         n = cmd_to_json(f'sudo podman container inspect test2')
         self.assertEqual(n['NetworkSettings']['Networks']['bridge1']['MacAddress'], '02:00:00:00:00:02')
-    
+
     def test_ipv4_network(self):
         prefix = '192.0.2.0/24'
         base_name = 'ipv4'

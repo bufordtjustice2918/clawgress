@@ -36,12 +36,12 @@ class TestMonitoringTelegraf(VyOSUnitTestSHIM.TestCase):
     def tearDown(self):
         # Check for running process
         self.assertTrue(process_named_running(PROCESS_NAME))
-
         self.cli_delete(base_path)
         self.cli_commit()
-
         # Check for not longer running process
         self.assertFalse(process_named_running(PROCESS_NAME))
+        # always forward to base class
+        super().tearDown()
 
     def test_01_basic_config(self):
         self.cli_set(base_path + ['influxdb', 'authentication', 'organization', org])

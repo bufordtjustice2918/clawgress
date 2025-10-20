@@ -43,6 +43,8 @@ class TestProtocolsPIM(VyOSUnitTestSHIM.TestCase):
 
         # pimd process must be stopped by now
         self.assertFalse(process_named_running(pim_daemon))
+        # always forward to base class
+        super().tearDown()
 
     def test_01_pim_basic(self):
         rp = '127.0.0.1'

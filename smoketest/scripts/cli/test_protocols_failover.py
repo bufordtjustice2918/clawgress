@@ -119,6 +119,8 @@ class TestProtocolsFailover(VyOSUnitTestSHIM.TestCase):
         )
 
         self.clean_and_stop_daemon()
+        # always forward to base class
+        super().setUp()
 
         self.clean_dhclient_lease_files = set()
         self.need_dhcp_dir_cleanup = False
@@ -142,6 +144,8 @@ class TestProtocolsFailover(VyOSUnitTestSHIM.TestCase):
             f'-6 route show proto {failover_protocol_value} table all'
         )
         self.assertEqual(failover_routes, [], "Some failover IPv6 routes left")
+        # always forward to base class
+        super().tearDown()
 
     def wait_for_ip_output(self, ip_command_args, check, pause=0.1, timeout=3):
         tries = ceil(timeout / pause)

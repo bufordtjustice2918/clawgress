@@ -217,6 +217,9 @@ class BasicInterfaceTest:
                 else:
                     self.assertFalse(process_named_running(daemon))
 
+            # always forward to base class
+            super().tearDown()
+
         def test_dhcp_disable_interface(self):
             if not self._test_dhcp:
                 self.skipTest(MSG_TESTCASE_UNSUPPORTED)

@@ -83,6 +83,8 @@ class TestProtocolsMPLS(VyOSUnitTestSHIM.TestCase):
 
         # check process health and continuity
         self.assertEqual(self.daemon_pid, process_named_running(ldpd_daemon))
+        # always forward to base class
+        super().tearDown()
 
     def test_mpls_basic(self):
         router_id = '1.2.3.4'

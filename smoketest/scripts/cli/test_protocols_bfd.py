@@ -97,6 +97,8 @@ class TestProtocolsBFD(VyOSUnitTestSHIM.TestCase):
 
         # check process health and continuity
         self.assertEqual(self.daemon_pid, process_named_running(bfd_daemon))
+        # always forward to base class
+        super().tearDown()
 
     def test_bfd_peer(self):
         self.cli_set(['vrf', 'name', vrf_name, 'table', '1000'])

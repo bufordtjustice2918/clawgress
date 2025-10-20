@@ -71,6 +71,8 @@ class TestProtocolsRIPng(VyOSUnitTestSHIM.TestCase):
 
         # check process health and continuity
         self.assertEqual(self.daemon_pid, process_named_running(ripng_daemon))
+        # always forward to base class
+        super().tearDown()
 
     def test_ripng_01_parameters(self):
         metric = '8'

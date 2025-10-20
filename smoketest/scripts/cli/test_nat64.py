@@ -38,6 +38,8 @@ class TestNAT64(VyOSUnitTestSHIM.TestCase):
         self.cli_delete(base_path)
         self.cli_commit()
         self.assertFalse(os.path.exists(jool_nat64_config))
+        # always forward to base class
+        super().tearDown()
 
     def test_snat64(self):
         rule = '100'

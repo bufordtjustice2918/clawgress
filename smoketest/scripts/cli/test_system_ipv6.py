@@ -35,6 +35,8 @@ class TestSystemIPv6(VyOSUnitTestSHIM.TestCase):
     def tearDown(self):
         self.cli_delete(base_path)
         self.cli_commit()
+        # always forward to base class
+        super().tearDown()
 
     def test_system_ipv6_forwarding(self):
         # Test if IPv6 forwarding can be disabled globally, default is '1'

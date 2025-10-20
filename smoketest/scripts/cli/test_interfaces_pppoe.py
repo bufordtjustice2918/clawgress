@@ -132,6 +132,9 @@ class PPPoEInterfaceTest(VyOSUnitTestSHIM.TestCase):
         self.cli_delete(base_path)
         self.cli_commit()
 
+        # always forward to base class
+        super().tearDown()
+
     def _verify_interface_address(self, interface):
         # Verify that the assigned IPv4/IPv6 addresses from the BRAS (PPPoE
         # server) are from the assigned pools

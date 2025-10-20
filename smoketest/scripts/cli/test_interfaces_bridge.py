@@ -57,7 +57,7 @@ class BridgeInterfaceTest(BasicInterfaceTest.TestCase):
     def tearDown(self):
         for intf in self._interfaces:
             self.cli_delete(self._base_path + [intf])
-
+        # always forward to base class
         super().tearDown()
 
     def test_isolated_interfaces(self):
