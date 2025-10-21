@@ -279,10 +279,6 @@ def verify(config):
                         f'{error_msg} external address/port is already in use!'
                     )
                 addresses_with_ports.add(pair)
-                if ext_address not in addresses_translation:
-                    raise ConfigError(
-                        f'{error_msg} external address {ext_address} is not in "address-pool translation"'
-                    )
 
             else:
                 if ext_address in addresses_without_ports or any(
@@ -300,6 +296,13 @@ def verify(config):
                 local_addresses.add(local_address)
 
             options = rule_config.get('options', {})
+
+            if 'self_twice_nat' in options and ext_address not in addresses_translation:
+                raise ConfigError(
+                    f'{error_msg} external address {ext_address} must be part of '
+                    '"address-pool translation" when using self-twice-nat'
+                )
+
             if all(key in options for key in ('twice_nat', 'self_twice_nat')):
                 raise ConfigError(
                     f'{error_msg} cannot set both options "twice-nat" and "self-twice-nat"'
