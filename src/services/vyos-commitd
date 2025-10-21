@@ -315,6 +315,7 @@ def call_frr_render(frr, config):
     o.close()
 
     out = amb_out + err_out
+    logger.info(out)
 
     return result, out
 
