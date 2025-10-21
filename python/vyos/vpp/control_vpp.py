@@ -440,15 +440,6 @@ class VPPControl:
         return None
 
     @_Decorators.api_call
-    def enable_disable_nat44_forwarding(self, enable: bool) -> None:
-        """Enable/disable NAT44 forwarding
-
-        Args:
-            enable (bool): True if enable, False if disable
-        """
-        self.__vpp_api_client.api.nat44_forwarding_enable_disable(enable=enable)
-
-    @_Decorators.api_call
     def set_nat44_session_limit(self, session_limit: int) -> None:
         """Set NAT44 session limit
 

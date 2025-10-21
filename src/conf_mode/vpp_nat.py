@@ -108,13 +108,12 @@ def get_config(config=None) -> dict:
         }
     )
 
-    if conf.exists(['vpp', 'settings', 'nat44', 'timeout']):
-        timeouts = conf.get_config_dict(
-            ['vpp', 'settings', 'nat44', 'timeout'],
-            key_mangling=('-', '_'),
-            with_defaults=True,
-        )
-        config.update(timeouts)
+    settings = conf.get_config_dict(
+        ['vpp', 'settings', 'nat44'],
+        key_mangling=('-', '_'),
+        with_recursive_defaults=True,
+    )
+    config.update(settings.get('nat44'))
 
     if effective_config:
         config.update({'effective': effective_config})
@@ -437,6 +436,13 @@ def apply(config):
 
     # Add NAT44
     n.enable_nat44_ed()
+
+    # Enable/disable forwarding
+    enable_forwarding = True
+    if 'no_forwarding' in config:
+        enable_forwarding = False
+    n.enable_disable_nat44_forwarding(enable_forwarding)
+
     # Add inside interfaces
     for interface in config['interface']['inside']:
         n.add_nat44_interface_inside(interface)
