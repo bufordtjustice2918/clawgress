@@ -85,38 +85,60 @@ def verify(failover):
     if 'route' not in failover:
         raise ConfigError(f'Failover "route" is mandatory!')
 
+    def _verify_route_item(item_config, item_description, interface_mandatory):
+        if interface_mandatory and 'interface' not in item_config:
+            raise ConfigError(
+                f'Interface for route "{route}" {item_description} is mandatory!'
+            )
+
+        if not item_config.get('check'):
+            raise ConfigError(f'Check target for {item_description} is mandatory!')
+
+        if 'target' not in item_config['check']:
+            raise ConfigError(f'Check target for {item_description} is mandatory!')
+
+        check_type = item_config['check']['type']
+        if check_type == 'tcp' and 'port' not in item_config['check']:
+            raise ConfigError(
+                f'Check port for {item_description} and type TCP is mandatory!'
+            )
+
+        errors = {
+            'icmp': {},
+            'tcp': {
+                'interface': 'Check target "interface" option does nothing for type TCP. Use "vrf" if needed',
+            },
+            'arp': {
+                'vrf': 'Check target "vrf" option is incompatible with type ARP, use "interface" option if needed',
+            },
+        }
+
+        for target, target_config in item_config['check']['target'].items():
+            for key, msg in errors[check_type].items():
+                if key in target_config:
+                    raise ConfigError(msg)
+
     for route, route_config in failover['route'].items():
-        if not route_config.get('next_hop'):
-            raise ConfigError(f'Next-hop for "{route}" is mandatory!')
+        if not route_config.get('next_hop') and not route_config.get('dhcp_interface'):
+            raise ConfigError(
+                f'Either next-hop or dhcp-interface for "{route}" is mandatory!'
+            )
 
-        for next_hop, next_hop_config in route_config.get('next_hop').items():
-            if 'interface' not in next_hop_config:
-                raise ConfigError(f'Interface for route "{route}" next-hop "{next_hop}" is mandatory!')
+        if route_config.get('next_hop'):
+            for next_hop, next_hop_config in route_config.get('next_hop').items():
+                _verify_route_item(
+                    next_hop_config, f'next-hop "{next_hop}"', interface_mandatory=True
+                )
 
-            if not next_hop_config.get('check'):
-                raise ConfigError(f'Check target for next-hop "{next_hop}" is mandatory!')
-
-            if 'target' not in next_hop_config['check']:
-                raise ConfigError(f'Check target for next-hop "{next_hop}" is mandatory!')
-
-            check_type = next_hop_config['check']['type']
-            if check_type == 'tcp' and 'port' not in next_hop_config['check']:
-                raise ConfigError(f'Check port for next-hop "{next_hop}" and type TCP is mandatory!')
-
-            errors = {
-                'icmp': {},
-                'tcp': {
-                    'interface': 'Check target "interface" option does nothing for type TCP. Use "vrf" if needed',
-                },
-                'arp': {
-                    'vrf': 'Check target "vrf" option is incompatible with type ARP, use "interface" option if needed',
-                },
-            }
-
-            for target, target_config in next_hop_config['check']['target'].items():
-                for key, msg in errors[check_type].items():
-                    if key in target_config:
-                        raise ConfigError(msg)
+        if route_config.get('dhcp_interface'):
+            for dhcp_interface, dhcp_interface_config in route_config.get(
+                'dhcp_interface'
+            ).items():
+                _verify_route_item(
+                    dhcp_interface_config,
+                    f'dhcp-interface "{dhcp_interface}"',
+                    interface_mandatory=False,
+                )
 
     return None
 

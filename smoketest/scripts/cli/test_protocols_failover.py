@@ -34,6 +34,7 @@ config_dir_root = '/run/vyos-failover.conf.d'
 
 check_timeout = 1
 wait_timeout = 5
+wait_dhcp_timeout = 10
 
 # Use numeric value to not get ip errors while
 # /etc/iproute2/rt_protos.d/failover.conf is not installed yet
@@ -43,6 +44,9 @@ dummy_if1 = 'dum3711'
 dummy_if2 = 'dum3712'
 dummy_if3 = 'dum3713'
 
+veth_if1 = 'veth71'
+veth_if2 = 'veth72'
+
 route_prefix = '203.0.113.0/24'
 route2_prefix = '172.16.0.0/24'
 route_base_path = base_path + ['route', route_prefix]
@@ -50,6 +54,12 @@ route_base_path = base_path + ['route', route_prefix]
 dummy_if1_addr = '192.168.30.1'
 dummy_if2_addr = '10.0.70.1'
 dummy_if3_addr = '10.20.0.1'
+
+# These three must be in same subnet:
+dhcp_prefix = '10.133.0'
+veth_if1_addr = f'{dhcp_prefix}.1'
+dhcp_gateway_addr_1 = f'{dhcp_prefix}.99'
+dhcp_gateway_addr_2 = f'{dhcp_prefix}.117'
 
 
 class RoutesChecker:
@@ -101,13 +111,26 @@ class TestProtocolsFailover(VyOSUnitTestSHIM.TestCase):
         self.cli_set(['interfaces', 'dummy', dummy_if1])
         self.cli_set(['interfaces', 'dummy', dummy_if2])
         self.cli_set(['interfaces', 'dummy', dummy_if3])
+        self.cli_set(
+            ['interfaces', 'virtual-ethernet', veth_if1, 'peer-name', veth_if2]
+        )
+        self.cli_set(
+            ['interfaces', 'virtual-ethernet', veth_if2, 'peer-name', veth_if1]
+        )
 
         self.clean_and_stop_daemon()
 
+        self.clean_dhclient_lease_files = set()
+        self.need_dhcp_dir_cleanup = False
+
     def tearDown(self):
+        self.cli_delete(['interfaces', 'virtual-ethernet', veth_if2])
+        self.cli_delete(['interfaces', 'virtual-ethernet', veth_if1])
         self.cli_delete(['interfaces', 'dummy', dummy_if3])
         self.cli_delete(['interfaces', 'dummy', dummy_if2])
         self.cli_delete(['interfaces', 'dummy', dummy_if1])
+        self.cli_delete(['service', 'dhcp-server'])
+        self.cli_delete(['service', 'dns'])
 
         self.clean_and_stop_daemon()
 
@@ -501,6 +524,121 @@ class TestProtocolsFailover(VyOSUnitTestSHIM.TestCase):
             timeout=wait_timeout * 3,
         )
         self.assertTrue(res, f"No routes should have been left, got: {output}")
+
+
+    def test_04_dhcp(self):
+        res, output = self.wait_for_ip_output(
+            f'route show proto {failover_protocol_value}',
+            [],
+            timeout=wait_timeout,
+        )
+        self.assertTrue(
+            res, f"No failover routes must exist before test, last result: {output}"
+        )
+
+        # Setup DHCP server
+        self.cli_set(
+            [
+                'interfaces',
+                'virtual-ethernet',
+                veth_if1,
+                'address',
+                f'{dhcp_prefix}.1/24',
+            ]
+        )
+        self.cli_set(['interfaces', 'virtual-ethernet', veth_if1, 'description', 'LAN'])
+
+        service_base = [
+            'service',
+            'dhcp-server',
+            'shared-network-name',
+            'LAN',
+            'subnet',
+            f'{dhcp_prefix}.0/24',
+        ]
+        self.cli_set(service_base + ['option', 'name-server', f'{dhcp_prefix}.1'])
+        self.cli_set(service_base + ['option', 'domain-name', 'vyos'])
+        self.cli_set(service_base + ['lease', '86400'])
+        self.cli_set(service_base + ['range', '0', 'start', f'{dhcp_prefix}.9'])
+        self.cli_set(service_base + ['range', '0', 'stop', f'{dhcp_prefix}.254'])
+        self.cli_set(service_base + ['subnet-id', '1952'])
+
+        self.cli_set(['service', 'dns', 'forwarding', 'cache-size', '0'])
+        self.cli_set(
+            ['service', 'dns', 'forwarding', 'listen-address', f'{dhcp_prefix}.1']
+        )
+        self.cli_set(
+            ['service', 'dns', 'forwarding', 'allow-from', f'{dhcp_prefix}.0/24']
+        )
+        # End setup DHCP server
+
+        # Setting first DHCP Gateway address
+        self.cli_set(service_base + ['option', 'default-router', dhcp_gateway_addr_1])
+
+        self.cli_set(
+            ['interfaces', 'dummy', dummy_if1, 'address', dummy_if1_addr + '/24']
+        )
+        self.cli_set(
+            ['interfaces', 'dummy', dummy_if2, 'address', dummy_if2_addr + '/24']
+        )
+        self.cli_set(['interfaces', 'virtual-ethernet', veth_if2, 'address', 'dhcp'])
+        self.cli_set(route_base_path + ['dhcp-interface', veth_if2])
+        base_dhcp_interface = route_base_path + ['dhcp-interface', veth_if2]
+        self.cli_set(base_dhcp_interface + ['metric', '30'])
+        self.cli_set(
+            base_dhcp_interface
+            + [
+                'check',
+                'target',
+                dummy_if1_addr,
+                'interface',
+                dummy_if1,
+            ]
+        )
+        self.cli_set(base_dhcp_interface + ['check', 'timeout', str(check_timeout)])
+        self.cli_commit()
+
+        # Now vyos-failover must be launched, it should create route to first dhcp address
+        checker = RoutesChecker([{'dst': route_prefix, 'gateway': dhcp_gateway_addr_1}])
+        res, output = self.wait_for_ip_output(
+            f"route show proto {failover_protocol_value}",
+            checker,
+            timeout=wait_dhcp_timeout,
+        )
+        self.assertTrue(
+            res,
+            f"Route must have been created via fist dhcp address. Checker error: {checker.error}",
+        )
+
+        # Change DHCP gateway address
+        renew_cmd = ['renew', 'dhcp', 'interface', veth_if2]
+        self.cli_set(service_base + ['option', 'default-router', dhcp_gateway_addr_2])
+        self.cli_commit()
+        self.op_mode(renew_cmd)
+
+        checker = RoutesChecker([{'dst': route_prefix, 'gateway': dhcp_gateway_addr_2}])
+        res, output = self.wait_for_ip_output(
+            f"route show proto {failover_protocol_value}",
+            checker,
+            timeout=wait_dhcp_timeout,
+        )
+        self.assertTrue(
+            res,
+            f"Route must have been created via second dhcp address. Checker error: {checker.error}",
+        )
+
+        # DHCP server down
+        self.cli_delete(['service', 'dhcp-server'])
+        self.cli_delete(['service', 'dns'])
+        self.cli_commit()
+        self.op_mode(renew_cmd)
+
+        res, output = self.wait_for_ip_output(
+            f'route show proto {failover_protocol_value}',
+            [],
+            timeout=wait_dhcp_timeout,
+        )
+        self.assertTrue(res, f"Route must have been deleted, last result: {output}")
 
 
 if __name__ == '__main__':
