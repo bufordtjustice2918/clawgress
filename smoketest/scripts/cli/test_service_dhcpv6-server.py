@@ -221,6 +221,7 @@ class TestServiceDHCPv6Server(VyOSUnitTestSHIM.TestCase):
         range_stop = inc_ip(subnet, 65535) # ::ffff
         delegate_start = '2001:db8:ee::'
         delegate_len = '64'
+        bad_prefix_len = '32'
         prefix_len = '56'
         exclude_len = '66'
 
@@ -229,11 +230,15 @@ class TestServiceDHCPv6Server(VyOSUnitTestSHIM.TestCase):
         self.cli_set(pool + ['range', '1', 'start', range_start])
         self.cli_set(pool + ['range', '1', 'stop', range_stop])
         self.cli_set(pool + ['prefix-delegation', 'prefix', delegate_start, 'delegated-length', delegate_len])
-        self.cli_set(pool + ['prefix-delegation', 'prefix', delegate_start, 'prefix-length', prefix_len])
+        self.cli_set(pool + ['prefix-delegation', 'prefix', delegate_start, 'prefix-length', bad_prefix_len])
         self.cli_set(pool + ['prefix-delegation', 'prefix', delegate_start, 'excluded-prefix', delegate_start])
         self.cli_set(pool + ['prefix-delegation', 'prefix', delegate_start, 'excluded-prefix-length', exclude_len])
 
         # commit changes
+        with self.assertRaises(ConfigSessionError):
+            self.cli_commit()
+
+        self.cli_set(pool + ['prefix-delegation', 'prefix', delegate_start, 'prefix-length', prefix_len])
         self.cli_commit()
 
         config = read_file(KEA6_CONF)
