@@ -131,6 +131,8 @@ class TestProtocolsRPKI(VyOSUnitTestSHIM.TestCase):
 
         # check process health and continuity
         self.assertEqual(self.daemon_pid, process_named_running(bgp_daemon))
+        # always forward to base class
+        super().tearDown()
 
     def test_rpki(self):
         expire_interval = '3600'

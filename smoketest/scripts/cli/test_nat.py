@@ -45,6 +45,8 @@ class TestNAT(VyOSUnitTestSHIM.TestCase):
         self.cli_commit()
         self.assertFalse(os.path.exists(nftables_nat_config))
         self.assertFalse(os.path.exists(nftables_static_nat_conf))
+        # always forward to base class
+        super().tearDown()
 
     def wait_for_domain_resolver(self, table, set_name, element, max_wait=10):
         # Resolver no longer blocks commit, need to wait for daemon to populate set

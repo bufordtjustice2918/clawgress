@@ -59,6 +59,8 @@ class TestServiceDDNS(VyOSUnitTestSHIM.TestCase):
 
         # Check for process not running anymore
         self.assertFalse(process_named_running(DDCLIENT_PNAME))
+        # always forward to base class
+        super().tearDown()
 
     # IPv4 standard DDNS service configuration
     def test_01_dyndns_service_standard(self):

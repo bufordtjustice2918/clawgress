@@ -134,6 +134,9 @@ class TestVPNIPsec(VyOSUnitTestSHIM.TestCase):
         cls.cli_delete(cls, base_path + ['interface', f'{interface}.{vif}'])
 
     def setUp(self):
+        # always forward to base class
+        super().setUp()
+
         # Set IKE/ESP Groups
         self.cli_set(base_path + ['esp-group', esp_group, 'proposal', '1', 'encryption', 'aes128'])
         self.cli_set(base_path + ['esp-group', esp_group, 'proposal', '1', 'hash', 'sha1'])
@@ -155,6 +158,8 @@ class TestVPNIPsec(VyOSUnitTestSHIM.TestCase):
 
         # Check for no longer running process
         self.assertFalse(process_named_running(PROCESS_NAME))
+        # always forward to base class
+        super().tearDown()
 
     def setupPKI(self):
         self.cli_set(['pki', 'ca', ca_name, 'certificate', ca_pem.replace('\n','')])

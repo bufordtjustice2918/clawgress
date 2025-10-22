@@ -58,6 +58,8 @@ class TestServiceSALT(VyOSUnitTestSHIM.TestCase):
         # no issue on VMWare.
         if cmd('systemd-detect-virt') != 'kvm':
             self.assertFalse(process_named_running(PROCESS_NAME))
+        # always forward to base class
+        super().tearDown()
 
     def test_default(self):
         servers = ['192.0.2.1', '192.0.2.2']

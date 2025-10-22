@@ -50,7 +50,9 @@ class MACsecInterfaceTest(BasicInterfaceTest.TestCase):
         super(MACsecInterfaceTest, cls).setUpClass()
 
     def tearDown(self):
+        # always forward to base class
         super().tearDown()
+
         self.assertFalse(process_named_running(PROCESS_NAME))
 
     def test_macsec_encryption(self):

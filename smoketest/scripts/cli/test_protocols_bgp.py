@@ -207,8 +207,12 @@ class TestProtocolsBGP(VyOSUnitTestSHIM.TestCase):
         cls.cli_delete(cls, ['policy', 'prefix-list'])
         cls.cli_delete(cls, ['policy', 'prefix-list6'])
 
+        super(TestProtocolsBGP, cls).tearDownClass()
+
     def setUp(self):
         self.cli_set(base_path + ['system-as', ASN])
+        # always forward to base class
+        super().setUp()
 
     def tearDown(self):
         # cleanup any possible VRF mess
@@ -223,6 +227,8 @@ class TestProtocolsBGP(VyOSUnitTestSHIM.TestCase):
 
         # check process health and continuity
         self.assertEqual(self.daemon_pid, process_named_running(bgp_daemon))
+        # always forward to base class
+        super().tearDown()
 
     def create_bgp_instances_for_import_test(self):
         table = '1000'

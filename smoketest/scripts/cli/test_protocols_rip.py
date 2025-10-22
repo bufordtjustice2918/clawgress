@@ -71,6 +71,8 @@ class TestProtocolsRIP(VyOSUnitTestSHIM.TestCase):
 
         # check process health and continuity
         self.assertEqual(self.daemon_pid, process_named_running(rip_daemon))
+        # always forward to base class
+        super().tearDown()
 
     def test_rip_01_parameters(self):
         distance = '40'

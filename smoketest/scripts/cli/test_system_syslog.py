@@ -103,6 +103,8 @@ class TestRSYSLOGService(VyOSUnitTestSHIM.TestCase):
 
         # Check for running process
         self.assertFalse(process_named_running(PROCESS_NAME))
+        # always forward to base class
+        super().tearDown()
 
     def _set_tls_certificates(self):
         self.cli_set(

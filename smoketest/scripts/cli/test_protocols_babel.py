@@ -49,6 +49,8 @@ class TestProtocolsBABEL(VyOSUnitTestSHIM.TestCase):
 
         # check process health and continuity
         self.assertEqual(self.daemon_pid, process_named_running(babel_daemon))
+        # always forward to base class
+        super().tearDown()
 
     def test_01_basic(self):
         diversity_factor = '64'

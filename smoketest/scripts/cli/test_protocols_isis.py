@@ -50,6 +50,8 @@ class TestProtocolsISIS(VyOSUnitTestSHIM.TestCase):
 
         # check process health and continuity
         self.assertEqual(self.daemon_pid, process_named_running(isis_daemon))
+        # always forward to base class
+        super().tearDown()
 
     def test_isis_01_redistribute(self):
         prefix_list = 'EXPORT-ISIS'

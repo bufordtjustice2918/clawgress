@@ -38,6 +38,8 @@ class TestProtocolsNHRP(VyOSUnitTestSHIM.TestCase):
         self.cli_delete(nhrp_path)
         self.cli_delete(tunnel_path)
         self.cli_commit()
+        # always forward to base class
+        super().tearDown()
 
     def test_01_nhrp_config(self):
         tunnel_if = "tun100"

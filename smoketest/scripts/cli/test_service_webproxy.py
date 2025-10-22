@@ -45,6 +45,8 @@ class TestServiceWebProxy(VyOSUnitTestSHIM.TestCase):
     def tearDown(self):
         self.cli_delete(base_path)
         self.cli_commit()
+        # always forward to base class
+        super().tearDown()
 
     def test_01_basic_proxy(self):
         default_cache = '100'

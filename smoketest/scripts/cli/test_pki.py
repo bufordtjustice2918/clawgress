@@ -163,6 +163,8 @@ class TestPKI(VyOSUnitTestSHIM.TestCase):
     def tearDown(self):
         self.cli_delete(base_path)
         self.cli_commit()
+        # always forward to base class
+        super().tearDown()
 
     def test_valid_pki(self):
         # Valid CA

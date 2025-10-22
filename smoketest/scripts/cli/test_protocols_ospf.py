@@ -61,6 +61,8 @@ class TestProtocolsOSPF(VyOSUnitTestSHIM.TestCase):
 
         # check process health and continuity
         self.assertEqual(self.daemon_pid, process_named_running(ospf_daemon))
+        # always forward to base class
+        super().tearDown()
 
     def test_ospf_01_defaults(self):
         # commit changes

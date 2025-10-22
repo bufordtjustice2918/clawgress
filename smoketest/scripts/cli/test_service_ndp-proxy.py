@@ -43,12 +43,13 @@ class TestServiceNDPProxy(VyOSUnitTestSHIM.TestCase):
     def tearDown(self):
         # Check for running process
         self.assertTrue(process_named_running(PROCESS_NAME))
-
         # delete testing SSH config
         self.cli_delete(base_path)
         self.cli_commit()
 
         self.assertFalse(process_named_running(PROCESS_NAME))
+        # always forward to base class
+        super().tearDown()
 
     def test_basic(self):
         interfaces = Section.interfaces('ethernet')

@@ -26,6 +26,8 @@ class TestIntelQAT(VyOSUnitTestSHIM.TestCase):
     def tearDown(self):
         self.cli_delete(base_path)
         self.cli_commit()
+        # always forward to base class
+        super().tearDown()
 
     def test_simple_unsupported(self):
         # Check if configuration script is in place and that the config script

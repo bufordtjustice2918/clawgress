@@ -166,6 +166,9 @@ class TestLoadBalancingReverseProxy(VyOSUnitTestSHIM.TestCase):
         # Process must be terminated after deleting the config
         self.assertFalse(process_named_running(PROCESS_NAME))
 
+        # always forward to base class
+        super().tearDown()
+
     def base_config(self):
         self.cli_set(base_path + ['service', haproxy_service_name, 'mode', 'http'])
         self.cli_set(base_path + ['service', haproxy_service_name, 'port', '4433'])

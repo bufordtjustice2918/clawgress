@@ -23,11 +23,13 @@ import unittest
 from time import sleep
 from typing import Type
 
+from vyos import ConfigError
 from vyos.configsession import ConfigSession
 from vyos.configsession import ConfigSessionError
-from vyos import ConfigError
 from vyos.defaults import commit_lock
+from vyos.frrender import mgmt_daemon
 from vyos.utils.process import cmd
+from vyos.utils.process import process_named_running
 from vyos.utils.process import run
 
 save_config = '/tmp/vyos-smoketest-save'
@@ -42,11 +44,11 @@ save_config = '/tmp/vyos-smoketest-save'
 
 class VyOSUnitTestSHIM:
     class TestCase(unittest.TestCase):
-        # if enabled in derived class, print out each and every set/del command
-        # on the CLI. This is usefull to grap all the commands required to
-        # trigger the certain failure condition.
-        # Use "self.debug = True" in derived classes setUp() method
+        # If enabled, print out each and every set/del command on stdout.
+        # This is usefull to grap all the commands required to trigger the
+        # certain failure condition.
         debug = False
+        mgmt_daemon_pid = 0
 
         @staticmethod
         def debug_on():
@@ -68,7 +70,10 @@ class VyOSUnitTestSHIM:
             cls._session = ConfigSession(os.getpid())
             cls._session.save_config(save_config)
             cls.debug = cls.debug_on()
-            pass
+
+            # Retrieve FRR mgmtd daemon PID - it is not allowed to crash, thus
+            # PID must remain the same
+            cls.mgmt_daemon_pid = process_named_running(mgmt_daemon)
 
         @classmethod
         def tearDownClass(cls):
@@ -82,6 +87,13 @@ class VyOSUnitTestSHIM:
             except (ConfigError, ConfigSessionError):
                 cls._session.discard()
                 cls.fail(cls)
+
+        def setUp(self):
+            pass
+
+        def tearDown(self):
+            # check process health and continuity
+            self.assertEqual(self.mgmt_daemon_pid, process_named_running(mgmt_daemon))
 
         def cli_set(self, path, value=None):
             if self.debug:

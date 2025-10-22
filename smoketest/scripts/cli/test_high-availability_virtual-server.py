@@ -38,6 +38,8 @@ class TestHAVirtualServer(VyOSUnitTestSHIM.TestCase):
 
         # Process must be terminated after deleting the config
         self.assertFalse(process_named_running(PROCESS_NAME))
+        # always forward to base class
+        super().tearDown()
 
     def test_01_ha_virtual_server(self):
         algo = 'least-connection'

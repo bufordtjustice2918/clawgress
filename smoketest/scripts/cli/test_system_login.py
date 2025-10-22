@@ -178,6 +178,8 @@ class TestSystemLogin(VyOSUnitTestSHIM.TestCase):
         usernames = [x[0] for x in getpwall()]
         for user in users:
             self.assertNotIn(user, usernames)
+        # always forward to base class
+        super().tearDown()
 
     def test_add_linux_system_user(self):
         # We are not allowed to re-use a username already taken by the Linux

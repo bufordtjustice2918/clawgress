@@ -46,6 +46,8 @@ class BasicAccelPPPTest:
             # ensure we can also run this test on a live system - so lets clean
             # out the current configuration :)
             self.cli_delete(self._base_path)
+            # always forward to base class
+            super().setUp()
 
         def tearDown(self):
             # Check for running process
@@ -56,6 +58,8 @@ class BasicAccelPPPTest:
 
             # Check for running process
             self.assertFalse(process_named_running(self._process_name))
+            # always forward to base class
+            super().tearDown()
 
         def set(self, path):
             self.cli_set(self._base_path + path)

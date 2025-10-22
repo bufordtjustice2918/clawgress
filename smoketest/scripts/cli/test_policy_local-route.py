@@ -52,6 +52,8 @@ class TestPolicyLocalRoute(VyOSUnitTestSHIM.TestCase):
 
         self.verify_rules(ip_rule_search, inverse=True)
         self.verify_rules(ip_rule_search, inverse=True, addr_family='inet6')
+        # always forward to base class
+        super().tearDown()
 
     def test_local_pbr_matching_criteria(self):
         self.cli_set(['policy', 'local-route', 'rule', '4', 'inbound-interface', interface])

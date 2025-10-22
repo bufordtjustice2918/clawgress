@@ -54,6 +54,8 @@ class TestProtocolsIGMPProxy(VyOSUnitTestSHIM.TestCase):
 
         # Check for no longer running process
         self.assertFalse(process_named_running(PROCESS_NAME))
+        # always forward to base class
+        super().tearDown()
 
     def test_igmpproxy(self):
         threshold = '20'

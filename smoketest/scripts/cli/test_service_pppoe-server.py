@@ -40,6 +40,7 @@ class TestServicePPPoEServer(BasicAccelPPPTest.TestCase):
 
     def tearDown(self):
         self.cli_delete(local_if)
+        # always forward to base class
         super().tearDown()
 
     def verify(self, conf):

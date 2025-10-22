@@ -44,6 +44,8 @@ class TestProtocolsSegmentRouting(VyOSUnitTestSHIM.TestCase):
 
         # check process health and continuity
         self.assertEqual(self.daemon_pid, process_named_running(zebra_daemon))
+        # always forward to base class
+        super().tearDown()
 
     def test_srv6(self):
         interfaces = Section.interfaces('ethernet', vlan=False)

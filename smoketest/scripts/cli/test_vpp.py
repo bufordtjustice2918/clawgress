@@ -16,7 +16,6 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-
 import os
 import re
 import unittest
@@ -38,7 +37,6 @@ VPP_CONF = '/run/vpp/vpp.conf'
 base_path = ['vpp']
 driver = 'dpdk'
 interface = 'eth1'
-
 
 def get_vpp_config():
     config = defaultdict(dict)
@@ -91,6 +89,9 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         cls.cli_delete(cls, base_path)
 
     def setUp(self):
+        # always forward to base class
+        super().setUp()
+
         self.cli_set(base_path + ['settings', 'interface', interface, 'driver', driver])
         self.cli_set(base_path + ['settings', 'unix', 'poll-sleep-usec', '10'])
 
@@ -109,6 +110,8 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
 
         self.assertFalse(os.path.exists(VPP_CONF))
         self.assertFalse(process_named_running(PROCESS_NAME))
+        # always forward to base class
+        super().tearDown()
 
     def test_01_vpp_basic(self):
         main_core = '0'
