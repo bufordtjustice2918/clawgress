@@ -31,11 +31,14 @@ from vyos.config import config_dict_merge
 from vyos.configdict import get_dhcp_interfaces
 from vyos.configdict import get_pppoe_interfaces
 from vyos.defaults import frr_debug_enable
+from vyos.defaults import static_route_dhcp_interfaces_path
 from vyos.utils.dict import dict_search
 from vyos.utils.dict import dict_set_nested
+from vyos.utils.file import read_file
 from vyos.utils.file import write_file
 from vyos.utils.process import cmd
 from vyos.utils.process import rc_cmd
+from vyos.template import get_dhcp_router
 from vyos.template import render_to_string
 from vyos import ConfigError
 
@@ -634,6 +637,7 @@ def get_frrender_dict(conf: Config, argv=None) -> dict:
 
 class FRRender:
     cached_config_dict = {}
+    cached_dhcp_gateways = {}
     def __init__(self):
         self._frr_conf = '/run/frr/config/vyos.frr.conf'
 
@@ -646,11 +650,20 @@ class FRRender:
             tmp = type(config_dict)
             raise ValueError(f'Config must be of type "dict" and not "{tmp}"!')
 
+        dhcp_gateways = {
+            interface: get_dhcp_router(interface)
+            for interface in read_file(static_route_dhcp_interfaces_path, '').split()
+        }
 
-        if self.cached_config_dict == config_dict:
+        if (
+            self.cached_config_dict == config_dict
+            and self.cached_dhcp_gateways == dhcp_gateways
+        ):
             debug('FRR:        NO CHANGES DETECTED')
             return False
+
         self.cached_config_dict = config_dict
+        self.cached_dhcp_gateways = dhcp_gateways
 
         def inline_helper(config_dict) -> str:
             output = '!\n'

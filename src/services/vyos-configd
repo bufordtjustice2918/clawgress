@@ -33,6 +33,7 @@ from enum import Enum
 import zmq
 
 from vyos.defaults import directories
+from vyos.defaults import vyos_configd_socket_path
 from vyos.utils.boot import boot_configuration_complete
 from vyos.configsource import ConfigSourceString
 from vyos.configsource import ConfigSourceError
@@ -57,7 +58,7 @@ if debug:
 else:
     logger.setLevel(logging.INFO)
 
-SOCKET_PATH = 'ipc:///run/vyos-configd.sock'
+SOCKET_PATH = vyos_configd_socket_path
 MAX_MSG_SIZE = 65535
 PAD_MSG_SIZE = 6
 
