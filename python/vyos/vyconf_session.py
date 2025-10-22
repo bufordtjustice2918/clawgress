@@ -49,7 +49,11 @@ def new_session(pid: int, sudo_user: str, user: str):
 
 class VyconfSession:
     def __init__(
-        self, token: str = None, pid: int = None, on_error: Type[Exception] = None
+        self,
+        token: str = None,
+        pid: int = None,
+        extant=False,
+        on_error: Type[Exception] = None,
     ):
         self.pid = pid if pid else os.getpid()
         self.sudo_user = os.environ.get('SUDO_USER', None)
@@ -60,7 +64,9 @@ class VyconfSession:
         match token:
             case None:
                 # config-mode sessions are persistent, and managed by caller (CLI or ConfigSession)
-                # op-mode sessions are ephemeral: a new session on init; teardown in finalizer
+                #
+                # op-mode sessions are ephemeral, unless forced with extant=True:
+                # --- open a new session on init; teardown in finalizer
                 if self.in_config_session:
                     out = vyconf_client.send_request(
                         'session_of_pid', client_pid=self.pid
@@ -75,14 +81,22 @@ class VyconfSession:
                     else:
                         self.__token = out.output
                 else:
-                    self.__token = new_session(self.pid, self.sudo_user, self.user)
+                    if not extant:
+                        self.__token = new_session(self.pid, self.sudo_user, self.user)
+                    else:
+                        out = vyconf_client.send_request(
+                            'session_of_pid', client_pid=self.pid
+                        )
+                        if out.output is None:
+                            raise ValueError(f'No existing session for pid {self.pid}')
+                        self.__token = out.output
             case _:
                 out = vyconf_client.send_request('session_exists', token=token)
                 if out.status:
                     raise ValueError(f'No existing session for token: {token}')
                 self.__token = token
 
-        if not self.in_config_session:
+        if not self.in_config_session and not extant:
             self._finalizer = weakref.finalize(self, self._teardown, self.__token)
 
         self.on_error = on_error
