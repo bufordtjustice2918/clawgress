@@ -50,8 +50,8 @@ def new_session(pid: int, sudo_user: str, user: str):
 class VyconfSession:
     def __init__(
         self,
-        token: str = None,
         pid: int = None,
+        token: str = None,
         extant=False,
         on_error: Type[Exception] = None,
     ):
