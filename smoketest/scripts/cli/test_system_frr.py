@@ -150,6 +150,28 @@ class TestSystemFRR(VyOSUnitTestSHIM.TestCase):
         self.assertTrue(bmp_enabled)
         self.assertTrue(snmp_enabled)
 
+    def test_frr_profile_add_remove(self):
+        # test add profile
+        frr_profiles = ['traditional', 'datacenter']
+        for profile in frr_profiles:
+            # set the profile
+            self.cli_set(base_path + ['profile', profile])
+            self.cli_commit()
+            # read the config file and check content
+            self.assertIn(f'frr_profile="{profile}"', read_file(config_file))
+            # read the frr.conf file and check content
+            frrconfig = self.getFRRconfig()
+            self.assertIn(f'frr defaults {profile}', frrconfig)
+
+        # test remove profile
+        self.cli_delete(base_path + ['profile'])
+        self.cli_commit()
+        # read the config file and check content
+        self.assertIn(f'frr_profile="{frr_profiles[0]}"', read_file(config_file))
+        # read the frr.conf file and check content
+        frrconfig = self.getFRRconfig()
+        self.assertIn(f'frr defaults {frr_profiles[0]}', frrconfig)
+
     def test_frr_file_descriptors(self):
         file_descriptors = '4096'
 
