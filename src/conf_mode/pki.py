@@ -250,8 +250,11 @@ def get_config(config=None):
                             continue
 
                         path = search['path']
-                        path_str = ' '.join(path + found_path).replace('_','-')
-                        Message(f'Updating configuration: "{path_str} {item_name}"')
+                        # Only enable this for debug purposes - otherwise we will always
+                        # print this message for ACME certificates during renew tests -
+                        # even if they are not due for renew!
+                        # path_str = ' '.join(path + found_path).replace('_','-')
+                        # print(f'Updating configuration: "{path_str} {item_name}"')
 
                         if path[0] == 'interfaces':
                             ifname = found_path[0]
@@ -272,6 +275,9 @@ def get_config(config=None):
             if not dict_search('system.load_balancing.haproxy', pki):
                 continue
             # Determine which service depends on ACME issued certificates
+            # We only need to add services blocking the default certbot ports
+            # 80 and 443. For instance there won't be a conflict with strongSwan
+            # as it runs on different ports.
             used_by = []
             # We start with HAProxy
             for cert_list, _ in dict_search_recursive(
@@ -391,9 +397,9 @@ def verify(pki):
                         raise ConfigError('Port 80 is already in use and not available '\
                                           f'to provide ACME challenge for "{name}"!')
 
+                # Only run the ACME command if something on this entity changed,
+                # as this is time intensive
                 if 'certbot_renew' not in pki:
-                    # Only run the ACME command if something on this entity changed,
-                    # as this is time intensive
                     tmp = dict_search('changed.certificate', pki)
                     if tmp != None and name in tmp:
                         certbot_request(name, cert_conf['acme'])
