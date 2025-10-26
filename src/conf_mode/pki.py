@@ -44,6 +44,7 @@ from vyos.utils.configfs import add_cli_node
 from vyos.utils.dict import dict_search
 from vyos.utils.dict import dict_search_args
 from vyos.utils.dict import dict_search_recursive
+from vyos.utils.dict import dict_set_nested
 from vyos.utils.file import read_file
 from vyos.utils.network import check_port_availability
 from vyos.utils.process import call
@@ -181,9 +182,8 @@ def get_config(config=None):
     # Check for changes to said given keys in the CLI config
     for key in changed_keys:
         tmp = node_changed(conf, base + [key], recursive=True, expand_nodes=Diff.DELETE | Diff.ADD)
-        if 'changed' not in pki:
-            pki.update({'changed':{}})
-        pki['changed'].update({key.replace('-', '_') : tmp})
+        if tmp:
+            dict_set_nested(f'changed.{key.replace("-", "_")}', tmp, pki)
 
     # We only merge on the defaults if there is a configuration at all
     if conf.exists(base):
@@ -208,9 +208,14 @@ def get_config(config=None):
         for name, cert_config in pki['certificate'].items():
             if 'acme' in cert_config:
                 renew.append(name)
-        # If triggered externally by certbot, certificate key is not present in changed
-        if 'changed' not in pki: pki.update({'changed':{}})
-        pki['changed'].update({'certificate' : renew})
+        if renew:
+            # Get the current list of changed certificates
+            tmp = pki.get('changed', {}).get('certificate', [])
+            # and extend it with the list of ACME based certificates
+            tmp += renew
+            # remove any duplicates if necessary
+            tmp = set(tmp)
+            dict_set_nested('changed.certificate', tmp, pki)
 
     # We need to get the entire system configuration to verify that we are not
     # deleting a certificate that is still referenced somewhere!
