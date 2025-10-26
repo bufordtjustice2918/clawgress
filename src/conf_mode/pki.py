@@ -125,13 +125,13 @@ def certbot_delete(certificate):
     if os.path.exists(f'{vyos_certbot_dir}/renewal/{certificate}.conf'):
         cmd(f'certbot delete --non-interactive --config-dir {vyos_certbot_dir} --cert-name {certificate}')
 
-def certbot_request(name: str, config: dict, dry_run: bool=True):
+def certbot_request(name: str, config: dict, dry_run: bool=True) -> None:
     # We do not call certbot when booting the system - there is no need to do so and
     # request new certificates during boot/image upgrade as the certbot configuration
     # is stored persistent under /config - thus we do not open the door to transient
     # errors
     if not boot_configuration_complete():
-        return
+        return None
 
     domains = '--domains ' + ' --domains '.join(config['domain_name'])
     tmp = f'certbot certonly --non-interactive --config-dir {vyos_certbot_dir} --cert-name {name} '\
@@ -156,7 +156,8 @@ def certbot_request(name: str, config: dict, dry_run: bool=True):
     if dry_run:
         tmp += ' --dry-run'
 
-    cmd(tmp, raising=ConfigError, message=f'ACME certbot request failed for "{name}"!')
+    cmd(tmp, raising=ConfigError, message=f'Certbot request failed for "{name}"!')
+    return None
 
 def get_config(config=None):
     if config:
