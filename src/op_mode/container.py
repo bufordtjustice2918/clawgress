@@ -120,11 +120,11 @@ def delete_image(name: str, force: typing.Optional[bool] = False):
 
     for image in name:
         # convert the truncated image ID to a full image ID
-        rc, ancestor = rc_cmd(f'podman inspect {image} --format "{{{{.Id}}}}"')
+        rc, ancestor = rc_cmd(f'podman inspect {image} --format "{{{{.Id}}}}"', stderr=None)
         if rc != 0:
             raise vyos.opmode.InternalError(ancestor)
         # check if the image ID is an ancestor of any running container
-        rc, in_use = rc_cmd(f'podman ps --filter ancestor={ancestor} -q')
+        rc, in_use = rc_cmd(f'podman ps --filter ancestor={ancestor} -q', stderr=None)
         if rc != 0:
             raise vyos.opmode.InternalError(in_use)
 
