@@ -179,6 +179,13 @@ let exists c_ptr path =
     let path = split_on_whitespace path in
     if (Vytree.exists ct path) then 1 else 0
 
+let value_exists c_ptr path value =
+    let ct = Root.get c_ptr in
+    let path = split_on_whitespace path in
+    try
+        if (CT.value_exists ct path value) then 1 else 0
+    with VT.Empty_path -> 0
+
 let list_nodes c_ptr path =
     let ct = Root.get c_ptr in
     let path = split_on_whitespace path in
@@ -325,6 +332,7 @@ struct
   let () = I.internal "is_leaf"  ((ptr void) @-> string @-> returning bool) is_leaf
   let () = I.internal "get_subtree" ((ptr void) @-> string @-> bool @-> returning (ptr void)) get_subtree
   let () = I.internal "exists"  ((ptr void) @-> string @-> returning int) exists
+  let () = I.internal "value_exists"  ((ptr void) @-> string @-> string @-> returning int) value_exists
   let () = I.internal "list_nodes" ((ptr void) @-> string @-> returning string) list_nodes
   let () = I.internal "return_value" ((ptr void) @-> string @-> returning string) return_value
   let () = I.internal "return_values" ((ptr void) @-> string @-> returning string) return_values

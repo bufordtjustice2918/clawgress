@@ -145,6 +145,10 @@ class ConfigTree(object):
         self.__exists.argtypes = [c_void_p, c_char_p]
         self.__exists.restype = c_int
 
+        self.__value_exists = self.__lib.value_exists
+        self.__value_exists.argtypes = [c_void_p, c_char_p, c_char_p]
+        self.__value_exists.restype = c_int
+
         self.__list_nodes = self.__lib.list_nodes
         self.__list_nodes.argtypes = [c_void_p, c_char_p]
         self.__list_nodes.restype = c_char_p
@@ -356,6 +360,16 @@ class ConfigTree(object):
         path_str = ' '.join(map(str, path)).encode()
 
         res = self.__exists(self.__config, path_str)
+        if res == 0:
+            return False
+        else:
+            return True
+
+    def value_exists(self, path, value):
+        check_path(path)
+        path_str = ' '.join(map(str, path)).encode()
+
+        res = self.__value_exists(self.__config, path_str, value)
         if res == 0:
             return False
         else:
