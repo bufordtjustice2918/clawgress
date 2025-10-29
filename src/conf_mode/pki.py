@@ -44,6 +44,7 @@ from vyos.utils.configfs import add_cli_node
 from vyos.utils.dict import dict_search
 from vyos.utils.dict import dict_search_args
 from vyos.utils.dict import dict_search_recursive
+from vyos.utils.dict import dict_set_nested
 from vyos.utils.file import read_file
 from vyos.utils.network import check_port_availability
 from vyos.utils.process import call
@@ -124,13 +125,13 @@ def certbot_delete(certificate):
     if os.path.exists(f'{vyos_certbot_dir}/renewal/{certificate}.conf'):
         cmd(f'certbot delete --non-interactive --config-dir {vyos_certbot_dir} --cert-name {certificate}')
 
-def certbot_request(name: str, config: dict, dry_run: bool=True):
+def certbot_request(name: str, config: dict, dry_run: bool=True) -> None:
     # We do not call certbot when booting the system - there is no need to do so and
     # request new certificates during boot/image upgrade as the certbot configuration
     # is stored persistent under /config - thus we do not open the door to transient
     # errors
     if not boot_configuration_complete():
-        return
+        return None
 
     domains = '--domains ' + ' --domains '.join(config['domain_name'])
     tmp = f'certbot certonly --non-interactive --config-dir {vyos_certbot_dir} --cert-name {name} '\
@@ -155,7 +156,8 @@ def certbot_request(name: str, config: dict, dry_run: bool=True):
     if dry_run:
         tmp += ' --dry-run'
 
-    cmd(tmp, raising=ConfigError, message=f'ACME certbot request failed for "{name}"!')
+    cmd(tmp, raising=ConfigError, message=f'Certbot request failed for "{name}"!')
+    return None
 
 def get_config(config=None):
     if config:
@@ -181,9 +183,8 @@ def get_config(config=None):
     # Check for changes to said given keys in the CLI config
     for key in changed_keys:
         tmp = node_changed(conf, base + [key], recursive=True, expand_nodes=Diff.DELETE | Diff.ADD)
-        if 'changed' not in pki:
-            pki.update({'changed':{}})
-        pki['changed'].update({key.replace('-', '_') : tmp})
+        if tmp:
+            dict_set_nested(f'changed.{key.replace("-", "_")}', tmp, pki)
 
     # We only merge on the defaults if there is a configuration at all
     if conf.exists(base):
@@ -208,9 +209,14 @@ def get_config(config=None):
         for name, cert_config in pki['certificate'].items():
             if 'acme' in cert_config:
                 renew.append(name)
-        # If triggered externally by certbot, certificate key is not present in changed
-        if 'changed' not in pki: pki.update({'changed':{}})
-        pki['changed'].update({'certificate' : renew})
+        if renew:
+            # Get the current list of changed certificates
+            tmp = pki.get('changed', {}).get('certificate', [])
+            # and extend it with the list of ACME based certificates
+            tmp += renew
+            # remove any duplicates if necessary
+            tmp = set(tmp)
+            dict_set_nested('changed.certificate', tmp, pki)
 
     # We need to get the entire system configuration to verify that we are not
     # deleting a certificate that is still referenced somewhere!
@@ -244,8 +250,11 @@ def get_config(config=None):
                             continue
 
                         path = search['path']
-                        path_str = ' '.join(path + found_path).replace('_','-')
-                        Message(f'Updating configuration: "{path_str} {item_name}"')
+                        # Only enable this for debug purposes - otherwise we will always
+                        # print this message for ACME certificates during renew tests -
+                        # even if they are not due for renew!
+                        # path_str = ' '.join(path + found_path).replace('_','-')
+                        # print(f'Updating configuration: "{path_str} {item_name}"')
 
                         if path[0] == 'interfaces':
                             ifname = found_path[0]
@@ -266,6 +275,9 @@ def get_config(config=None):
             if not dict_search('system.load_balancing.haproxy', pki):
                 continue
             # Determine which service depends on ACME issued certificates
+            # We only need to add services blocking the default certbot ports
+            # 80 and 443. For instance there won't be a conflict with strongSwan
+            # as it runs on different ports.
             used_by = []
             # We start with HAProxy
             for cert_list, _ in dict_search_recursive(
@@ -385,9 +397,9 @@ def verify(pki):
                         raise ConfigError('Port 80 is already in use and not available '\
                                           f'to provide ACME challenge for "{name}"!')
 
+                # Only run the ACME command if something on this entity changed,
+                # as this is time intensive
                 if 'certbot_renew' not in pki:
-                    # Only run the ACME command if something on this entity changed,
-                    # as this is time intensive
                     tmp = dict_search('changed.certificate', pki)
                     if tmp != None and name in tmp:
                         certbot_request(name, cert_conf['acme'])
