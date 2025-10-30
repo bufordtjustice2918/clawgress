@@ -103,15 +103,36 @@ def get_ipv4_address(ifname):
                     return addr_json['addr_info'][0]['local']
     return None
 
+def get_dynamic_nexthop(ifname: str) -> str | None | bool:
+    '''
+    Resolve the dynamic next-hop for a WAN interface.
+
+    Determines the current default gateway learned dynamically on the interface:
+    - PPPoE interfaces (`pppoe*`): uses `parse_ppp_nexthop`.
+    - Other interfaces (e.g. DHCP): uses `parse_dhcp_nexthop`.
+
+    Return values:
+    - str: IPv4 next-hop address
+    - None: when DHCP lease has no router value
+    - False: when PPPoE nexthop state file is missing
+
+    Args:
+        ifname: Interface name (e.g. 'pppoe0', 'eth0').
+
+    Returns:
+        See above for possible values.
+    '''
+    if ifname.startswith('pppoe'):
+        return parse_ppp_nexthop(ifname)
+    else:
+        return parse_dhcp_nexthop(ifname)
+
 def dynamic_nexthop_update(lb, ifname):
     # Update on DHCP/PPP address/nexthop changes
     # Return True if nftables needs to be updated - IP change
 
     if 'dhcp_nexthop' in lb['health_state'][ifname]:
-        if ifname[:5] == 'pppoe':
-            dhcp_nexthop_addr = parse_ppp_nexthop(ifname)
-        else:
-            dhcp_nexthop_addr = parse_dhcp_nexthop(ifname)
+        dhcp_nexthop_addr = get_dynamic_nexthop(ifname)
 
         table_num = lb['health_state'][ifname]['table_number']
 
@@ -151,10 +172,7 @@ def restore_default_route(lb: dict, ifname: str) -> None:
             return
         else:
             if 'dhcp_nexthop' in lb['health_state'][ifname]:
-                if ifname[:5] == 'pppoe':
-                    nexthop_addr = parse_ppp_nexthop(ifname)
-                else:
-                    nexthop_addr = parse_dhcp_nexthop(ifname)
+                nexthop_addr = get_dynamic_nexthop(ifname)
             else:
                 nexthop_addr = dict_search_args(lb, 'interface_health', ifname, 'nexthop')
 
@@ -334,7 +352,6 @@ if __name__ == '__main__':
                         ip_change = True
 
                     restore_default_route(lb, ifname)
-
 
             if any(state['state_changed'] for ifname, state in lb['health_state'].items()):
                 if not nftables_update(lb):
