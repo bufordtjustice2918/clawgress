@@ -479,6 +479,24 @@ def generate_run_arguments(name, container_config, host_ident):
         entrypoint = json_write(container_config['entrypoint'].split()).replace('"', "&quot;")
         entrypoint = f'--entrypoint &apos;{entrypoint}&apos;'
 
+    healthcheck = ' --no-healthcheck'
+    if 'health_check' in container_config:
+        healthcheck = ''
+        if 'command' in container_config['health_check']:
+            health_cmd = container_config['health_check']['command']
+            healthcheck += f' --health-cmd="{health_cmd}"'
+        if 'interval' in container_config['health_check']:
+            health_int = container_config['health_check']['interval']
+            if health_int != 'disable':
+                health_int = f'{health_int}s'
+            healthcheck += f' --health-interval={health_int}'
+        if 'timeout' in container_config['health_check']:
+            health_to = container_config['health_check']['timeout']
+            healthcheck += f' --health-timeout={health_to}s'
+        if 'retry' in container_config['health_check']:
+            health_rt = container_config['health_check']['retry']
+            healthcheck += f' --health-retries={health_rt}'
+
     command = ''
     if 'command' in container_config:
         command = container_config['command'].strip()
@@ -488,7 +506,7 @@ def generate_run_arguments(name, container_config, host_ident):
         command_arguments = container_config['arguments'].strip()
 
     if 'allow_host_networks' in container_config:
-        return f'{container_base_cmd} --net host {entrypoint} {image} {command} {command_arguments}'.strip()
+        return f'{container_base_cmd} {healthcheck} --net host {entrypoint} {image} {command} {command_arguments}'.strip()
 
     ip_param = ''
     addr_info = ''
@@ -520,7 +538,7 @@ def generate_run_arguments(name, container_config, host_ident):
         delete_cli_node(mac_config_path)
         add_cli_node(mac_config_path, value=mac_add)
 
-    return f'{container_base_cmd} --no-healthcheck --net {networks} {ip_param} {mac_address} {entrypoint} {image} {command} {command_arguments}'.strip()
+    return f'{container_base_cmd} {healthcheck} --net {networks} {ip_param} {mac_address} {entrypoint} {image} {command} {command_arguments}'.strip()
 
 
 def generate(container):

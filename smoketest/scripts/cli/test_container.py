@@ -112,6 +112,26 @@ class TestContainer(VyOSUnitTestSHIM.TestCase):
 
         l = cmd_to_json(f'sudo podman container inspect {cont_name}')
         self.assertEqual(l['HostConfig']['LogConfig']['Type'], 'journald')
+        self.assertEqual(l['Config']['Healthcheck']['Test'], ['NONE'])
+
+    def test_healthcheck(self):
+        cont_name = 'health-test'
+
+        self.cli_set(base_path + ['name', cont_name, 'allow-host-networks'])
+        self.cli_set(base_path + ['name', cont_name, 'image', busybox_image])
+
+        self.cli_set(base_path + ['name', cont_name, 'health-check', 'command', 'true'])
+        self.cli_set(base_path + ['name', cont_name, 'health-check', 'interval', '10'])
+        self.cli_set(base_path + ['name', cont_name, 'health-check', 'timeout', '1'])
+        self.cli_set(base_path + ['name', cont_name, 'health-check', 'retry', '2'])
+        self.cli_commit()
+
+        l = cmd_to_json(f'sudo podman container inspect {cont_name}')
+        self.assertEqual(l['HostConfig']['LogConfig']['Type'], 'journald')
+        self.assertEqual(l['Config']['Healthcheck']['Test'], ['CMD-SHELL', 'true'])
+        self.assertEqual(l['Config']['Healthcheck']['Interval'], 10000000000)
+        self.assertEqual(l['Config']['Healthcheck']['Timeout'], 1000000000)
+        self.assertEqual(l['Config']['Healthcheck']['Retries'], 2)
 
 
     def test_name_server(self):
