@@ -26,24 +26,24 @@ class SFlow:
         """Enable sFlow on interface"""
         self.vpp.api.sflow_enable_disable(
             enable_disable=True,
-            sw_if_index=self.vpp.get_sw_if_index(interface),
+            hw_if_index=self.vpp.get_sw_if_index(interface),
         )
 
     def disable_sflow(self, interface):
         """Disable sFlow on interface"""
         self.vpp.api.sflow_enable_disable(
             enable_disable=False,
-            sw_if_index=self.vpp.get_sw_if_index(interface),
+            hw_if_index=self.vpp.get_sw_if_index(interface),
         )
 
     def set_sampling_rate(self, sample_rate):
         """Set sFlow sampling-rate"""
-        self.vpp.api.sflow_sampling_rate(sampling_N=sample_rate)
+        self.vpp.api.sflow_sampling_rate_set(sampling_N=sample_rate)
 
     def set_polling_interval(self, interval):
         """Set sFlow polling interval"""
-        self.vpp.api.sflow_polling_interval(polling_S=interval)
+        self.vpp.api.sflow_polling_interval_set(polling_S=interval)
 
     def set_header_bytes(self, header_bytes):
         """Set sFlow maximum header length in bytes"""
-        self.vpp.api.sflow_header_bytes(header_B=header_bytes)
+        self.vpp.api.sflow_header_bytes_set(header_B=header_bytes)
