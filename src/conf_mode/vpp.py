@@ -652,11 +652,32 @@ def apply(config):
                     if iface_config['kernel_module'] == 'ena':
                         control_host.unsafe_noiommu_mode(True)
 
-                    if iface_config['kernel_module'] in override_drivers:
+                    original_driver = config['persist_config'][iface]['original_driver']
+                    effective_ifaces = (
+                        config.get('effective', {})
+                        .get('settings', {})
+                        .get('interface', {})
+                    )
+                    # Check if the driver needs to be overridden:
+                    # either the kernel module requires it, or the interface is being switched
+                    # from XDP (hv_netvsc) to DPDK (T7797)
+                    override_xdp_to_dpdk = (
+                        effective_ifaces.get(iface, {}).get('driver') == 'xdp'
+                        and original_driver == 'hv_netvsc'
+                    )
+                    k_module = (
+                        original_driver
+                        if override_xdp_to_dpdk
+                        else iface_config['kernel_module']
+                    )
+                    if (
+                        iface_config['kernel_module'] in override_drivers
+                        or override_xdp_to_dpdk
+                    ):
                         control_host.override_driver(
                             config['persist_config'][iface]['bus_id'],
                             config['persist_config'][iface]['dev_id'],
-                            override_drivers[iface_config['kernel_module']],
+                            override_drivers[k_module],
                         )
 
         call('systemctl daemon-reload')
