@@ -83,6 +83,7 @@ sync_search = [
     {
         'keys': ['certificate', 'ca_certificate'],
         'path': ['load_balancing', 'haproxy'],
+        'orig_path': ['load-balancing', 'haproxy'],
     },
     {
         'keys': ['key'],
@@ -276,11 +277,12 @@ def get_config(config=None):
                         if isinstance(found_name, str) and found_name != item_name:
                             continue
 
-                        path = search['path']
+                        # prefer orig_path over path when unmangling is needed
+                        path = search.get('orig_path', search.get('path'))
                         # Only enable this for debug purposes - otherwise we will always
                         # print this message for ACME certificates during renew tests -
                         # even if they are not due for renew!
-                        # path_str = ' '.join(path + found_path).replace('_','-')
+                        # path_str = ' '.join(path + found_path)
                         # print(f'Updating configuration: "{path_str} {item_name}"')
 
                         if path[0] == 'interfaces':
