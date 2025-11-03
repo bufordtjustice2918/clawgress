@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
+import re
 
 from sys import exit
 
@@ -173,6 +174,13 @@ def get_config(config=None):
 
     ethernet['flowtable_interfaces'] = get_flowtable_interfaces(conf)
 
+    ethernet['vpp'] = conf.get_config_dict(
+        ['vpp'],
+        key_mangling=('-', '_'),
+        get_first_key=True,
+        no_tag_node_value_mangle=True,
+    )
+
     # Protocols static arp dependency
     if 'static_arp' in ethernet:
         set_dependents('static_arp', conf)
@@ -307,8 +315,59 @@ def verify_flowtable(ethernet: dict):
                     if vifcname in ethernet['flowtable_interfaces']:
                         raise ConfigError(f'Cannot delete interface "{vifcname}", still referenced on a flowtable')
 
+def verify_vpp_remove_vif(ethernet: dict):
+    """Ensure that VIF interfaces being removed are not used by VPP features"""
+    vpp_paths_pattern = re.compile(
+        # Known paths that already use VLAN interfaces
+        r'(nat\.cgnat\.interface\.inside)|'
+        r'(nat\.cgnat\.interface\.outside)|'
+        r'(nat44\.interface\.inside)|'
+        r'(nat44\.interface\.outside)|'
+        # Potential paths for VLAN interfaces
+        r'(nat44\.address_pool\.translation\.interface)|'
+        r'(nat44\.address_pool\.twice_nat\.interface)|'
+        r'(nat44\.exclude\.rule\.(\d)+\.external_interface)|'
+        r'(interfaces\.bonding\.bond(\d)+\.member\.interface)|'
+        r'(interfaces\.bridge\.br(\d)+\.member\.interface)|'
+        r'(interfaces\.xconnect\.xcon(\d)+\.member\.interface)|'
+        r'(acl\.ip\.interface)|'
+        r'(acl\.macip\.interface)'
+    )
+    ifname = ethernet['ifname']
+
+    vlan_names = [
+        f'{ifname}.{vif_id}'
+        for vif_group in ['vif_remove', 'vif_s_remove']
+        for vif_id in ethernet.get(vif_group, [])
+    ]
+
+    if not vlan_names:
+        return
+
+    vpp_flat = dict_to_paths_values(ethernet.get('vpp', {}))
+
+    candidate_keys = []
+    for key, value in vpp_flat.items():
+        # Normalize values to list for consistent processing
+        values = value if isinstance(value, list) else [value]
+        if any(vlan in values for vlan in vlan_names):
+            candidate_keys.append((key, values))
+
+    if not candidate_keys:
+        return
+
+    for key, values in candidate_keys:
+        if vpp_paths_pattern.fullmatch(key):
+            used_vlans = [v for v in vlan_names if v in values]
+            if used_vlans:
+                raise ConfigError(
+                    f'Cannot delete interface "{used_vlans[0]}", '
+                    f'it is still in use by "vpp {key.replace(".", " ")}"'
+                )
+
 def verify(ethernet):
     verify_flowtable(ethernet)
+    verify_vpp_remove_vif(ethernet)
 
     if 'deleted' in ethernet:
         return None
