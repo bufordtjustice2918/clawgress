@@ -37,7 +37,7 @@ from vyos.configtree import ConfigTree
 from vyos.configtree import ConfigTreeError
 from vyos.configsession import ConfigSession
 from vyos.configsession import ConfigSessionError
-from vyos.configtree import show_diff
+from vyos.configtree import diff_compare
 from vyos.load_config import load
 from vyos.load_config import LoadConfigError
 from vyos.defaults import directories
@@ -413,9 +413,9 @@ Proceed ?"""
         path = [] if commands else self.edit_path
         try:
             if commands:
-                out = show_diff(ct1, ct2, path=path, commands=True)
+                out = diff_compare(ct1, ct2, path=path, commands=True)
             else:
-                out = show_diff(ct1, ct2, path=path)
+                out = diff_compare(ct1, ct2, path=path)
         except ConfigTreeError as e:
             return e, 1
 
