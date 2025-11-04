@@ -1086,6 +1086,34 @@ class TestFirewall(VyOSUnitTestSHIM.TestCase):
         self.verify_nftables(nftables_search, 'ip vyos_filter')
         self.verify_nftables(nftables_search_v6, 'ip6 vyos_filter')
 
+    def test_wildcard_interfaces(self):
+        wc_interfaces = [
+            'eth0',
+            'eth0.*',
+            'eth1',
+            'eth1.23.*',
+            'eth2.5.25',
+            'eth2.5.25.54',
+            'eth3*',
+            'eth4.*',
+            'ipoe*',
+            'peth3',
+            'peth3.',
+            'pod-one',
+            'pppoe*',
+            'pptp*',
+            'l2tp*',
+            'sstp*',
+            'vpptun*',
+        ]
+        for iface in wc_interfaces:
+            self.cli_set(
+                ['firewall', 'zone', 'smoketest-wildcard', 'member', 'interface', iface]
+            )
+        self.cli_commit()
+
+        self.verify_nftables(wc_interfaces, 'ip vyos_filter')
+
     def test_flow_offload(self):
         self.cli_set(['interfaces', 'ethernet', 'eth0', 'vif', '10'])
         self.cli_set(['firewall', 'flowtable', 'smoketest', 'interface', 'eth0.10'])
