@@ -68,7 +68,13 @@ def install_into_config(conf, config_paths, override_prompt=True):
     if count > 0:
         print(f'{count} value(s) installed. Use "compare" to see the pending changes, and "commit" to apply.')
 
-def wait_for(func: Callable[[], Any], interval: float = 1.0, timeout: float = 5.0) -> bool:
+def wait_for(
+    func: Callable[..., Any],
+    *args,
+    interval: float = 1.0,
+    timeout: float = 5.0,
+    **kwargs
+) -> bool:
     """
     Repeatedly calls `func()` until it returns True or the timeout expires.
 
@@ -82,7 +88,7 @@ def wait_for(func: Callable[[], Any], interval: float = 1.0, timeout: float = 5.
     """
     start = time.monotonic()
     while True:
-        if func():
+        if func(*args, **kwargs):
             return True
         if (time.monotonic() - start) >= timeout:
             return False
