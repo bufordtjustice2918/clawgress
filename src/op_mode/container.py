@@ -166,6 +166,8 @@ def show_network(raw: bool):
 
 def restart(name: str):
     from vyos.utils.process import rc_cmd
+    from vyos.config import Config
+    from vyos.container import restart_network
 
     rc, output = rc_cmd(f'systemctl restart vyos-container-{name}.service')
     if rc != 0:
@@ -173,6 +175,13 @@ def restart(name: str):
         if rc2 != 0:
             print(output)
             return None
+    if rc == 0:
+        conf = Config()
+        container = conf.get_config_dict(['container'], key_mangling=('-', '_'),
+                                    no_tag_node_value_mangle=True,
+                                    get_first_key=True,
+                                    with_recursive_defaults=True)
+        restart_network(container)
     print(f'Container "{name}" restarted!')
     return output
 

@@ -619,7 +619,7 @@ class Interface(Control):
         if 'netns' in self.config:
             return False
 
-        tmp = self.get_interface('vrf')
+        tmp = self.get_vrf()
         if tmp == vrf:
             return False
 
