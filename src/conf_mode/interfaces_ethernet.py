@@ -20,6 +20,8 @@ from sys import exit
 
 from vyos.base import Warning
 from vyos.config import Config
+from vyos.configdep import set_dependents
+from vyos.configdep import call_dependents
 from vyos.configdict import get_interface_dict
 from vyos.configdict import is_node_changed
 from vyos.configdict import get_flowtable_interfaces
@@ -170,6 +172,10 @@ def get_config(config=None):
     if tmp: ethernet.update({'frr_dict' : get_frrender_dict(conf)})
 
     ethernet['flowtable_interfaces'] = get_flowtable_interfaces(conf)
+
+    # Protocols static arp dependency
+    if 'static_arp' in ethernet:
+        set_dependents('static_arp', conf)
 
     return ethernet
 
@@ -368,6 +374,8 @@ def apply(ethernet):
         e.remove()
     else:
         e.update(ethernet)
+    if 'static_arp' in ethernet:
+        call_dependents()
     return None
 
 if __name__ == '__main__':

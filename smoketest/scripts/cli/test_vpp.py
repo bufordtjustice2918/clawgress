@@ -1595,6 +1595,30 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         self.assertIn(f' hugepagesz={hp_size_1g} hugepages={hp_count_1g}', tmp)
         self.assertIn(f' hugepagesz={hp_size_2m} hugepages={hp_count_2m}', tmp)
 
+    def test_21_static_arp(self):
+        host = '192.0.2.10'
+        mac = '00:01:02:03:04:0a'
+        path_static_arp = ['protocols', 'static', 'arp']
+
+        self.cli_set(['interfaces', 'ethernet', interface, 'address', '192.0.2.1/24'])
+        self.cli_set(
+            path_static_arp + ['interface', interface, 'address', host, 'mac', mac]
+        )
+        self.cli_commit()
+
+        # Change VPP configuration
+        self.cli_set(base_path + ['settings', 'unix', 'poll-sleep-usec', '50'])
+
+        # Ensure arp entry is not disappeared
+        _, neighbors = rc_cmd('sudo ip neighbor')
+        self.assertIn(f'{host} dev {interface} lladdr {mac}', neighbors)
+
+        # Check VPP IP neighbors
+        _, vpp_neighbors = rc_cmd('sudo vppctl show ip neighbors')
+        self.assertRegex(vpp_neighbors, rf'{host}\s+S\s+{mac}\s+{interface}')
+
+        self.cli_delete(path_static_arp)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2, failfast=VyOSUnitTestSHIM.TestCase.debug_on())
