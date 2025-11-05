@@ -1086,6 +1086,15 @@ class TestFirewall(VyOSUnitTestSHIM.TestCase):
         self.verify_nftables(nftables_search, 'ip vyos_filter')
         self.verify_nftables(nftables_search_v6, 'ip6 vyos_filter')
 
+    def test_zone_without_member(self):
+        self.cli_set(['firewall', 'zone', 'wan', 'default-action', 'drop'])
+        error_message = 'Zone "wan" has no interfaces and is not the local zone'
+        with self.assertRaisesRegex(ConfigSessionError, error_message):
+            self.cli_commit()
+
+        self.cli_set(['firewall', 'zone', 'wan', 'member', 'interface', 'eth1'])
+        self.cli_commit()
+
     def test_wildcard_interfaces(self):
         wc_interfaces = [
             'eth0',
