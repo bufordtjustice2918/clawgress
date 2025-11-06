@@ -834,7 +834,6 @@ class VRFTest(VyOSUnitTestSHIM.TestCase):
 
         self.cli_delete(['interfaces', 'virtual-ethernet'])
         self.cli_delete(['service', 'dhcp-server'])
-        self.cli_delete(['vrf', 'name', vrf_name])
 
     def test_dhcpv6_single_pool(self):
         # Prepare the vrf and other options
