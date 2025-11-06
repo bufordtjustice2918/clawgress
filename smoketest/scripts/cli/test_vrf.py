@@ -819,7 +819,7 @@ class VRFTest(VyOSUnitTestSHIM.TestCase):
         # We need to wait until DHCP client has started and an IP address has been received
         sleep(8)
 
-        frrconfig = self.getFRRconfig('^vrf red', stop_section='^exit-vrf')
+        frrconfig = self.getFRRconfig(f'^vrf {vrf_name}', stop_section='^exit-vrf')
         self.assertIn(f' ip route 0.0.0.0/0 {default_gateway} {dhcp_if_client} '\
                       f'tag 210 {default_distance}', frrconfig)
 
@@ -828,7 +828,7 @@ class VRFTest(VyOSUnitTestSHIM.TestCase):
         self.cli_set(['protocols', 'static', 'route', '10.0.0.0/24', 'blackhole'])
         self.cli_commit()
 
-        frrconfig = self.getFRRconfig('^vrf red', stop_section='^exit-vrf')
+        frrconfig = self.getFRRconfig(f'^vrf {vrf_name}', stop_section='^exit-vrf')
         self.assertIn(f' ip route 0.0.0.0/0 {default_gateway} {dhcp_if_client} '\
                       f'tag 210 {default_distance}', frrconfig)
 
