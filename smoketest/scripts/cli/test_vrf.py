@@ -20,7 +20,6 @@ import unittest
 
 from json import loads
 from jmespath import search
-from time import sleep
 
 from base_vyostest_shim import VyOSUnitTestSHIM
 
@@ -28,6 +27,7 @@ from vyos.configsession import ConfigSessionError
 from vyos.ifconfig import Interface
 from vyos.ifconfig import Section
 from vyos.utils.file import read_file
+from vyos.utils.misc import wait_for
 from vyos.utils.network import get_interface_config
 from vyos.utils.network import get_vrf_tableid
 from vyos.utils.network import is_intf_addr_assigned
@@ -783,8 +783,7 @@ class VRFTest(VyOSUnitTestSHIM.TestCase):
     def test_dhcp_vrf_default_route(self):
         # T7927 - when retrieving a default route via DHCP, check that additional
         # calls into FRRender() keep the DHCP route in place
-
-        vrf_name = 'red15'
+        vrf_name = 'red-16'
         default_gateway = '192.0.2.1'
         dhcp_if_server = 'veth0'
         dhcp_if_client = 'veth1'
@@ -816,12 +815,18 @@ class VRFTest(VyOSUnitTestSHIM.TestCase):
         self.cli_set(['interfaces', 'virtual-ethernet', dhcp_if_client, 'address', 'dhcp'])
         self.cli_commit()
 
-        # We need to wait until DHCP client has started and an IP address has been received
-        sleep(8)
+        # define helper for the string we are looking for in FRR configuration
+        # the leading whitespace is required as this lives under a VRF context!
+        test_ok_string = f' ip route 0.0.0.0/0 {default_gateway} {dhcp_if_client}'\
+                         f' tag 210 {default_distance}'
 
-        frrconfig = self.getFRRconfig(f'^vrf {vrf_name}', stop_section='^exit-vrf')
-        self.assertIn(f' ip route 0.0.0.0/0 {default_gateway} {dhcp_if_client} '\
-                      f'tag 210 {default_distance}', frrconfig)
+        def test_callback(self, vrf_name, string) -> bool:
+            tmp = self.getFRRconfig(f'^vrf {vrf_name}', stop_section='^exit-vrf')
+            return bool(string in tmp)
+
+        # We need to wait until DHCP client has started and an IP address has been received
+        tmp = wait_for(test_callback, self, vrf_name, test_ok_string, timeout=20.0)
+        self.assertTrue(tmp)
 
         # Change anything in FRR to re-trigger config generation. DHCP route
         # must still be present
@@ -829,8 +834,7 @@ class VRFTest(VyOSUnitTestSHIM.TestCase):
         self.cli_commit()
 
         frrconfig = self.getFRRconfig(f'^vrf {vrf_name}', stop_section='^exit-vrf')
-        self.assertIn(f' ip route 0.0.0.0/0 {default_gateway} {dhcp_if_client} '\
-                      f'tag 210 {default_distance}', frrconfig)
+        self.assertIn(test_ok_string, frrconfig)
 
         self.cli_delete(['interfaces', 'virtual-ethernet'])
         self.cli_delete(['service', 'dhcp-server'])
