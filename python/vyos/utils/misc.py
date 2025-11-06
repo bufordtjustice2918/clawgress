@@ -12,6 +12,9 @@
 #
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library.  If not, see <http://www.gnu.org/licenses/>.
+import time
+
+from typing import Callable, Any
 
 def begin(*args):
     """
@@ -64,3 +67,29 @@ def install_into_config(conf, config_paths, override_prompt=True):
 
     if count > 0:
         print(f'{count} value(s) installed. Use "compare" to see the pending changes, and "commit" to apply.')
+
+def wait_for(
+    func: Callable[..., Any],
+    *args,
+    interval: float = 1.0,
+    timeout: float = 5.0,
+    **kwargs
+) -> bool:
+    """
+    Repeatedly calls `func()` until it returns True or the timeout expires.
+
+    Args:
+        func: A function with no arguments that returns a truthy value when ready.
+        interval: Seconds to wait between calls (default: 1.0).
+        timeout: Maximum time to wait in seconds (default: 5.0).
+
+    Returns:
+        True if the function returned True within the timeout, otherwise False.
+    """
+    start = time.monotonic()
+    while True:
+        if func(*args, **kwargs):
+            return True
+        if (time.monotonic() - start) >= timeout:
+            return False
+        time.sleep(interval)
