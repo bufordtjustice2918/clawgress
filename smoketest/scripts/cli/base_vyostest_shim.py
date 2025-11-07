@@ -12,12 +12,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import importlib.util
 import os
 import paramiko
 import pprint
 import re
-import sys
 import unittest
 
 from time import sleep
@@ -56,17 +54,6 @@ class VyOSUnitTestSHIM:
 
         @classmethod
         def setUpClass(cls):
-            # Import frr-reload.py functionality
-            file_path = '/usr/lib/frr/frr-reload.py'
-            module_name = 'frr_reload'
-
-            spec = importlib.util.spec_from_file_location(module_name, file_path)
-            module = importlib.util.module_from_spec(spec)
-            sys.modules[module_name] = module
-            spec.loader.exec_module(module)
-            Vtysh = getattr(module, 'Vtysh')
-            cls._vtysh = Vtysh(bindir='/usr/bin', confdir='/etc/frr')
-
             cls._session = ConfigSession(os.getpid())
             cls._session.save_config(save_config)
             cls.debug = cls.debug_on()
@@ -152,7 +139,11 @@ class VyOSUnitTestSHIM:
             start_subsection: search section under the result found by string
             stop_subsection:  end of the subsection (usually something with "exit")
             """
-            frr_config = self._vtysh.mark_show_run()
+            from vyos.utils.process import rc_cmd
+
+            rc, frr_config = rc_cmd('vtysh -c "show running-config no-header"')
+            self.assertEqual(rc, 0)
+
             if not start_section:
                 return frr_config
 
