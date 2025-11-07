@@ -140,12 +140,14 @@ class VyOSUnitTestSHIM:
                 pprint.pprint(out)
             return out
 
-        def getFRRconfig(self, start_section:str=None, stop_section='^!',
+        def getFRRconfig(self, start_section:str=None, end_marker='$', stop_section='^!',
                          start_subsection:str=None, stop_subsection='^ exit') -> str:
             """
             Retrieve current "running configuration" from FRR
 
             start_section:    search for a specific start string in the configuration
+            end_marker:       override default "line end $" marker to match on an
+                              "open end" string
             stop_section:     end of the configuration
             start_subsection: search section under the result found by string
             stop_subsection:  end of the subsection (usually something with "exit")
@@ -158,7 +160,7 @@ class VyOSUnitTestSHIM:
             in_section = False
             for line in frr_config.splitlines():
                 if not in_section:
-                    if re.match(start_section, line):
+                    if re.match(f'^{start_section}{end_marker}', line):
                         in_section = True
                         extracted.append(line)
                 else:
