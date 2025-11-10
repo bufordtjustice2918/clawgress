@@ -521,6 +521,10 @@ def get_cli_kernel_options(config_file: str) -> list:
     if 'quiet' in kernel_options:
         cmdline_options.append('quiet')
 
+    # Early reboot on kernel panic via kernel cmdline (must match system_option.py)
+    if dict_search('system.option.reboot-on-panic', config_dict) is not None:
+        cmdline_options.append('panic=60')
+
     if 'disable-hpet' in kernel_options:
         cmdline_options.append('hpet=disable')
 
