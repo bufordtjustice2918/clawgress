@@ -326,6 +326,48 @@ class VRFTest(VyOSUnitTestSHIM.TestCase):
         self.cli_delete(['interfaces', 'dummy', interface])
         self.cli_commit()
 
+    def test_delete_vrf_protocols_should_not_crash(self):
+        # Testcase for issue T7255:
+        #   - verify that deleting the 'protocols' node under a VRF does not crash.
+
+        table = '3000'
+        vrf = 'purple'
+        interface = 'dum3000'
+        router_id = '10.2.0.2'
+
+        # Configure dummy interface and assign to VRF
+        self.cli_set(['interfaces', 'dummy', interface, 'address', '10.1.0.254/24'])
+        self.cli_set(['interfaces', 'dummy', interface, 'vrf', vrf])
+
+        # Configure OSPF under the VRF
+        base_ospf_path = base_path + ['name', vrf, 'protocols', 'ospf']
+        self.cli_set(base_ospf_path + ['interface', interface, 'area', '0'])
+        self.cli_set(base_ospf_path + ['parameters', 'router-id', router_id])
+        self.cli_set(['protocols', 'ospf'])
+
+        # Assign routing table number to the VRF
+        self.cli_set(base_path + ['name', vrf, 'table', table])
+
+        # Commit configuration and verify VRF was successfully created
+        self.cli_commit()
+        self.assertTrue(interface_exists(vrf))
+        frrconfig = self.getFRRconfig(f'router ospf vrf {vrf}', stop_section='^exit')
+        self.assertIn(f'ospf router-id {router_id}', frrconfig)
+
+        try:
+            # Attempt to delete the entire 'protocols' subtree under VRF
+            self.cli_delete(base_path + ['name', vrf, 'protocols'])
+            self.cli_commit()
+
+            # Verify result of deleting 'protocols' subtree
+            frrconfig = self.getFRRconfig(f'router ospf vrf {vrf}', stop_section='^exit')
+            self.assertNotIn(f'ospf router-id {router_id}', frrconfig)
+        finally:
+            # Clean up dummy interface and VRF and re-commit
+            self.cli_delete(['interfaces', 'dummy', interface])
+            self.cli_delete(base_path + ['name', vrf])
+            self.cli_commit()
+
     def test_vrf_disable_forwarding(self):
         table = '2000'
         for vrf in vrfs:
