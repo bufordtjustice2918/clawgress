@@ -235,7 +235,7 @@ def verify(login):
                 fail = False
 
         if fail:
-            raise ConfigError('All RADIUS servers are disabled')
+            raise ConfigError('All TACACS servers are disabled')
 
         if tacacs_servers_count > MAX_TACACS_COUNT:
             raise ConfigError(f'Number of TACACS servers exceeded maximum of {MAX_TACACS_COUNT}!')
