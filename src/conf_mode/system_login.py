@@ -376,7 +376,7 @@ def apply(login):
             command += f" --home '{home_directory}'"
 
             if 'operator' not in user_config:
-                command += f' --groups frr,frrvty,vyattacfg,sudo,adm,dip,disk,_kea'
+                command += f' --groups frr,frrvty,vyattacfg,sudo,adm,dip,disk,_kea,vpp'
 
             command += f' {user}'
 
