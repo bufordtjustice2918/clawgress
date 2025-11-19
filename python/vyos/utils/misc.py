@@ -37,9 +37,13 @@ def install_into_config(conf, config_paths, override_prompt=True):
     if not config_paths:
         return None
 
+    import os
+
     from vyos.config import Config
+    from vyos.defaults import base_dir
     from vyos.utils.io import ask_yes_no
     from vyos.utils.process import cmd
+
     if not Config().in_session():
         print('You are not in configure mode, commands to install manually from configure mode:')
         for path in config_paths:
@@ -49,13 +53,17 @@ def install_into_config(conf, config_paths, override_prompt=True):
     count = 0
     failed = []
 
+    env = os.environ.copy()
+    env['vyos_libexec_dir'] = base_dir
+    env['vyos_validators_dir'] = f'{base_dir}/validators'
+
     for path in config_paths:
         if override_prompt and conf.exists(path) and not conf.is_multi(path):
             if not ask_yes_no(f'Config node "{path}" already exists. Do you want to overwrite it?'):
                 continue
 
         try:
-            cmd(f'/opt/vyatta/sbin/my_set {path}')
+            cmd(f'/opt/vyatta/sbin/my_set {path}', env=env)
             count += 1
         except:
             failed.append(path)
