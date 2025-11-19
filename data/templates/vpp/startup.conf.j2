@@ -6,6 +6,7 @@ unix {
     full-coredump
     cli-listen /run/vpp/cli.sock
     gid vpp
+    systemd-notify
     # exec /etc/vpp/bootstrap.vpp
 {% if unix is vyos_defined %}
 {%     if unix.poll_sleep_usec is vyos_defined %}
