@@ -247,6 +247,11 @@ def verify(login):
 
         verify_vrf(login['tacacs'])
 
+        if tmp := dict_search('tacacs.source_address', login):
+            tacacs_vrf = dict_search('tacacs.vrf', login)
+            if not is_addr_assigned(tmp, vrf=tacacs_vrf):
+                Warning(f'Specified TACACS source-address "{tmp}" is not assigned!')
+
     if 'max_login_session' in login and 'timeout' not in login:
         raise ConfigError('"login timeout" must be configured!')
 
