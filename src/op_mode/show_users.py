@@ -79,7 +79,9 @@ def list_users():
     vyos_users = cfg.list_effective_nodes('system login user')
     users = []
     with open('/var/log/lastlog', 'rb') as lastlog_file:
-        for (name, _, uid, _, _, _, _) in pwd.getpwall():
+        for entry in get_local_passwd_entries():
+            name = entry.pw_name
+            uid = entry.pw_uid
             lastlog_info = decode_lastlog(lastlog_file, uid)
             if lastlog_info is None:
                 continue
