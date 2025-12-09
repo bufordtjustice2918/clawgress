@@ -13,15 +13,15 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 import argparse
-import pwd
 import struct
 import sys
 from time import ctime
 
 from tabulate import tabulate
 from vyos.config import Config
-
+from vyos.utils.auth import get_local_passwd_entries
 
 class UserInfo:
     def __init__(self, uid, name, user_type, is_locked, login_time, tty, host):
