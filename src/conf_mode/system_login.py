@@ -21,7 +21,6 @@ import json
 from copy import deepcopy
 from passlib.hosts import linux_context
 from psutil import users
-from pwd import getpwuid
 from sys import exit
 from time import sleep
 
@@ -432,7 +431,7 @@ def apply(login):
             # retrieve current owner of home directory and adjust on demand
             dir_owner = None
             try:
-                dir_owner = getpwuid(os.stat(home_dir).st_uid).pw_name
+                dir_owner = get_local_passwd_entries(os.stat(home_dir).st_uid).pw_name
             except:
                 pass
 

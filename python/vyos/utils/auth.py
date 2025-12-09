@@ -20,7 +20,6 @@ import string
 
 from dataclasses import dataclass
 from decimal import Decimal
-from pwd import getpwnam
 from enum import StrEnum
 from typing import List
 from typing import Optional
@@ -215,7 +214,9 @@ def get_local_users(min_uid=MIN_USER_UID, max_uid=MAX_USER_UID) -> list:
 
     return local_users
 
-
 def get_user_home_dir(user: str) -> str:
     """Return user's home directory"""
-    return getpwnam(user).pw_dir
+    for u in get_local_passwd_entries():
+        if u.pw_name == user:
+            return u.pw_dir
+    raise KeyError(f"User '{user}' not found in /etc/passwd")
