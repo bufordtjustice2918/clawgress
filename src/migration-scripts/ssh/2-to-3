@@ -1,0 +1,31 @@
+# Copyright VyOS maintainers and contributors <maintainers@vyos.io>
+#
+# This library is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Lesser General Public
+# License as published by the Free Software Foundation; either
+# version 2.1 of the License, or (at your option) any later version.
+#
+# This library is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with this library.  If not, see <http://www.gnu.org/licenses/>.
+
+# T8098: rijndael-cbc@lysator.liu.se was removed in OpenSSH 6.7 which is used
+#        starting with VyOS 1.4
+
+from vyos.configtree import ConfigTree
+
+base = ['service', 'ssh']
+
+def migrate(config: ConfigTree) -> None:
+    if not config.exists(base + ['ciphers']):
+        # Nothing to do
+        return
+
+    deprecated_cipher = 'rijndael-cbc@lysator.liu.se'
+    for cipher in config.return_values(base + ['ciphers']):
+        if cipher == deprecated_cipher:
+            config.delete_value(base + ['ciphers'], value=deprecated_cipher)
