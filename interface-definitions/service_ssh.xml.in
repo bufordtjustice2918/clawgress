@@ -36,7 +36,7 @@
               </node>
             </children>
           </node>
-          <leafNode name="ciphers">
+          <leafNode name="cipher">
             <properties>
               <help>Allowed ciphers</help>
               <completionHelp>

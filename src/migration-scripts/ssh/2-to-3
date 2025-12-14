@@ -14,18 +14,26 @@
 # along with this library.  If not, see <http://www.gnu.org/licenses/>.
 
 # T8098: rijndael-cbc@lysator.liu.se was removed in OpenSSH 6.7 which is used
-#        starting with VyOS 1.4
+#        starting with VyOS 1.4. Also rename "ciphers" -> "cipher" to follow our
+#        CLI guidelines to use singular when possible
 
 from vyos.configtree import ConfigTree
 
 base = ['service', 'ssh']
 
+old_path = base + ['ciphers']
+new_path = base + ['cipher']
+
 def migrate(config: ConfigTree) -> None:
-    if not config.exists(base + ['ciphers']):
+    if not config.exists(base):
         # Nothing to do
         return
 
-    deprecated_cipher = 'rijndael-cbc@lysator.liu.se'
-    for cipher in config.return_values(base + ['ciphers']):
-        if cipher == deprecated_cipher:
-            config.delete_value(base + ['ciphers'], value=deprecated_cipher)
+    if config.exists(old_path):
+        config.rename(old_path, new_path[-1])
+
+    if config.exists(new_path):
+        deprecated_cipher = 'rijndael-cbc@lysator.liu.se'
+        for cipher in config.return_values(new_path):
+            if cipher == deprecated_cipher:
+                config.delete_value(new_path, value=deprecated_cipher)
