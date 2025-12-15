@@ -378,7 +378,7 @@ class TestServiceSSH(VyOSUnitTestSHIM.TestCase):
         rekey_data = '1024'
 
         for cipher in ciphers:
-            self.cli_set(base_path + ['ciphers', cipher])
+            self.cli_set(base_path + ['cipher', cipher])
         for host_key in host_key_algs:
             self.cli_set(base_path + ['hostkey-algorithm', host_key])
         for kex in kexes:
