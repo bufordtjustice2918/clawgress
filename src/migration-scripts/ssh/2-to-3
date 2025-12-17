@@ -14,8 +14,11 @@
 # along with this library.  If not, see <http://www.gnu.org/licenses/>.
 
 # T8098: rijndael-cbc@lysator.liu.se was removed in OpenSSH 6.7 which is used
-#        starting with VyOS 1.4. Also rename "ciphers" -> "cipher" to follow our
-#        CLI guidelines to use singular when possible
+#        starting with VyOS 1.4 - It is an alias for aes256-cbc which was
+#        standardized in RFC4253, adjust CLI accordingly.
+#        https://github.com/openssh/openssh-portable/commit/03e93c753d7c223063a
+#        Also rename "ciphers" -> "cipher" to follow our CLI guidelines to use
+#        singular when possible
 
 from vyos.configtree import ConfigTree
 
@@ -37,3 +40,4 @@ def migrate(config: ConfigTree) -> None:
         for cipher in config.return_values(new_path):
             if cipher == deprecated_cipher:
                 config.delete_value(new_path, value=deprecated_cipher)
+                config.set(new_path, value='aes256-cbc', replace=False)
