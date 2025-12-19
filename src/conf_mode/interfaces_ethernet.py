@@ -273,6 +273,20 @@ def verify_offload(ethernet: dict, ethtool: Ethtool):
             raise ConfigError('Xen netback drivers requires scatter-gatter offloading '\
                               'for MTU size larger then 1500 bytes')
 
+def verify_mac_change(ethernet: dict, ethtool: Ethtool):
+    """
+     Verify if ethernet card driver supports changing the interface MAC address.
+     AWS ENA driver has no support for MAC address changes.
+
+    :param ethernet: dictionary which is received from get_interface_dict
+    :type ethernet: dict
+    :param ethtool: Ethernet object
+    :type ethtool: Ethtool
+    """
+    if 'mac' not in ethernet:
+        return None
+    if not ethtool.check_mac_change():
+        raise ConfigError(f'Driver does not suport changing MAC address!')
 
 def verify_allowedbond_changes(ethernet: dict):
     """
@@ -381,6 +395,7 @@ def verify(ethernet):
     verify_flow_control(ethernet, ethtool)
     verify_ring_buffer(ethernet, ethtool)
     verify_offload(ethernet, ethtool)
+    verify_mac_change(ethernet, ethtool)
 
     if 'is_bond_member' in ethernet:
         verify_bond_member(ethernet, ethtool)
