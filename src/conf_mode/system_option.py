@@ -382,11 +382,12 @@ def parse_cmdline(cmdline):
     # Find all matches and populate result
     for match in _parse_cmdline_pattern.finditer(cmdline):
         for group_name, value in match.groupdict().items():
+            key = group_to_key.get(group_name, group_name)
+
             # skip empty values and unknown parameters
             if value is None or key not in MANAGED_PARAMS:
                 continue
 
-            key = group_to_key.get(group_name, group_name)
             entry = MANAGED_PARAMS[key]
 
             if entry['type'] is bool:
