@@ -125,27 +125,27 @@ class BondIf(Interface):
         # when a bond member gets deleted, all members are placed in A/D state
         # even when they are enabled inside CLI. This will make the config
         # and system look async.
-        slave_list = []
-        for s in self.get_slaves():
-            slave = {
+        members = []
+        for s in self.get_members():
+            member = {
                 'ifname': s,
                 'state': Interface(s).get_admin_state()
             }
-            slave_list.append(slave)
+            members.append(member)
 
         # remove bond master which places members in disabled state
         super().remove()
 
         # replicate previous interface state before bond destruction back to
         # physical interface
-        for slave in slave_list:
-             i = Interface(slave['ifname'])
-             i.set_admin_state(slave['state'])
+        for member in members:
+             i = Interface(member['ifname'])
+             i.set_admin_state(member['state'])
 
     def set_hash_policy(self, mode):
         """
-        Selects the transmit hash policy to use for slave selection in
-        balance-xor, 802.3ad, and tlb modes. Possible values are: layer2,
+        Selects the transmit hash policy to use for selecting forwarding link
+        in balance-xor, 802.3ad, and tlb modes. Possible values are: layer2,
         layer2+3, layer3+4, encap2+3, encap3+4.
 
         The default value is layer2
@@ -201,8 +201,8 @@ class BondIf(Interface):
 
     def set_miimon_interval(self, interval):
         """
-        Specifies the MII link monitoring frequency in milliseconds. This
-        determines how often the link state of each slave is inspected for link
+        Specifies the MII link monitoring frequency in milliseconds. Determines
+        how often the link state of each physical member is inspected for link
         failures. A value of zero disables MII link monitoring. A value of 100
         is a good starting point.
 
@@ -218,10 +218,10 @@ class BondIf(Interface):
         """
         Specifies the ARP link monitoring frequency in milliseconds.
 
-        The ARP monitor works by periodically checking the slave devices
+        The ARP monitor works by periodically checking the member devices
         to determine whether they have sent or received traffic recently
         (the precise criteria depends upon the bonding mode, and the
-        state of the slave). Regular traffic is generated via ARP probes
+        state of the member). Regular traffic is generated via ARP probes
         issued for the addresses specified by the arp_ip_target option.
 
         If ARP monitoring is used in an etherchannel compatible mode
@@ -284,7 +284,7 @@ class BondIf(Interface):
 
     def add_port(self, interface):
         """
-        Enslave physical interface to bond.
+        Add physical interface to bond as participating member.
 
         Example:
         >>> from vyos.ifconfig import BondIf
@@ -302,19 +302,19 @@ class BondIf(Interface):
         # The kernel will ALWAYS place new bond members in "up" state regardless
         # what the CLI will tell us!
 
-        # Physical interface must be in admin down state before they can be
-        # enslaved. If this is not the case an error will be shown:
+        # Physical interface must be in admin down state before it can be
+        # added. If this is not the case an error will be shown:
         # bond0: eth0 is up - this may be due to an out of date ifenslave
-        slave = Interface(interface)
-        slave_state = slave.get_admin_state()
-        if slave_state == 'up':
-            slave.set_admin_state('down')
+        member = Interface(interface)
+        member_state = member.get_admin_state()
+        if member_state == 'up':
+            member.set_admin_state('down')
 
         ret = self.set_interface('bond_add_port', f'+{interface}')
-        # The kernel will ALWAYS place new bond members in "up" state regardless
-        # what the LI is configured for - thus we place the interface in its
-        # desired state
-        slave.set_admin_state(slave_state)
+        # The kernel will ALWAYS place new bond members in "up" state
+        # regardless what the interface is configured for - thus we place the
+        # interface in its desired state
+        member.set_admin_state(member_state)
         return ret
 
     def del_port(self, interface):
@@ -327,18 +327,18 @@ class BondIf(Interface):
         """
         return self.set_interface('bond_del_port', f'-{interface}')
 
-    def get_slaves(self):
+    def get_members(self) -> list:
         """
-        Return a list with all configured slave interfaces on this bond.
+        Return a list with all configured physical member interfaces.
 
         Example:
         >>> from vyos.ifconfig import BondIf
-        >>> BondIf('bond0').get_slaves()
+        >>> BondIf('bond0').get_members()
         ['eth1', 'eth2']
         """
         return self.get_interface('bond_members').split()
 
-    def get_mode(self):
+    def get_mode(self) -> str:
         """
         Return bond operation mode.
 
@@ -353,11 +353,11 @@ class BondIf(Interface):
 
     def set_primary(self, interface):
         """
-        A string (eth0, eth2, etc) specifying which slave is the primary
-        device. The specified device will always be the active slave while it
+        A string (eth0, eth2, etc.) specifying which member is the primary
+        device. The specified device will always be the active member while it
         is available. Only when the primary is off-line will alternate devices
-        be used. This is useful when one slave is preferred over another, e.g.,
-        when one slave has higher throughput than another.
+        be used. This is useful when one member is preferred over another, e.g.,
+        when one member has higher throughput than another.
 
         The primary option is only valid for active-backup, balance-tlb and
         balance-alb mode.
@@ -376,8 +376,8 @@ class BondIf(Interface):
         Possible values are: balance-rr, active-backup, balance-xor,
         broadcast, 802.3ad, balance-tlb, balance-alb
 
-        NOTE: the bonding mode can not be changed when the bond itself has
-        slaves
+        NOTE: the bond operation mode cannot be changed when the bond itself
+              has members attached!
 
         Example:
         >>> from vyos.ifconfig import BondIf
@@ -409,11 +409,12 @@ class BondIf(Interface):
         interface setup code and provide a single point of entry when workin
         on any interface. """
 
-        # use ref-counting function to place an interface into admin down state.
+        # Use ref-counting function to place an interface into admin down state.
         # set_admin_state_up() must be called the same amount of times else the
-        # interface won't come up. This can/should be used to prevent link flapping
-        # when changing interface parameters require the interface to be down.
-        # We will disable it once before reconfiguration and enable it afterwards.
+        # interface won't come up. This can/should be used to prevent link
+        # flapping when changing interface parameters require the interface to
+        # be down. We will disable it once before reconfiguration and enable it
+        # afterwards.
         if 'shutdown_required' in config:
             self.set_admin_state('down')
 
