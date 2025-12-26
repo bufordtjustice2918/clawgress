@@ -118,6 +118,7 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
     def test_01_vpp_basic(self):
         main_core = '0'
         poll_sleep = '0'
+        mtu = '2500'
 
         # Main core must be verified
         # expect raise ConfigError
@@ -160,6 +161,19 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         _, out = rc_cmd('sudo vppctl show lcp')
         required_str = 'lcp route-no-paths off'
         self.assertIn(required_str, out)
+
+        # set interface MTU
+        self.cli_set(['interfaces', 'ethernet', interface, 'mtu', mtu])
+        self.cli_commit()
+
+        # check MTU for the LCP interface pair
+        _, out = rc_cmd('sudo vppctl show interface')
+        normalized_out = re.sub(r'\s+', ' ', out)
+        self.assertIn(f'tap4096 2 up {mtu}/0/0/0', normalized_out)
+
+        # delete mtu settings
+        self.cli_delete(['interfaces', 'ethernet', interface, 'mtu'])
+        self.cli_commit()
 
     def test_02_vpp_vxlan(self):
         vni = '23'
