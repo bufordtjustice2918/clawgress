@@ -13,8 +13,6 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library.  If not, see <http://www.gnu.org/licenses/>.
 
-import os
-
 from vyos.ifconfig.interface import Interface
 from vyos.utils.dict import dict_search
 from vyos.utils.assertion import assert_list
@@ -89,6 +87,9 @@ class BondIf(Interface):
     _sysfs_get = {**Interface._sysfs_get, **{
         'bond_arp_ip_target': {
             'location': '/sys/class/net/{ifname}/bonding/arp_ip_target',
+        },
+        'bond_members': {
+            'location': '/sys/class/net/{ifname}/bonding/slaves',
         },
         'bond_mode': {
             'location': '/sys/class/net/{ifname}/bonding/mode',
@@ -335,15 +336,7 @@ class BondIf(Interface):
         >>> BondIf('bond0').get_slaves()
         ['eth1', 'eth2']
         """
-        enslaved_ifs = []
-        # retrieve real enslaved interfaces from OS kernel
-        sysfs_bond = '/sys/class/net/{}'.format(self.config['ifname'])
-        if os.path.isdir(sysfs_bond):
-            for directory in os.listdir(sysfs_bond):
-                if 'lower_' in directory:
-                    enslaved_ifs.append(directory.replace('lower_', ''))
-
-        return enslaved_ifs
+        return self.get_interface('bond_members').split()
 
     def get_mode(self):
         """
