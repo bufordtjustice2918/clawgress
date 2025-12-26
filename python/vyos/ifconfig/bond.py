@@ -347,9 +347,8 @@ class BondIf(Interface):
         >>> BondIf('bond0').get_mode()
         '802.3ad'
         """
-        mode = self.get_interface('bond_mode')
-        # mode is now "802.3ad 4", we are only interested in "802.3ad"
-        return mode.split()[0]
+        mode_name, _ = self.get_interface('bond_mode').split()
+        return mode_name
 
     def set_primary(self, interface):
         """
@@ -383,6 +382,8 @@ class BondIf(Interface):
         >>> from vyos.ifconfig import BondIf
         >>> BondIf('bond0').set_mode('802.3ad')
         """
+        if len(self.get_members()) != 0:
+            raise OSError(f'{self.ifname} still has member interfaces attached!')
         return self.set_interface('bond_mode', mode)
 
     def set_system_mac(self, mac):
@@ -432,19 +433,17 @@ class BondIf(Interface):
 
         # Some interface options can only be changed if the interface is
         # administratively down
+        #
+        # We can not move the upper "shutdown_required" code path here - as this
+        # would break initial bond creation and inital mode assignment during
+        # interface creation!
         if self.get_admin_state() == 'down':
-            # Remove ALL bond member interfaces
-            for interface in self.get_slaves():
-                self.del_port(interface)
-
-                # Restore correct interface status based on config
-                if dict_search(f'member.interface.{interface}.disable', config) is not None or \
-                   dict_search(f'member.interface_remove.{interface}.disable', config) is not None:
-                    Interface(interface).set_admin_state('down')
-                else:
-                    Interface(interface).set_admin_state('up')
-
             # Bonding policy/mode - default value, always present
+            #
+            # Changing bond operation mode can only happen when there is no
+            # physical member interface associated with the bond itself!
+            for member in self.get_members():
+                self.del_port(member)
             self.set_mode(config['mode'])
 
             # LACPDU transmission rate - default value
@@ -477,31 +476,62 @@ class BondIf(Interface):
                     for addr in value:
                         self.set_arp_ip_target('+' + addr)
 
-            # Add (enslave) interfaces to bond
-            value = dict_search('member.interface', config)
-            is_first = True
-            for interface in (value or []):
-                # Physical bond member interface instance
-                tmp_if = Interface(interface)
-                # At this point, we've confirmed that the interface has no
-                # configured addresses, so we can safely flush any remaining ones.
-                tmp_if.flush_addrs()
+        # Remove bond interface members first - before adding new members to the link
+        bond_members = self.get_members()
+        # Add new interfaces to the bond first before removing no longer
+        # required members - this is to ensure that in theory there is always an
+        # active member link
+        is_first = True
+        for interface in dict_search('member.interface', config, default=[]):
+            # Only add interface to bond if it is not already a member
+            if interface in bond_members:
+                continue
 
-                # T7571: This behavior changed from Linux Kernel 5.4 (used in VyOS 1.3)
-                # to Kernel 6.6 (starting with VyOS 1.4). Previously, the MAC address of
-                # the first member interface in a bond was adopted as the bond's default MAC.
-                # In newer versions, a synthetic MAC address is assigned instead.
-                #
-                # Re-assign first underlay MAC address to the bond
-                if is_first:
-                    self.set_mac(tmp_if.get_mac())
-                    is_first = False
+            # Physical bond member interface instance
+            tmp_if = Interface(interface)
+            # At this point, we've confirmed that the interface has no
+            # configured addresses, so we can safely flush any remaining ones.
+            tmp_if.flush_addrs()
 
-                # Assign underlaying interface to logical bond
-                self.add_port(interface)
+            # T7571: This behavior changed from Linux Kernel 5.4 (used in VyOS 1.3)
+            # to Kernel 6.6 (starting with VyOS 1.4). Previously, the MAC address of
+            # the first member interface in a bond was adopted as the bond's default MAC.
+            # In newer versions, a synthetic MAC address is assigned instead.
+            #
+            # Re-assign first underlay MAC address to the bond
+            if is_first:
+                self.set_mac(tmp_if.get_mac())
+                is_first = False
+
+            # Assign underlaying interface to logical bond
+            self.add_port(interface)
+            bond_members.append(interface)
+
+            # Restore correct interface status based on config
+            if dict_search(f'member.interface.{interface}.disable', config):
+                Interface(interface).set_admin_state('down')
+            else:
+                Interface(interface).set_admin_state('up')
+
+        # Remove no longer needed interfaces from the bond - this should happen
+        # after adding "new" interfaces to the bond as members.
+        for interface in dict_search('member.interface_remove', config, default=[]):
+            if interface not in bond_members:
+                # print(f'Interface {interface} not found in bond member list')
+                continue
+
+            self.del_port(interface)
+            bond_members.remove(interface)
+
+            # Restore correct interface status based on config
+            if dict_search(f'member.interface_remove.{interface}.disable', config):
+                Interface(interface).set_admin_state('down')
+            else:
+                Interface(interface).set_admin_state('up')
 
         # Add system mac address for 802.3ad - default address is all zero
-        # mode is always present (defaultValue)
+        # mode is always present (defaultValue) - must happen after members got
+        # added to the bond
         if config['mode'] == '802.3ad':
             mac = '00:00:00:00:00:00'
             if 'system_mac' in config:

@@ -104,7 +104,6 @@ def get_config(config=None):
     conf.set_level(['interfaces'])
 
     if interfaces_removed:
-        bond['shutdown_required'] = {}
         if 'member' not in bond:
             bond['member'] = {}
 
@@ -141,7 +140,6 @@ def get_config(config=None):
 
             # Check if member interface is a new member
             if not conf.exists_effective(base + [ifname, 'member', 'interface', interface]):
-                bond['shutdown_required'] = {}
                 bond['member']['interface'][interface].update({'new_added' : {}})
 
             # Check if member interface is disabled
