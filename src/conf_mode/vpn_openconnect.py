@@ -115,7 +115,7 @@ def verify(ocserv):
                  and 'certificate' in ocserv['authentication']['mode'])
             ):
                 raise ConfigError(
-                    'OpenConnect authentication modes are mutually-exclusive. Only one of local, radius, or certificate.'
+                    'OpenConnect authentication modes are mutually-exclusive. Use only one of local, radius, or certificate.'
                 )
             if 'radius' in ocserv['authentication']['mode']:
                 if 'server' not in ocserv['authentication']['radius']:
