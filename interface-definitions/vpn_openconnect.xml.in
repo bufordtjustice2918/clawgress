@@ -71,7 +71,7 @@
                   </leafNode>
                   <node name="certificate">
                     <properties>
-                      <help>Use certificate based authentication</help>
+                      <help>Use certificate-based authentication</help>
                     </properties>
                     <children>
                       <leafNode name="user-identifier-field">
