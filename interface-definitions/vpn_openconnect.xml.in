@@ -76,7 +76,7 @@
                     <children>
                       <leafNode name="user-identifier-field">
                         <properties>
-                          <help>Defines what field in the certificate identifies the username</help>
+                          <help>Certificate field to identify users by</help>
                           <valueHelp>
                             <format>cn</format>
                             <description>OID 2.5.4.3 - Common Name</description>
