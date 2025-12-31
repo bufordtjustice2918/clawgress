@@ -572,6 +572,11 @@ def get_openvpn_data_ciphers(ciphers):
             out.append(cipher)
     return ':'.join(out).upper()
 
+
+@register_filter('openvpn_data_ciphers_fallback')
+def get_openvpn_data_ciphers_fallback(cipher):
+    return get_openvpn_cipher(cipher)
+
 @register_filter('snmp_auth_oid')
 def snmp_auth_oid(type):
     if type not in ['md5', 'sha', 'aes', 'des', 'none']:
