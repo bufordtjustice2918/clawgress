@@ -47,6 +47,7 @@ jobs:
       test_vpp: ${{ steps.config.outputs.test_vpp }}
       test_vpp_runner: ${{ steps.config.outputs.test_vpp_runner }}
       install_build_deps: ${{ steps.config.outputs.install_build_deps }}
+      mirror_enabled: ${{ steps.config.outputs.mirror_enabled }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -72,19 +73,20 @@ jobs:
           echo "container_image=$(echo $CONFIG | jq -r .container_image)" >> $GITHUB_OUTPUT
           echo "vyos_build_repo=$(echo $CONFIG | jq -r .vyos_build_repo)" >> $GITHUB_OUTPUT
           echo "build_version_format=$(echo $CONFIG | jq -r .build_version_format)" >> $GITHUB_OUTPUT
-          echo "build_runner=$(echo $CONFIG | jq -r .build_runner)" >> $GITHUB_OUTPUT
+          echo "build_runner=$(echo $CONFIG | jq -c .build_runner)" >> $GITHUB_OUTPUT
           echo "use_pat=$(echo $CONFIG | jq -r .use_pat)" >> $GITHUB_OUTPUT
           echo "test_cli_command=$(echo $CONFIG | jq -r .test_cli_command)" >> $GITHUB_OUTPUT
           echo "test_tpm_tests=$(echo $CONFIG | jq -r .test_tpm_tests)" >> $GITHUB_OUTPUT
           echo "test_vpp=$(echo $CONFIG | jq -r .test_vpp)" >> $GITHUB_OUTPUT
-          echo "test_vpp_runner=$(echo $CONFIG | jq -r .test_vpp_runner)" >> $GITHUB_OUTPUT
+          echo "test_vpp_runner=$(echo $CONFIG | jq -c .test_vpp_runner)" >> $GITHUB_OUTPUT
           echo "install_build_deps=$(echo $CONFIG | jq -r .install_build_deps)" >> $GITHUB_OUTPUT
+          echo "mirror_enabled=$(echo $CONFIG | jq -r .mirror_enabled)" >> $GITHUB_OUTPUT
 
   build_iso:
     needs: set_config
     runs-on: ${{ fromJson(needs.set_config.outputs.build_runner) }}
     timeout-minutes: 45
-    if: github.repository == 'vyos/vyos-1x'
+    if: ${{ needs.set_config.outputs.mirror_enabled == 'false' || (needs.set_config.outputs.mirror_enabled == 'true' && github.repository_owner == 'vyos') }}
     container:
       image: ${{ needs.set_config.outputs.container_image }}
       options: --sysctl net.ipv6.conf.lo.disable_ipv6=0 --privileged
