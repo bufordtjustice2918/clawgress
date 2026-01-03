@@ -326,6 +326,9 @@ if __name__ == '__main__':
             print('Backup the recovery key in a safe place!')
             print('Recovery key: ' + recovery_key.decode())
         elif args.enable:
+            if recovery_key != ask_input('Confirm key:', default=None, no_echo=True).encode():
+                raise ValueError("Keys did not match!")
+
             encrypt_config(recovery_key, is_tpm=False)
 
             print('Encrypted config volume has been enabled without TPM')
