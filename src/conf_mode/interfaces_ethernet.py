@@ -386,11 +386,12 @@ def verify(ethernet):
     if 'deleted' in ethernet:
         return None
 
-    ethtool = Ethtool(ethernet['ifname'])
-    verify_interface_exists(ethernet, ethernet['ifname'])
+    ifname = ethernet['ifname']
+    verify_interface_exists(ethernet, ifname, state_required=True)
     verify_eapol(ethernet)
     verify_mirror_redirect(ethernet)
     # No need to check speed and duplex keys as both have default values
+    ethtool = Ethtool(ifname)
     verify_speed_duplex(ethernet, ethtool)
     verify_flow_control(ethernet, ethtool)
     verify_ring_buffer(ethernet, ethtool)
