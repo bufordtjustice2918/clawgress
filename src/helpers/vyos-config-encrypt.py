@@ -299,7 +299,7 @@ if __name__ == '__main__':
 
     if need_recovery or (args.enable and not ask_yes_no(f'Automatically generate a {question_key_str}?', default=True)):
         while True:
-            recovery_key = ask_input(f'Enter {question_key_str}:', default=None).encode()
+            recovery_key = ask_input(f'Enter {question_key_str}:', default=None, no_echo=True).encode()
 
             if len(recovery_key) >= 32:
                 break
