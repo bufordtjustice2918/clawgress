@@ -266,6 +266,12 @@
         </constraint>
       </properties>
     </leafNode>
+    <leafNode name="export">
+      <properties>
+        <help>Export Traffic Engineering Database, see options under protocols traffic-engineering</help>
+        <valueless/>
+      </properties>
+    </leafNode>
   </children>
 </node>
 <node name="segment-routing">

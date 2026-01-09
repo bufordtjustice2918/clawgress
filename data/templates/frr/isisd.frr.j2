@@ -153,6 +153,9 @@ advertise-passive-only
 {%     endif %}
  mpls-te inter-as{{ level }}
 {% endif %}
+{% if traffic_engineering.export is vyos_defined %}
+ mpls-te export
+{% endif %}
 {% if segment_routing is vyos_defined %}
 {%     if segment_routing.maximum_label_depth is vyos_defined %}
  segment-routing node-msd {{ segment_routing.maximum_label_depth }}
