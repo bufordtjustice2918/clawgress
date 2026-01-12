@@ -139,6 +139,7 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
             'plugin default { disable }',
             'plugin dpdk_plugin.so { enable }',
             'plugin linux_cp_plugin.so { enable }',
+            'plugin dhcp_plugin.so { enable }',
             'dev 0000:00:00.0',
             'uio-bind-force',
         )
@@ -174,6 +175,14 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         # delete mtu settings
         self.cli_delete(['interfaces', 'ethernet', interface, 'mtu'])
         self.cli_commit()
+
+        # set interface address as dhcp
+        self.cli_set(['interfaces', 'ethernet', interface, 'address', 'dhcp'])
+        self.cli_commit()
+
+        # check 'ip4-dhcp-client-detect' feature is enabled on interface
+        _, out = rc_cmd(f'sudo vppctl show interface features {interface}')
+        self.assertIn(f'ip4-dhcp-client-detect', out)
 
     def test_02_vpp_vxlan(self):
         vni = '23'

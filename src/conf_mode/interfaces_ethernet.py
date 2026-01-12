@@ -447,17 +447,27 @@ def apply(ethernet):
     if 'static_arp' in ethernet:
         call_dependents()
 
-    # If the interface is managed by the VPP DPDK driver, synchronize runtime
-    # parameters between Linux and the corresponding VPP LCP interface
-    if dict_search(f'vpp.settings.interface.{ifname}.driver', ethernet) == 'dpdk':
+    vpp_iface_config = dict_search(f'vpp.settings.interface.{ifname}', ethernet)
+    if vpp_iface_config and is_systemd_service_running('vpp.service'):
         vpp_api = VPPControl()
-        # Find LCP pair
-        lcp_pair = vpp_api.lcp_pair_find(vpp_name_hw=ifname)
-        lcp_name = lcp_pair.get('vpp_name_kernel')
-        # Sync MTU to VPP LCP pair interface
-        if lcp_name:
-            mtu = e.get_mtu()
-            vpp_api.set_iface_mtu(lcp_name, mtu)
+
+        # Enable ip4-dhcp-client-detect feature for DHCP-configured interfaces.
+        # This feature is required for VPP to process DHCP packets and assign addresses.
+        if 'dhcp' in ethernet.get('address', []):
+            vpp_api.enable_dhcp_client(ifname)
+        else:
+            vpp_api.disable_dhcp_client(ifname)
+
+        # If the interface is managed by the VPP DPDK driver, synchronize runtime
+        # parameters between Linux and the corresponding VPP LCP interface
+        if vpp_iface_config.get('driver') == 'dpdk':
+            # Find LCP pair
+            lcp_pair = vpp_api.lcp_pair_find(vpp_name_hw=ifname)
+            lcp_name = lcp_pair.get('vpp_name_kernel')
+            # Sync MTU to VPP LCP pair interface
+            if lcp_name:
+                mtu = e.get_mtu()
+                vpp_api.set_iface_mtu(lcp_name, mtu)
 
     return None
 
