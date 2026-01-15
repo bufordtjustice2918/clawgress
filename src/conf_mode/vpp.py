@@ -265,25 +265,24 @@ def get_config(config=None):
             # to be reinitialized after the commit
             set_dependents('ethernet', conf, removed_iface)
 
-    # Get interfaces that are used in PPPoe for control-plane integration
-    pppoe_conf = conf.get_config_dict(
-        ['service', 'pppoe-server'],
+    # Get interfaces that should be used in PPPoE for control-plane integration
+    pppoe_ifaces = conf.get_config_dict(
+        ['service', 'pppoe-server', 'interface'],
         key_mangling=('-', '_'),
         get_first_key=True,
         no_tag_node_value_mangle=True,
     )
-    pppoe_map_ifaces = [
-        ifname
-        for ifname, iface_conf in pppoe_conf.get('interface', {}).items()
-        if 'vpp_cp' in iface_conf
+    changed_pppoe_ifaces = [
+        iface for iface in pppoe_ifaces if iface.split('.')[0] in tmp
     ]
 
     if not conf.exists(base):
+        if changed_pppoe_ifaces:
+            set_dependents('pppoe_server', conf)
         return {
             'removed_ifaces': removed_ifaces,
             'xconn_members': xconn_members,
             'persist_config': eth_ifaces_persist,
-            **({'pppoe_ifaces': pppoe_map_ifaces} if pppoe_map_ifaces else {}),
         }
 
     config = conf.get_config_dict(
@@ -455,28 +454,19 @@ def get_config(config=None):
         set_dependents('vpp_ipfix', conf)
 
     # PPPoE dependency
-    if pppoe_map_ifaces:
-        config['pppoe_ifaces'] = pppoe_map_ifaces
+    added_pppoe_ifaces = [
+        iface
+        for iface in pppoe_ifaces
+        if iface.split('.')[0] in config.get('settings', {}).get('interface', {})
+    ]
+    changed_pppoe_ifaces.extend(added_pppoe_ifaces)
+    if changed_pppoe_ifaces:
         set_dependents('pppoe_server', conf)
 
     return config
 
 
 def verify(config):
-    # Cannot remove interface if PPPoE control-plane is still enabled
-    removed_ifaces = [iface['iface_name'] for iface in config.get('removed_ifaces', [])]
-    pppoe_removed_ifaces = [
-        p
-        for p in config.get('pppoe_ifaces', [])
-        for r in removed_ifaces
-        if p == r or p.startswith(f'{r}.')
-    ]
-    if pppoe_removed_ifaces:
-        raise ConfigError(
-            f'{", ".join(pppoe_removed_ifaces)} still in use by the PPPoE server. '
-            'Disable PPPoE control-plane integration with VPP before proceeding.'
-        )
-
     # Check remove VPP interface that used in IPFIX
     _check_removed_interfaces(
         config, 'IPFIX monitoring', config.get('ipfix', {}).get('interface', {})
