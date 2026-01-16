@@ -32,6 +32,7 @@ from vyos.utils.process import rc_cmd
 from vyos.utils.system import sysctl_read
 from vyos.system import image
 from vyos.vpp import VPPControl
+from vyos.vpp.utils import vpp_iface_name_transform
 
 PROCESS_NAME = 'vpp_main'
 VPP_CONF = '/run/vpp/vpp.conf'
@@ -1655,7 +1656,7 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
 
         self.cli_delete(path_static_arp)
 
-    def test_22_vpp_ipfix(self):
+    def test_22_1_vpp_ipfix(self):
         base_ipfix = base_path + ['ipfix']
         base_collector = base_ipfix + ['collector']
         collector_ip = '127.0.0.2'
@@ -1741,6 +1742,37 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         self.assertEqual(
             len(non_default_exporters), 0, 'Exporters not cleaned up properly'
         )
+
+    def test_22_2_vpp_ipfix_bond(self):
+        base_ipfix = base_path + ['ipfix']
+        base_bond = base_path + ['interfaces', 'bonding']
+        iface_bond = 'bond0'
+        collector_ip = '127.0.0.2'
+        collector_src = '127.0.0.1'
+
+        self.cli_set(base_bond + [iface_bond, 'kernel-interface', 'vpptun0'])
+        self.cli_set(base_bond + [iface_bond, 'member', 'interface', iface_bond])
+
+        self.cli_set(
+            base_ipfix + ['collector', collector_ip, 'source-address', collector_src]
+        )
+        self.cli_set(base_ipfix + ['interface', iface_bond])
+        self.cli_commit()
+
+        vpp_bond_name = vpp_iface_name_transform(iface_bond)
+        required_str = f'{vpp_bond_name} ip4 rx tx'
+
+        # Check bonding interface is added to IPFIX
+        _, out = rc_cmd('sudo vppctl show flowprobe feature')
+        self.assertIn(required_str, out)
+
+        # Change bonding interface configuration
+        self.cli_set(base_bond + [iface_bond, 'mode', '802.3ad'])
+        self.cli_commit()
+
+        # Check interface
+        _, out = rc_cmd('sudo vppctl show flowprobe feature')
+        self.assertIn(required_str, out)
 
 
 if __name__ == '__main__':
