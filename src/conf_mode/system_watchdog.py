@@ -63,7 +63,7 @@ def _read_sysfs_int(path: Path) -> Optional[int]:
 def _get_watchdog_timeout_limits() -> tuple[int, int]:
     """Return (min_timeout, max_timeout) from sysfs if available.
 
-    If sysfs is unavailable (device not present/loaded yet), fall back to a
+    If sysfs is unavailable (device not present/loaded yet) or zero, fall back to a
     conservative common kernel max of 65535 seconds.
     """
 
@@ -74,10 +74,8 @@ def _get_watchdog_timeout_limits() -> tuple[int, int]:
     max_timeout = _read_sysfs_int(WATCHDOG_SYSFS / 'max_timeout')
 
     # Some drivers may not expose min/max. Fall back to sane defaults.
-    if min_timeout is None:
-        min_timeout = 1
-    if max_timeout is None:
-        max_timeout = 65535
+    min_timeout = min_timeout if min_timeout and min_timeout > 0 else 1
+    max_timeout = max_timeout if max_timeout and max_timeout > 0 else 65535
 
     return min_timeout, max_timeout
 
