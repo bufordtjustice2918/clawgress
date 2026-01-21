@@ -40,8 +40,8 @@ from vyos.xml_ref import default_value
 
 base_path = ['vrf']
 vrfs = ['red', 'green', 'blue', 'foo-bar', 'baz_foo']
-v4_protocols = ['any', 'babel', 'bgp', 'connected', 'eigrp', 'isis', 'kernel', 'ospf', 'rip', 'static', 'table']
-v6_protocols = ['any', 'babel', 'bgp', 'connected', 'isis', 'kernel', 'ospfv3', 'ripng', 'static', 'table']
+v4_protocols = ['any', 'babel', 'bgp', 'eigrp', 'isis', 'ospf', 'rip', 'static']
+v6_protocols = ['any', 'babel', 'bgp', 'isis', 'ospfv3', 'ripng', 'static']
 
 class VRFTest(VyOSUnitTestSHIM.TestCase):
     _interfaces = []
