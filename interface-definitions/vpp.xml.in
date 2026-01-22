@@ -349,7 +349,7 @@
       <node name="ipfix" owner="${vyos_conf_scripts_dir}/vpp_ipfix.py">
         <properties>
           <help>IP Flow Information Export (IPFIX) configuration</help>
-          <priority>322</priority>
+          <priority>332</priority>
         </properties>
         <children>
           <tagNode name="collector">
