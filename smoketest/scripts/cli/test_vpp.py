@@ -37,7 +37,6 @@ from vyos.vpp.utils import vpp_iface_name_transform
 PROCESS_NAME = 'vpp_main'
 VPP_CONF = '/run/vpp/vpp.conf'
 base_path = ['vpp']
-driver = 'dpdk'
 interface = 'eth1'
 
 
@@ -95,7 +94,7 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         # always forward to base class
         super().setUp()
 
-        self.cli_set(base_path + ['settings', 'interface', interface, 'driver', driver])
+        self.cli_set(base_path + ['settings', 'interface', interface])
         self.cli_set(base_path + ['settings', 'unix', 'poll-sleep-usec', '10'])
 
     def tearDown(self):
@@ -1128,15 +1127,16 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         self.cli_set(base_path + ['settings', 'cpu', 'main-core', main_core])
         self.cli_set(base_path + ['settings', 'cpu', 'workers', workers])
 
-        # DPDK driver expect only dpdk-options and not xdp-options to be set
-        # expect raise ConfigError
-        self.cli_set(base_interface_path + ['xdp-options', 'zero-copy'])
+        # # DPDK driver expect only dpdk-options and not xdp-options to be set
+        # # expect raise ConfigError
+        # self.cli_set(base_interface_path + ['xdp-options', 'zero-copy'])
+        #
+        # with self.assertRaises(ConfigSessionError):
+        #     self.cli_commit()
+        #
+        # # delete xdp-options and apply commit
+        # self.cli_delete(base_interface_path + ['xdp-options'])
 
-        with self.assertRaises(ConfigSessionError):
-            self.cli_commit()
-
-        # delete xdp-options and apply commit
-        self.cli_delete(base_interface_path + ['xdp-options'])
         self.cli_commit()
 
         # check dpdk options in config file
@@ -1296,7 +1296,7 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         inside_prefix = '100.64.0.0/24'
         outside_prefix = '192.0.2.1/32'
 
-        self.cli_set(base_path + ['settings', 'interface', iface_out, 'driver', driver])
+        self.cli_set(base_path + ['settings', 'interface', iface_out])
         self.cli_set(base_cgnat + ['interface', 'inside', iface_inside])
         self.cli_set(base_cgnat + ['interface', 'outside', iface_out])
         self.cli_set(base_cgnat + ['rule', '100', 'inside-prefix', inside_prefix])
@@ -1384,7 +1384,7 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         static_local_addr = '100.64.0.55'
         sess_limit = '64000'
 
-        self.cli_set(base_path + ['settings', 'interface', iface_out, 'driver', driver])
+        self.cli_set(base_path + ['settings', 'interface', iface_out])
         self.cli_set(base_nat + ['interface', 'inside', iface_inside])
         self.cli_set(base_nat + ['interface', 'outside', iface_out])
         self.cli_set(
@@ -1501,7 +1501,7 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         for expected_entry in expected_entries:
             self.assertIn(expected_entry, out)
 
-        self.cli_set(base_path + ['settings', 'interface', iface_2, 'driver', driver])
+        self.cli_set(base_path + ['settings', 'interface', iface_2])
         self.cli_set(base_path + ['sflow', 'interface', iface_2])
 
         self.cli_commit()

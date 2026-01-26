@@ -649,25 +649,6 @@
               <constraintErrorMessage>Invalid interface name</constraintErrorMessage>
             </properties>
             <children>
-              <leafNode name="driver">
-                <properties>
-                  <help>Driver mode</help>
-                  <completionHelp>
-                    <list>dpdk xdp</list>
-                  </completionHelp>
-                  <valueHelp>
-                    <format>dpdk</format>
-                    <description>Data Plane Development Kit (DPDK)</description>
-                  </valueHelp>
-                  <valueHelp>
-                    <format>xdp</format>
-                    <description>eXpress Data Path (XDP)</description>
-                  </valueHelp>
-                  <constraint>
-                    <regex>(dpdk|xdp)</regex>
-                  </constraint>
-                </properties>
-              </leafNode>
               #include <include/vpp/iface_rx_mode.xml.i>
               <node name="dpdk-options">
                 <properties>
@@ -727,57 +708,6 @@
                   <leafNode name="promisc">
                     <properties>
                       <help>Enable promisc mode on a vpp interface</help>
-                      <valueless/>
-                    </properties>
-                  </leafNode>
-                </children>
-              </node>
-              <node name="xdp-options">
-                <properties>
-                  <help>XDP settings</help>
-                </properties>
-                <children>
-                  <leafNode name="num-rx-queues">
-                    <properties>
-                      <help>Number of receive queues</help>
-                      <valueHelp>
-                        <format>u32:1-65535</format>
-                        <description>Number of receive queues to connect to</description>
-                      </valueHelp>
-                      <valueHelp>
-                        <format>all</format>
-                        <description>All</description>
-                      </valueHelp>
-                      <constraint>
-                        <regex>(all)</regex>
-                        <validator name="numeric" argument="--range 1-65535"/>
-                      </constraint>
-                    </properties>
-                    <defaultValue>all</defaultValue>
-                  </leafNode>
-                  <leafNode name="promisc">
-                    <properties>
-                      <help>Enable promisc mode on a real interface</help>
-                      <valueless/>
-                    </properties>
-                  </leafNode>
-                  <leafNode name="rx-queue-size">
-                    <properties>
-                      <help>Receive queue size</help>
-                      #include <include/vpp/queue_size.xml.i>
-                    </properties>
-                    <defaultValue>0</defaultValue>
-                  </leafNode>
-                  <leafNode name="tx-queue-size">
-                    <properties>
-                      <help>Tranceive queue size</help>
-                      #include <include/vpp/queue_size.xml.i>
-                    </properties>
-                    <defaultValue>0</defaultValue>
-                  </leafNode>
-                  <leafNode name="zero-copy">
-                    <properties>
-                      <help>Enable zero-copy mode</help>
                       <valueless/>
                     </properties>
                   </leafNode>
