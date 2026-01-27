@@ -1572,9 +1572,8 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         self.cli_set(pppoe_base + ['client-ip-pool', pool, 'range', '192.0.2.0/24'])
         self.cli_set(pppoe_base + ['default-pool', pool])
 
-        # Enable PPPoE control-plane integration with VPP
-        self.cli_set(pppoe_base + ['interface', interface, 'vpp-cp'])
-        self.cli_set(pppoe_base + ['interface', f'{interface}.{vni}', 'vpp-cp'])
+        self.cli_set(pppoe_base + ['interface', interface])
+        self.cli_set(pppoe_base + ['interface', f'{interface}.{vni}'])
 
         self.cli_commit()
 
@@ -1582,6 +1581,7 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         config = read_file(config_file)
 
         # Validate configuration
+        # PPPoE on VPP-managed interfaces automatically get control-plane integration
         self.assertIn(f'interface={interface},vpp-cp=true', config)
         self.assertIn(f'interface={interface}.{vni},vpp-cp=true', config)
 
