@@ -1491,7 +1491,7 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
 
         expected_entries = (
             f'sflow sampling-rate {sampling_rate}',
-            'sflow sampling-direction ingress',
+            'sflow direction rx',
             f'sflow polling-interval {polling_interval}',
             f'sflow header-bytes {header_bytes}',
             f'sflow enable {interface}',
