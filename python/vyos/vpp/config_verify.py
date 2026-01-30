@@ -169,9 +169,14 @@ def verify_dev_driver(driver_type: str, driver: str) -> bool:
     if driver_type == 'dpdk':
         if driver in drivers_dpdk:
             return True
-    elif driver_type == 'xdp':
-        if driver in drivers_xdp:
-            return True
+    # XDP support is intentionally disabled (T8202).
+    # XDP is no longer configurable via the CLI.
+    # This logic is kept commented out to make it easy
+    # to reintroduce XDP if there is a clear need in the future.
+    #
+    # elif driver_type == 'xdp':
+    #     if driver in drivers_xdp:
+    #         return True
     else:
         raise ConfigError(f'"Driver type {driver_type} is wrong')
 

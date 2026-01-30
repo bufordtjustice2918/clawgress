@@ -30,7 +30,7 @@ from vyos import airbag
 from vyos.base import Warning
 from vyos.config import Config, config_dict_merge
 from vyos.configdep import set_dependents, call_dependents
-from vyos.configdict import node_changed, leaf_node_changed
+from vyos.configdict import node_changed
 from vyos.ifconfig import Section
 from vyos.logger import getLogger
 from vyos.template import render
@@ -256,9 +256,7 @@ def get_config(config=None):
         for removed_iface in tmp:
             to_append = {
                 'iface_name': removed_iface,
-                'driver': effective_config['settings']['interface'][removed_iface][
-                    'driver'
-                ],
+                'driver': 'dpdk',
             }
             removed_ifaces.append(to_append)
             # add an interface to a list of interfaces that need
@@ -296,12 +294,15 @@ def get_config(config=None):
     # dictionary retrieved.
     default_values = conf.get_config_defaults(**config.kwargs, recursive=True)
 
-    # delete driver-incompatible defaults
-    for iface, iface_config in config.get('settings', {}).get('interface', {}).items():
-        if iface_config.get('driver') == 'dpdk':
-            del default_values['settings']['interface'][iface]['xdp_options']
-        elif iface_config.get('driver') == 'xdp':
-            del default_values['settings']['interface'][iface]['dpdk_options']
+    # Since XDP is no longer configurable via the CLI (T8202),
+    # this code is kept commented out to simplify reintroducing XDP in the future.
+    #
+    # # delete driver-incompatible defaults
+    # for iface, iface_config in config.get('settings', {}).get('interface', {}).items():
+    #     if iface_config.get('driver') == 'dpdk':
+    #         del default_values['settings']['interface'][iface]['xdp_options']
+    #     elif iface_config.get('driver') == 'xdp':
+    #         del default_values['settings']['interface'][iface]['dpdk_options']
 
     config = config_dict_merge(default_values, config)
 
@@ -317,6 +318,8 @@ def get_config(config=None):
         effective_config = config_dict_merge(default_values_effective, effective_config)
         # Buffer normalization (auto → computed)
         _normalize_buffers(effective_config)
+        for iface_config in effective_config['settings']['interface'].values():
+            iface_config['driver'] = 'dpdk'
         config['effective'] = effective_config
 
     # Save important info about all interfaces that cannot be retrieved later
@@ -336,18 +339,14 @@ def get_config(config=None):
     if 'settings' in config:
         if 'interface' in config['settings']:
             for iface, iface_config in config['settings']['interface'].items():
-                # Driver must be configured to continue
-                if 'driver' not in iface_config:
-                    raise ConfigError(
-                        f'"driver" must be configured for {iface} interface!'
-                    )
+                iface_config['driver'] = 'dpdk'
 
-                old_driver = leaf_node_changed(
-                    conf, base_settings + ['interface', iface, 'driver']
-                )
-
-                if old_driver:
-                    config['settings']['interface'][iface]['driver_changed'] = {}
+                # old_driver = leaf_node_changed(
+                #     conf, base_settings + ['interface', iface, 'driver']
+                # )
+                #
+                # if old_driver:
+                #     config['settings']['interface'][iface]['driver_changed'] = {}
 
                 # Get current kernel module, required for extra verification and
                 # logic for VMBus interfaces
@@ -359,13 +358,13 @@ def get_config(config=None):
                 iface_filter_eth(conf, iface)
                 set_dependents('ethernet', conf, iface)
                 # Interfaces with changed driver should be removed/readded
-                if old_driver and old_driver[0] == 'dpdk':
-                    removed_ifaces.append(
-                        {
-                            'iface_name': iface,
-                            'driver': 'dpdk',
-                        }
-                    )
+                # if old_driver and old_driver[0] == 'dpdk':
+                #     removed_ifaces.append(
+                #         {
+                #             'iface_name': iface,
+                #             'driver': 'dpdk',
+                #         }
+                #     )
 
                 # Get PCI address or device ID
                 if iface_config['driver'] == 'dpdk':
@@ -380,8 +379,8 @@ def get_config(config=None):
                     else:
                         try:
                             iface_to_search = iface
-                            if old_driver and old_driver[0] == 'xdp':
-                                iface_to_search = f'defunct_{iface}'
+                            # if old_driver and old_driver[0] == 'xdp':
+                            #     iface_to_search = f'defunct_{iface}'
                             iface_config['dpdk_options']['dev_id'] = (
                                 control_host.get_dev_id(iface_to_search)
                             )
