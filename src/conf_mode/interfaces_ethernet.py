@@ -458,6 +458,14 @@ def apply(ethernet):
         else:
             vpp_api.disable_dhcp_client(ifname)
 
+        # Enable ip6-icmp-ra-punt feature for DHCPv6-configured interfaces.
+        if 'dhcpv6' in ethernet.get('address', []) or (
+            'autoconf' in ethernet.get('ipv6', {}).get('address', {})
+        ):
+            vpp_api.enable_icmpv6_ra_punt(ifname)
+        else:
+            vpp_api.disable_icmpv6_ra_punt(ifname)
+
         # If the interface is managed by the VPP DPDK driver, synchronize runtime
         # parameters between Linux and the corresponding VPP LCP interface
         # Find LCP pair

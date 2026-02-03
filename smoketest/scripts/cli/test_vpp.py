@@ -180,9 +180,29 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         self.cli_set(['interfaces', 'ethernet', interface, 'address', 'dhcp'])
         self.cli_commit()
 
+        vpp = VPPControl()
+
         # check 'ip4-dhcp-client-detect' feature is enabled on interface
-        _, out = rc_cmd(f'sudo vppctl show interface features {interface}')
-        self.assertIn(f'ip4-dhcp-client-detect', out)
+        client_detect_feature = vpp.api.feature_is_enabled(
+            sw_if_index=vpp.get_sw_if_index(interface),
+            feature_name='ip4-dhcp-client-detect',
+            arc_name='ip4-unicast',
+        )
+        self.assertTrue(client_detect_feature.is_enabled)
+
+        # set interface address as dhcpv6
+        self.cli_set(['interfaces', 'ethernet', interface, 'address', 'dhcpv6'])
+        self.cli_commit()
+
+        # check 'ip6-icmp-ra-punt' feature is enabled on interface
+        # for ip6-unicast and ip6-multicast arcs
+        for arc_name in ['ip6-unicast', 'ip6-multicast']:
+            icmpv6_ra_punt_feature = vpp.api.feature_is_enabled(
+                sw_if_index=vpp.get_sw_if_index(interface),
+                feature_name='ip6-icmp-ra-punt',
+                arc_name=arc_name,
+            )
+            self.assertTrue(icmpv6_ra_punt_feature.is_enabled)
 
     def test_02_vpp_vxlan(self):
         vni = '23'
