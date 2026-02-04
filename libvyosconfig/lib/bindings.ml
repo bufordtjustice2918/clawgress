@@ -94,6 +94,31 @@ let write_internal c_ptr file =
     with Internal.Write_error msg ->
         error_message := msg
 
+let render_json_reference_tree c_ptr =
+    RT.render_json (Root.get c_ptr)
+
+let read_internal_reference_tree file =
+    (* alert exn Internal.read_internal:
+        [Internal.Read_error] caught
+     *)
+    try
+        error_message := "";
+        let rt = (IR.read_internal[@alert "-exn"]) file in
+        Ctypes.Root.create rt
+    with Internal.Read_error msg ->
+        error_message := msg; Ctypes.null
+
+let write_internal_reference_tree c_ptr file =
+    (* alert exn Internal.write_internal:
+        [Internal.Write_error] caught
+     *)
+    try
+        error_message := "";
+        let ct = Root.get c_ptr in
+        (IR.write_internal[@alert "-exn"]) ct file
+    with Internal.Write_error msg ->
+        error_message := msg
+
 let create_node c_ptr path =
     (* alert exn CT.create_node:
         [Vytree.Empty_path] caught
@@ -465,7 +490,6 @@ let validate_tree_filter c_ptr rt_cache_path validator_dir =
     with Internal.Read_error msg ->
         error_message := msg; c_ptr
 
-
 module Stubs(I : Cstubs_inverted.INTERNAL) =
 struct
 
@@ -480,6 +504,9 @@ struct
   let () = I.internal "to_commands" ((ptr void) @-> string @-> returning string) render_commands
   let () = I.internal "read_internal" (string @-> returning (ptr void)) read_internal
   let () = I.internal "write_internal" ((ptr void) @-> string @-> returning void) write_internal
+  let () = I.internal "to_json_reference_tree" ((ptr void) @-> returning string) render_json_reference_tree
+  let () = I.internal "read_internal_reference_tree" (string @-> returning (ptr void)) read_internal_reference_tree
+  let () = I.internal "write_internal_reference_tree" ((ptr void) @-> string @-> returning void) write_internal_reference_tree
   let () = I.internal "create_node" ((ptr void) @-> string @-> returning int) create_node
   let () = I.internal "set_add_value" ((ptr void) @-> string @-> string @-> returning int) set_add_value
   let () = I.internal "set_replace_value" ((ptr void) @-> string @-> string @-> returning int) set_replace_value
