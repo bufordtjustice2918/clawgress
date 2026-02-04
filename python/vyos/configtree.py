@@ -224,20 +224,20 @@ class ConfigTree(object):
 
     def __eq__(self, other):
         if isinstance(other, ConfigTree):
-            return self.__equal(self._get_config(), other._get_config())
+            return self.__equal(self.get_tree(), other.get_tree())
         return False
 
     def __str__(self):
         return self.to_string()
 
-    def _get_config(self):
+    def get_tree(self):
         return self.__config
 
     def get_version_string(self):
         return self.__version
 
     def write_cache(self, file_name):
-        self.__write_internal(self._get_config(), file_name.encode())
+        self.__write_internal(self.get_tree(), file_name.encode())
 
     def to_string(self, ordered_values=False, no_version=False):
         config_string = self.__to_string(self.__config, ordered_values).decode()
@@ -495,7 +495,7 @@ def diff_compare(left, right, path=[], commands=False, libpath=LIBPATH):
     __get_error.argtypes = []
     __get_error.restype = c_char_p
 
-    res = __diff_compare(commands, path_str, left._get_config(), right._get_config())
+    res = __diff_compare(commands, path_str, left.get_tree(), right.get_tree())
     res = res.decode()
     if res == '#1@':
         msg = __get_error().decode()
@@ -521,7 +521,7 @@ def union(left, right, libpath=LIBPATH):
     __get_error.argtypes = []
     __get_error.restype = c_char_p
 
-    res = __tree_union(left._get_config(), right._get_config())
+    res = __tree_union(left.get_tree(), right.get_tree())
     tree = ConfigTree(address=res)
 
     return tree
@@ -543,7 +543,7 @@ def merge(left, right, destructive=False, libpath=LIBPATH):
     __get_error.argtypes = []
     __get_error.restype = c_char_p
 
-    res = __tree_merge(destructive, left._get_config(), right._get_config())
+    res = __tree_merge(destructive, left.get_tree(), right.get_tree())
     tree = ConfigTree(address=res)
 
     return tree
@@ -562,7 +562,7 @@ def mask_inclusive(left, right, libpath=LIBPATH):
         __get_error.argtypes = []
         __get_error.restype = c_char_p
 
-        res = __mask_tree(left._get_config(), right._get_config())
+        res = __mask_tree(left.get_tree(), right.get_tree())
     except Exception as e:
         raise ConfigTreeError(e)
     if not res:
@@ -657,7 +657,7 @@ def validate_tree_filter(
         __get_error.argtypes = []
         __get_error.restype = c_char_p
         res = __validate_tree_filter(
-            config_tree._get_config(), cache_path.encode(), validator_dir.encode()
+            config_tree.get_tree(), cache_path.encode(), validator_dir.encode()
         )
     except Exception as e:
         raise ConfigTreeError(e)
@@ -706,7 +706,7 @@ class DiffTree:
         check_path(path)
         path_str = ' '.join(map(str, path)).encode()
 
-        res = self.__diff_tree(path_str, left._get_config(), right._get_config())
+        res = self.__diff_tree(path_str, left.get_tree(), right.get_tree())
 
         # full diff config_tree and python dict representation
         self.full = ConfigTree(address=res)
