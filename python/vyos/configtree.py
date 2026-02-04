@@ -188,6 +188,17 @@ class ConfigTree(object):
         self.__equal.argtypes = [c_void_p, c_void_p]
         self.__equal.restype = c_bool
 
+        self.__config_dict = self.__lib.config_dict
+        self.__config_dict.argtypes = [
+            c_void_p,
+            c_void_p,
+            c_void_p,
+            c_char_p,
+            c_bool,
+            c_bool,
+        ]
+        self.__config_dict.restype = c_char_p
+
         if address is not None:
             self.__config = address
             self.__version = ''
@@ -471,6 +482,23 @@ class ConfigTree(object):
         res = self.__get_subtree(self.__config, path_str, with_node)
         subt = ConfigTree(address=res)
         return subt
+
+    def config_dict(
+        self, ref_tree, path, mask, get_first_key=False, with_defaults=False
+    ):
+        check_path(path)
+        path_str = ' '.join(map(str, path)).encode()
+
+        res_json = self.__config_dict(
+            self.__config,
+            ref_tree.get_tree(),
+            mask.get_tree(),
+            path_str,
+            get_first_key,
+            with_defaults,
+        ).decode()
+        res = json.loads(res_json)
+        return res
 
 
 def diff_compare(left, right, path=[], commands=False, libpath=LIBPATH):
