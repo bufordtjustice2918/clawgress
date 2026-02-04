@@ -12,6 +12,7 @@ module RT = Reference_tree
 module TA = Tree_alg
 module CM = Commit
 module VC = Vycall_client
+module CDict = Config_dict
 
 module I = Internal.Make(Config_tree)
 module IR = Internal.Make(Reference_tree)
@@ -490,6 +491,14 @@ let validate_tree_filter c_ptr rt_cache_path validator_dir =
     with Internal.Read_error msg ->
         error_message := msg; c_ptr
 
+let config_dict c_ptr_c c_ptr_r c_ptr_m path get_node with_defaults =
+    let ct = Root.get c_ptr_c in
+    let rt = Root.get c_ptr_r in
+    let mask = Root.get c_ptr_m in
+    let path = split_on_whitespace path in
+    let with_node = not get_node in
+    CDict.config_dict ~with_defaults:with_defaults ~with_first_node:with_node rt ct mask path
+
 module Stubs(I : Cstubs_inverted.INTERNAL) =
 struct
 
@@ -532,4 +541,5 @@ struct
   let () = I.internal "reference_tree_to_json" (string @-> string @-> string @-> returning int) reference_tree_to_json
   let () = I.internal "mask_tree" ((ptr void) @-> (ptr void) @-> returning (ptr void)) mask_tree
   let () = I.internal "validate_tree_filter" ((ptr void) @-> string @-> string @-> returning (ptr void)) validate_tree_filter
+  let () = I.internal "config_dict" ((ptr void) @-> (ptr void) @-> (ptr void) @-> string @-> bool @-> bool @-> returning string) config_dict
 end
