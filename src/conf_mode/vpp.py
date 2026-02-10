@@ -429,6 +429,13 @@ def get_config(config=None):
                     iface_filter_eth(conf, iface)
                 set_dependents(dependency, conf, iface)
 
+    config['ipoe_conf'] = conf.get_config_dict(
+        ['service', 'ipoe-server'],
+        key_mangling=('-', '_'),
+        get_first_key=True,
+        no_tag_node_value_mangle=True,
+    )
+
     # kernel-interfaces dependency
     if effective_config.get('kernel_interfaces'):
         for iface in config.get('kernel_interfaces', {}):
@@ -480,6 +487,20 @@ def verify(config):
 
     if 'interface' not in config['settings']:
         raise ConfigError('"settings interface" is required but not set!')
+
+    ipoe_ifaces = list(
+        {
+            iface
+            for iface in config['settings']['interface']
+            for ipoe_iface in config.get('ipoe_conf', {}).get('interface', {})
+            if iface == ipoe_iface or ipoe_iface.startswith(f'{iface}.')
+        }
+    )
+    if ipoe_ifaces:
+        raise ConfigError(
+            f'Interface(s) {", ".join(ipoe_ifaces)} cannot be added to VPP because '
+            'IPoE is already configured. An interface cannot be used by both VPP and IPoE!'
+        )
 
     # check if the system meets minimal requirements
     verify_vpp_minimum_memory()
