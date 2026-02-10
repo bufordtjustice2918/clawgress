@@ -90,8 +90,8 @@ def create_ip_rules_list(rules):
         }
 
         tcp_flags = rule.get('tcp_flags', {})
-        set_flags = [flag for flag in tcp_flags if flag != 'not']
-        unet_flags = list(tcp_flags.get('not', {}).keys())
+        set_flags = tcp_flags.get('is_set', [])
+        unet_flags = tcp_flags.get('is_not_set', [])
         tcp_mask, tcp_value = get_tcp_mask_value(set_flags, unet_flags)
         r['tcp_flags_mask'] = tcp_mask
         r['tcp_flags_value'] = tcp_value
@@ -262,17 +262,17 @@ def verify(config):
                             f'{err_msg} protocol must be tcp when specifying tcp flags'
                         )
 
-                    not_flags = rule_config.get('tcp_flags').get('not', [])
-                    if not_flags:
-                        duplicates = [
-                            flag
-                            for flag in rule_config.get('tcp_flags')
-                            if flag in not_flags
-                        ]
-                        if duplicates:
-                            raise ConfigError(
-                                f'{err_msg} cannot match a tcp flag as set and not set: {duplicates}'
-                            )
+                    tcp_flags = rule_config.get('tcp_flags', {})
+                    flags_set = tcp_flags.get('is_set', [])
+                    flags_not_set = tcp_flags.get('is_not_set', [])
+
+                    # same flag cannot be both set and not set
+                    conflict = [flag for flag in flags_set if flag in flags_not_set]
+                    if conflict:
+                        raise ConfigError(
+                            f'{err_msg} cannot match a TCP flag as both set and not set: '
+                            f'{", ".join(sorted(conflict))}'
+                        )
 
         for iface, iface_config in acl.get('interface', {}).items():
             if not any(key in iface_config for key in ('input', 'output')):
