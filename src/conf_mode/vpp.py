@@ -659,7 +659,13 @@ def generate(config):
 def initialize_interface(iface, driver, iface_config) -> None:
     # DPDK - rescan PCI to use a proper driver
     if driver == 'dpdk' and iface_config['original_driver'] not in not_pci_drv:
-        control_host.pci_rescan(iface_config['dev_id'])
+        # 'gve' devices require a specific unbind/bind process instead of a standard PCI rescan.
+        if iface_config['original_driver'] == 'gve':
+            control_host.rebind_gve_driver(
+                iface, iface_config['bus_id'], iface_config['dev_id']
+            )
+        else:
+            control_host.pci_rescan(iface_config['dev_id'])
         # rename to the proper name
         iface_new_name: str = control_host.get_eth_name(iface_config['dev_id'])
         control_host.rename_iface(iface_new_name, iface)
