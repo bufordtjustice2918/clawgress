@@ -40,7 +40,8 @@ airbag.enable()
 
 cert_dir = '/etc/rsyslog.d/certs'
 rsyslog_conf = '/run/rsyslog/rsyslog.conf'
-logrotate_conf = '/etc/logrotate.d/vyos-rsyslog'
+logrotate_user_conf = '/etc/logrotate.d/vyos-rsyslog-user'
+logrotate_messages_conf = '/etc/logrotate.d/vyos-rsyslog'
 
 systemd_socket = 'syslog.socket'
 systemd_service = systemd_services['syslog']
@@ -124,7 +125,16 @@ def get_config(config=None):
         with_pki=True,
     )
 
-    syslog.update({ 'logrotate' : logrotate_conf })
+    syslog.update({ 'logrotate' : logrotate_messages_conf })
+
+    logs_config = conf.get_config_dict(
+        ['system', 'logs'],
+        key_mangling=('-', '_'),
+        get_first_key=True,
+        with_recursive_defaults=True,
+    )
+    max_size_mb = dict_search('logrotate.messages.max_size', logs_config)
+    syslog['logrotate_size_limit'] = int(max_size_mb) * 1024 * 1024
 
     syslog = conf.merge_defaults(syslog, recursive=True)
     if syslog.from_defaults(['local']):
@@ -192,8 +202,8 @@ def generate(syslog):
     if not syslog:
         if os.path.exists(rsyslog_conf):
             os.unlink(rsyslog_conf)
-        if os.path.exists(logrotate_conf):
-            os.unlink(logrotate_conf)
+        if os.path.exists(logrotate_user_conf):
+            os.unlink(logrotate_user_conf)
 
         return None
 
@@ -203,7 +213,7 @@ def generate(syslog):
                 _save_tls_certificates_for_remote(syslog, remote_options)
 
     render(rsyslog_conf, 'rsyslog/rsyslog.conf.j2', syslog)
-    render(logrotate_conf, 'rsyslog/logrotate.j2', syslog)
+    render(logrotate_user_conf, 'rsyslog/logrotate.j2', syslog)
     return None
 
 def apply(syslog):
