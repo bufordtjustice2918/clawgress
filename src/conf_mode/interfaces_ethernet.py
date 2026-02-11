@@ -367,7 +367,7 @@ def verify_vpp_remove_vif(ethernet: dict):
         r'(interfaces\.bridge\.br(\d)+\.member\.interface)|'
         r'(interfaces\.xconnect\.xcon(\d)+\.member\.interface)|'
         r'(acl\.ip\.interface)|'
-        r'(acl\.macip\.interface)'
+        r'(acl\.mac\.interface)'
     )
     ifname = ethernet['ifname']
 
