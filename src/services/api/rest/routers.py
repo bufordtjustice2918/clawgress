@@ -18,6 +18,7 @@
 # pylint: disable=wildcard-import,unused-wildcard-import
 # pylint: disable=broad-exception-caught
 
+import asyncio
 import json
 import copy
 import logging
@@ -85,6 +86,7 @@ LOG = logging.getLogger('http_api.routers')
 
 lock = Lock()
 
+asynclock = asyncio.Lock()
 
 def check_auth(key_list, key):
     key_id = None
@@ -664,68 +666,63 @@ async def config_file_op(data: ConfigFileModel, background_tasks: BackgroundTask
     # A non-zero confirm_time will start commit-confirm timer on commit
     confirm_time = data.confirm_time
 
-    lock.acquire()
+    # Serialize config operations without blocking the event loop
+    async with asynclock:
+        try:
+            if op == 'save':
+                path = data.file or '/config/config.boot'
+                msg = session.save_config(path)
 
-    try:
-        if op == 'save':
-            if data.file:
-                path = data.file
-            else:
-                path = '/config/config.boot'
-            msg = session.save_config(path)
-        elif op in ('load', 'merge'):
-            if data.file:
-                path = data.file
-            elif data.string:
-                path = '/tmp/config.file'
-                with open(path, 'w') as f:
-                    f.write(data.string)
-            else:
-                return error(400, 'Missing required field "file | string"')
+            elif op in ('load', 'merge'):
+                if data.file:
+                    path = data.file
+                elif data.string:
+                    path = '/tmp/config.file'
+                    with open(path, 'w') as f:
+                        f.write(data.string)
+                else:
+                    return error(400, 'Missing required field "file | string"')
 
-            match op:
-                case 'load':
-                    session.migrate_and_load_config(path)
-                case 'merge':
-                    session.merge_config(path, destructive=data.destructive)
+                match op:
+                    case 'load':
+                        session.migrate_and_load_config(path)
+                    case 'merge':
+                        session.merge_config(path, destructive=data.destructive)
 
-            config = Config(session_env=env)
-            d = get_config_diff(config)
+                config = Config(session_env=env)
+                d = get_config_diff(config)
 
-            state.confirm_time = confirm_time if confirm_time else 0
+                state.confirm_time = confirm_time if confirm_time else 0
 
-            if not d.is_node_changed(['service', 'https']):
-                if confirm_time:
-                    out, err = await run_in_threadpool(run_commit_confirm, state)
+                if not d.is_node_changed(['service', 'https']):
+                    if confirm_time:
+                        out, err = await run_in_threadpool(run_commit_confirm, state)
+                    else:
+                        out, err = await run_in_threadpool(run_commit, state)
+
                     if err:
                         raise err
-                    msg = msg + out if msg else out
+                    msg = (msg or '') + (out or '')
                 else:
-                    out, err = await run_in_threadpool(run_commit, state)
-                    if err:
-                        raise err
-                    msg = msg + out if msg else out
+                    if confirm_time:
+                        background_tasks.add_task(call_commit_confirm, state)
+                    else:
+                        background_tasks.add_task(call_commit, state)
+                    out = self_ref_msg
+                    msg = (msg or '') + (out or '')
+            elif op == 'confirm':
+                msg = session.confirm()
             else:
-                if confirm_time:
-                    background_tasks.add_task(call_commit_confirm, state)
-                else:
-                    background_tasks.add_task(call_commit, state)
-                out = self_ref_msg
-                msg = msg + out if msg else out
+                return error(400, f"'{op}' is not a valid operation")
 
-        elif op == 'confirm':
-            msg = session.confirm()
-        else:
-            return error(400, f"'{op}' is not a valid operation")
-    except ConfigSessionError as e:
-        return error(400, str(e))
-    except Exception:
-        LOG.critical(traceback.format_exc())
-        return error(500, 'An internal error occured. Check the logs for details.')
-    finally:
-        if 'IN_COMMIT_CONFIRM' in env:
-            del env['IN_COMMIT_CONFIRM']
-        lock.release()
+        except ConfigSessionError as e:
+            return error(400, str(e))
+        except Exception:
+            LOG.critical(traceback.format_exc())
+            return error(500, 'An internal error occured. Check the logs for details.')
+        finally:
+            if 'IN_COMMIT_CONFIRM' in env:
+                del env['IN_COMMIT_CONFIRM']
 
     return success(msg)
 
