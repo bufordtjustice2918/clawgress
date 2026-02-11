@@ -1561,7 +1561,7 @@
             </tagNode>
           </children>
         </node>
-        <node name="macip">
+        <node name="mac">
           <properties>
             <help>Access Control List by mac address</help>
           </properties>
@@ -1656,7 +1656,7 @@
                   <properties>
                     <help>ACL tag name</help>
                     <completionHelp>
-                      <path>vpp acl macip tag-name</path>
+                      <path>vpp acl mac tag-name</path>
                     </completionHelp>
                   </properties>
                 </leafNode>
