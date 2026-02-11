@@ -1512,18 +1512,21 @@
                     </leafNode>
                     <node name="tcp-flags">
                       <properties>
-                        <help>TCP flags</help>
+                        <help>Match TCP packet flags</help>
                       </properties>
                       <children>
-                        #include <include/vpp/acl_tcp_flags.xml.i>
-                        <node name="not">
+                        <leafNode name="is-set">
                           <properties>
-                            <help>Match flags not set</help>
-                          </properties>
-                          <children>
+                            <help>Match TCP flags that are set</help>
                             #include <include/vpp/acl_tcp_flags.xml.i>
-                          </children>
-                        </node>
+                          </properties>
+                        </leafNode>
+                        <leafNode name="is-not-set">
+                          <properties>
+                            <help>Match TCP flags that are not set</help>
+                            #include <include/vpp/acl_tcp_flags.xml.i>
+                          </properties>
+                        </leafNode>
                       </children>
                     </node>
                   </children>
