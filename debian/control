@@ -272,6 +272,9 @@ Depends:
 # For "service dns forwarding"
   pdns-recursor,
 # End "service dns forwarding"
+# For "clawgress bind9 rpz"
+  bind9,
+# End "clawgress bind9 rpz"
 # For "service sla owamp"
   owamp-client,
   owamp-server,

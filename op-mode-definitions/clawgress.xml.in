@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+<interfaceDefinition>
+  <node name="clawgress">
+    <properties>
+      <help>Clawgress policy operations</help>
+    </properties>
+    <children>
+      <node name="policy">
+        <properties>
+          <help>Manage Clawgress policy.json</help>
+        </properties>
+        <children>
+          <node name="apply">
+            <properties>
+              <help>Apply policy.json to bind9 RPZ</help>
+            </properties>
+            <command>${vyos_op_scripts_dir}/clawgress.py apply</command>
+            <children>
+              <tagNode name="file">
+                <properties>
+                  <help>Path to policy.json</help>
+                  <completionHelp><imagePath/></completionHelp>
+                </properties>
+                <command>${vyos_op_scripts_dir}/clawgress.py apply --policy "$4"</command>
+              </tagNode>
+            </children>
+          </node>
+          <node name="import">
+            <properties>
+              <help>Import policy.json into /config/clawgress and apply</help>
+            </properties>
+            <children>
+              <tagNode name="file">
+                <properties>
+                  <help>Path to policy.json</help>
+                  <completionHelp><imagePath/></completionHelp>
+                </properties>
+                <command>${vyos_op_scripts_dir}/clawgress.py import --policy "$4"</command>
+              </tagNode>
+            </children>
+          </node>
+        </children>
+      </node>
+    </children>
+  </node>
+</interfaceDefinition>
