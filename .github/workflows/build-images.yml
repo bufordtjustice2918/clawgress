@@ -61,11 +61,18 @@ jobs:
       - name: Build ISO
         run: |
           cd vyos-build
+          # ensure cracklib is available in the build environment
+          sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress --vyos-1x-dir /home/runner/work/${{ github.repository }}/vyos-1x --setup
+          sudo chroot vyos-build/ build/vyos-1x/.venv/bin/pip install --upgrade pip
+          sudo chroot vyos-build/ build/vyos-1x/.venv/bin/pip install --upgrade --force-reinstall --no-binary :all: cracklib
           sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress --vyos-1x-dir /home/runner/work/${{ github.repository }}/vyos-1x
 
       - name: Build OVA (if supported)
         run: |
           cd vyos-build
+          sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress --vyos-1x-dir /home/runner/work/${{ github.repository }}/vyos-1x --setup
+          sudo chroot vyos-build/ build/vyos-1x/.venv/bin/pip install --upgrade pip
+          sudo chroot vyos-build/ build/vyos-1x/.venv/bin/pip install --upgrade --force-reinstall --no-binary :all: cracklib
           sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress --vyos-1x-dir /home/runner/work/${{ github.repository }}/vyos-1x --image-type ova
         continue-on-error: true
 
