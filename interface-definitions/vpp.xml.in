@@ -879,92 +879,6 @@
             </leafNode>
           </children>
         </node>
-        <node name="nat44">
-          <properties>
-            <help>NAT settings</help>
-          </properties>
-          <children>
-            <node name="timeout">
-              <properties>
-                <help>NAT44 session timeouts</help>
-              </properties>
-              <children>
-                <leafNode name="icmp">
-                  <properties>
-                    <help>ICMP timeout</help>
-                    <valueHelp>
-                      <format>u32</format>
-                      <description>Timeout in seconds (default: 60)</description>
-                    </valueHelp>
-                  </properties>
-                  <defaultValue>60</defaultValue>
-                </leafNode>
-                <leafNode name="tcp-established">
-                  <properties>
-                    <help>TCP established timeout</help>
-                    <valueHelp>
-                      <format>u32</format>
-                      <description>TCP established timeout in seconds (default: 7440)</description>
-                    </valueHelp>
-                  </properties>
-                  <defaultValue>7440</defaultValue>
-                </leafNode>
-                <leafNode name="tcp-transitory">
-                  <properties>
-                    <help>TCP transitory timeout</help>
-                    <valueHelp>
-                      <format>u32</format>
-                      <description>Timeout in seconds (default: 240)</description>
-                    </valueHelp>
-                  </properties>
-                  <defaultValue>240</defaultValue>
-                </leafNode>
-                <leafNode name="udp">
-                  <properties>
-                    <help>UDP timeout</help>
-                    <valueHelp>
-                      <format>u32</format>
-                      <description>Timeout in seconds (default: 300)</description>
-                    </valueHelp>
-                  </properties>
-                  <defaultValue>300</defaultValue>
-                </leafNode>
-              </children>
-            </node>
-            <leafNode name="session-limit">
-              <properties>
-                <help>Maximum number of sessions per thread</help>
-                <valueHelp>
-                  <format>u32</format>
-                  <description>Number of sessions</description>
-                </valueHelp>
-                <constraint>
-                  <validator name="numeric" argument="--range 1-4294967295"/>
-                </constraint>
-                <constraintErrorMessage>Number of sessions must be between 1 and 4294967295</constraintErrorMessage>
-              </properties>
-              <defaultValue>64512</defaultValue>
-            </leafNode>
-            <leafNode name="workers">
-              <properties>
-                <help>List of NAT workers</help>
-                <valueHelp>
-                  <format>&lt;id&gt;</format>
-                  <description>Worker id</description>
-                </valueHelp>
-                <valueHelp>
-                  <format>&lt;idN&gt;-&lt;idM&gt;</format>
-                  <description>Worker id range (use '-' as delimiter)</description>
-                </valueHelp>
-                <constraint>
-                  <validator name="numeric" argument="--allow-range --range 0-512"/>
-                </constraint>
-                <constraintErrorMessage>Not a valid value or range</constraintErrorMessage>
-                <multi/>
-              </properties>
-            </leafNode>
-          </children>
-        </node>
         <node name="physmem">
           <properties>
             <help>Physical memory settings</help>
@@ -1203,212 +1117,273 @@
             </node>
           </children>
         </node>
-      </children>
-    </node>
-    <node name="nat44" owner="${vyos_conf_scripts_dir}/vpp_nat.py">
-      <properties>
-        <help>NAT44</help>
-        <priority>330</priority>
-      </properties>
-      <children>
-        <node name="interface">
+        <node name="nat44" owner="${vyos_conf_scripts_dir}/vpp_nat_nat44.py">
           <properties>
-            <help>NAT interface setting</help>
+            <help>NAT44</help>
+            <priority>330</priority>
           </properties>
           <children>
-            <leafNode name="inside">
+            <node name="timeout">
               <properties>
-                <help>NAT inside interface</help>
-                <completionHelp>
-                  <script>${vyos_completion_dir}/list_interfaces</script>
-                </completionHelp>
-                <multi/>
-              </properties>
-            </leafNode>
-            <leafNode name="outside">
-              <properties>
-                <help>NAT outside interface</help>
-                <completionHelp>
-                  <script>${vyos_completion_dir}/list_interfaces</script>
-                </completionHelp>
-                <multi/>
-              </properties>
-            </leafNode>
-          </children>
-        </node>
-        <node name="address-pool">
-          <properties>
-            <help>NAT address pool</help>
-          </properties>
-          <children>
-            <node name="translation">
-              <properties>
-                <help>NAT translation pool</help>
+                <help>NAT44 session timeouts</help>
               </properties>
               <children>
-                #include <include/vpp/nat_address_range.xml.i>
-                #include <include/vpp/nat_interface.xml.i>
+                <leafNode name="icmp">
+                  <properties>
+                    <help>ICMP timeout</help>
+                    <valueHelp>
+                      <format>u32</format>
+                      <description>Timeout in seconds (default: 60)</description>
+                    </valueHelp>
+                  </properties>
+                  <defaultValue>60</defaultValue>
+                </leafNode>
+                <leafNode name="tcp-established">
+                  <properties>
+                    <help>TCP established timeout</help>
+                    <valueHelp>
+                      <format>u32</format>
+                      <description>TCP established timeout in seconds (default: 7440)</description>
+                    </valueHelp>
+                  </properties>
+                  <defaultValue>7440</defaultValue>
+                </leafNode>
+                <leafNode name="tcp-transitory">
+                  <properties>
+                    <help>TCP transitory timeout</help>
+                    <valueHelp>
+                      <format>u32</format>
+                      <description>Timeout in seconds (default: 240)</description>
+                    </valueHelp>
+                  </properties>
+                  <defaultValue>240</defaultValue>
+                </leafNode>
+                <leafNode name="udp">
+                  <properties>
+                    <help>UDP timeout</help>
+                    <valueHelp>
+                      <format>u32</format>
+                      <description>Timeout in seconds (default: 300)</description>
+                    </valueHelp>
+                  </properties>
+                  <defaultValue>300</defaultValue>
+                </leafNode>
               </children>
             </node>
-            <node name="twice-nat">
+            <leafNode name="session-limit">
               <properties>
-                <help>NAT twice-nat pool</help>
-              </properties>
-              <children>
-                #include <include/vpp/nat_address_range.xml.i>
-                #include <include/vpp/nat_interface.xml.i>
-              </children>
-            </node>
-          </children>
-        </node>
-        <node name="static">
-          <properties>
-            <help>Static NAT rules</help>
-          </properties>
-          <children>
-            <tagNode name="rule">
-              <properties>
-                <help>Rule number for NAT</help>
+                <help>Maximum number of sessions per thread</help>
                 <valueHelp>
                   <format>u32</format>
-                  <description>Number of NAT rule</description>
+                  <description>Number of sessions</description>
                 </valueHelp>
+                <constraint>
+                  <validator name="numeric" argument="--range 1-4294967295"/>
+                </constraint>
+                <constraintErrorMessage>Number of sessions must be between 1 and 4294967295</constraintErrorMessage>
               </properties>
-              <children>
-                #include <include/generic-description.xml.i>
-                <node name="external">
-                  <properties>
-                    <help>NAT external parameters</help>
-                  </properties>
-                  <children>
-                    <leafNode name="address">
-                      <properties>
-                        <help>IP address</help>
-                        <valueHelp>
-                          <format>ipv4</format>
-                          <description>IPv4 address</description>
-                        </valueHelp>
-                        <constraint>
-                          <validator name="ipv4-address"/>
-                        </constraint>
-                      </properties>
-                    </leafNode>
-                    #include <include/port-number.xml.i>
-                  </children>
-                </node>
-                <node name="local">
-                  <properties>
-                    <help>NAT local parameters</help>
-                  </properties>
-                  <children>
-                    <leafNode name="address">
-                      <properties>
-                        <help>IP address</help>
-                        <valueHelp>
-                          <format>ipv4</format>
-                          <description>IPv4 address</description>
-                        </valueHelp>
-                        <constraint>
-                          <validator name="ipv4-address"/>
-                        </constraint>
-                      </properties>
-                    </leafNode>
-                    #include <include/port-number.xml.i>
-                  </children>
-                </node>
-                <node name="options">
-                  <properties>
-                    <help>NAT static mapping options</help>
-                  </properties>
-                  <children>
-                    <leafNode name="twice-nat">
-                      <properties>
-                        <help>Rewrite source IP addresses on packets sent from outside to inside</help>
-                        <valueless/>
-                      </properties>
-                    </leafNode>
-                    <leafNode name="self-twice-nat">
-                      <properties>
-                        <help>Rewrite source IP addresses on packets sent only from a local address to an external address</help>
-                        <valueless/>
-                      </properties>
-                    </leafNode>
-                    <leafNode name="out-to-in-only">
-                      <properties>
-                        <help>Only apply rule for traffic from outside to inside interfaces</help>
-                        <valueless/>
-                      </properties>
-                    </leafNode>
-                    <leafNode name="twice-nat-address">
-                      <properties>
-                        <help>Force use of specific IP address from twice-nat address pool</help>
-                        <valueHelp>
-                          <format>ipv4</format>
-                          <description>IPv4 address</description>
-                        </valueHelp>
-                        <constraint>
-                          <validator name="ipv4-address"/>
-                        </constraint>
-                      </properties>
-                    </leafNode>
-                  </children>
-                </node>
-                #include <include/vpp/nat_protocol.xml.i>
-              </children>
-            </tagNode>
-          </children>
-        </node>
-        <node name="exclude">
-          <properties>
-            <help>Exclude packets matching these rules from NAT</help>
-          </properties>
-          <children>
-            <tagNode name="rule">
+              <defaultValue>64512</defaultValue>
+            </leafNode>
+            <node name="interface">
               <properties>
-                <help>Rule number</help>
-                <valueHelp>
-                  <format>u32</format>
-                  <description>Number of rule</description>
-                </valueHelp>
+                <help>NAT interface setting</help>
               </properties>
               <children>
-                <leafNode name="local-address">
+                <leafNode name="inside">
                   <properties>
-                    <help>IP address of the internal (local) device</help>
-                    <valueHelp>
-                      <format>ipv4</format>
-                      <description>IPv4 address</description>
-                    </valueHelp>
-                    <constraint>
-                      <validator name="ipv4-address"/>
-                    </constraint>
-                  </properties>
-                </leafNode>
-                <leafNode name="local-port">
-                  <properties>
-                    <help>Port number used by connection on internal device</help>
-                    <valueHelp>
-                      <format>u32:1-65535</format>
-                      <description>Numeric IP port</description>
-                    </valueHelp>
-                    <constraint>
-                      <validator name="numeric" argument="--range 1-65535"/>
-                    </constraint>
-                    <constraintErrorMessage>Port number must be in range 1 to 65535</constraintErrorMessage>
-                  </properties>
-                </leafNode>
-                #include <include/vpp/nat_protocol.xml.i>
-                <leafNode name="external-interface">
-                  <properties>
-                    <help>External interface</help>
+                    <help>NAT inside interface</help>
                     <completionHelp>
                       <script>${vyos_completion_dir}/list_interfaces</script>
                     </completionHelp>
+                    <multi/>
                   </properties>
                 </leafNode>
-                #include <include/generic-description.xml.i>
+                <leafNode name="outside">
+                  <properties>
+                    <help>NAT outside interface</help>
+                    <completionHelp>
+                      <script>${vyos_completion_dir}/list_interfaces</script>
+                    </completionHelp>
+                    <multi/>
+                  </properties>
+                </leafNode>
               </children>
-            </tagNode>
+            </node>
+            <node name="address-pool">
+              <properties>
+                <help>NAT address pool</help>
+              </properties>
+              <children>
+                <node name="translation">
+                  <properties>
+                    <help>NAT translation pool</help>
+                  </properties>
+                  <children>
+                    #include <include/vpp/nat_address_range.xml.i>
+                    #include <include/vpp/nat_interface.xml.i>
+                  </children>
+                </node>
+                <node name="twice-nat">
+                  <properties>
+                    <help>NAT twice-nat pool</help>
+                  </properties>
+                  <children>
+                    #include <include/vpp/nat_address_range.xml.i>
+                    #include <include/vpp/nat_interface.xml.i>
+                  </children>
+                </node>
+              </children>
+            </node>
+            <node name="static">
+              <properties>
+                <help>Static NAT rules</help>
+              </properties>
+              <children>
+                <tagNode name="rule">
+                  <properties>
+                    <help>Rule number for NAT</help>
+                    <valueHelp>
+                      <format>u32</format>
+                      <description>Number of NAT rule</description>
+                    </valueHelp>
+                  </properties>
+                  <children>
+                    #include <include/generic-description.xml.i>
+                    <node name="external">
+                      <properties>
+                        <help>NAT external parameters</help>
+                      </properties>
+                      <children>
+                        <leafNode name="address">
+                          <properties>
+                            <help>IP address</help>
+                            <valueHelp>
+                              <format>ipv4</format>
+                              <description>IPv4 address</description>
+                            </valueHelp>
+                            <constraint>
+                              <validator name="ipv4-address"/>
+                            </constraint>
+                          </properties>
+                        </leafNode>
+                        #include <include/port-number.xml.i>
+                      </children>
+                    </node>
+                    <node name="local">
+                      <properties>
+                        <help>NAT local parameters</help>
+                      </properties>
+                      <children>
+                        <leafNode name="address">
+                          <properties>
+                            <help>IP address</help>
+                            <valueHelp>
+                              <format>ipv4</format>
+                              <description>IPv4 address</description>
+                            </valueHelp>
+                            <constraint>
+                              <validator name="ipv4-address"/>
+                            </constraint>
+                          </properties>
+                        </leafNode>
+                        #include <include/port-number.xml.i>
+                      </children>
+                    </node>
+                    <node name="options">
+                      <properties>
+                        <help>NAT static mapping options</help>
+                      </properties>
+                      <children>
+                        <leafNode name="twice-nat">
+                          <properties>
+                            <help>Rewrite source IP addresses on packets sent from outside to inside</help>
+                            <valueless/>
+                          </properties>
+                        </leafNode>
+                        <leafNode name="self-twice-nat">
+                          <properties>
+                            <help>Rewrite source IP addresses on packets sent only from a local address to an external address</help>
+                            <valueless/>
+                          </properties>
+                        </leafNode>
+                        <leafNode name="out-to-in-only">
+                          <properties>
+                            <help>Only apply rule for traffic from outside to inside interfaces</help>
+                            <valueless/>
+                          </properties>
+                        </leafNode>
+                        <leafNode name="twice-nat-address">
+                          <properties>
+                            <help>Force use of specific IP address from twice-nat address pool</help>
+                            <valueHelp>
+                              <format>ipv4</format>
+                              <description>IPv4 address</description>
+                            </valueHelp>
+                            <constraint>
+                              <validator name="ipv4-address"/>
+                            </constraint>
+                          </properties>
+                        </leafNode>
+                      </children>
+                    </node>
+                    #include <include/vpp/nat_protocol.xml.i>
+                  </children>
+                </tagNode>
+              </children>
+            </node>
+            <node name="exclude">
+              <properties>
+                <help>Exclude packets matching these rules from NAT</help>
+              </properties>
+              <children>
+                <tagNode name="rule">
+                  <properties>
+                    <help>Rule number</help>
+                    <valueHelp>
+                      <format>u32</format>
+                      <description>Number of rule</description>
+                    </valueHelp>
+                  </properties>
+                  <children>
+                    <leafNode name="local-address">
+                      <properties>
+                        <help>IP address of the internal (local) device</help>
+                        <valueHelp>
+                          <format>ipv4</format>
+                          <description>IPv4 address</description>
+                        </valueHelp>
+                        <constraint>
+                          <validator name="ipv4-address"/>
+                        </constraint>
+                      </properties>
+                    </leafNode>
+                    <leafNode name="local-port">
+                      <properties>
+                        <help>Port number used by connection on internal device</help>
+                        <valueHelp>
+                          <format>u32:1-65535</format>
+                          <description>Numeric IP port</description>
+                        </valueHelp>
+                        <constraint>
+                          <validator name="numeric" argument="--range 1-65535"/>
+                        </constraint>
+                        <constraintErrorMessage>Port number must be in range 1 to 65535</constraintErrorMessage>
+                      </properties>
+                    </leafNode>
+                    #include <include/vpp/nat_protocol.xml.i>
+                    <leafNode name="external-interface">
+                      <properties>
+                        <help>External interface</help>
+                        <completionHelp>
+                          <script>${vyos_completion_dir}/list_interfaces</script>
+                        </completionHelp>
+                      </properties>
+                    </leafNode>
+                    #include <include/generic-description.xml.i>
+                  </children>
+                </tagNode>
+              </children>
+            </node>
           </children>
         </node>
       </children>
