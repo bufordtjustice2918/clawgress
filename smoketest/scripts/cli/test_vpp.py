@@ -1388,9 +1388,8 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
         lines = out.split('\n')
         self.assertTrue(len(lines) == 3)
 
-    def test_16_vpp_nat(self):
-        base_nat = base_path + ['nat44']
-        base_nat_settings = base_path + ['settings', 'nat44']
+    def test_16_vpp_nat44(self):
+        base_nat = base_path + ['nat', 'nat44']
         exclude_local_addr = '100.64.0.52'
         exclude_local_port = '22'
         iface_out = 'eth0'
@@ -1437,15 +1436,11 @@ class TestVPP(VyOSUnitTestSHIM.TestCase):
             base_nat + ['static', 'rule', '100', 'local', 'address', static_local_addr]
         )
 
-        self.cli_set(base_nat_settings + ['session-limit', sess_limit])
-        self.cli_set(base_nat_settings + ['timeout', 'icmp', timeout_icmp])
-        self.cli_set(
-            base_nat_settings + ['timeout', 'tcp-established', timeout_tcp_est]
-        )
-        self.cli_set(
-            base_nat_settings + ['timeout', 'tcp-transitory', timeout_tcp_trans]
-        )
-        self.cli_set(base_nat_settings + ['timeout', 'udp', timeout_udp])
+        self.cli_set(base_nat + ['session-limit', sess_limit])
+        self.cli_set(base_nat + ['timeout', 'icmp', timeout_icmp])
+        self.cli_set(base_nat + ['timeout', 'tcp-established', timeout_tcp_est])
+        self.cli_set(base_nat + ['timeout', 'tcp-transitory', timeout_tcp_trans])
+        self.cli_set(base_nat + ['timeout', 'udp', timeout_udp])
         self.cli_commit()
 
         # Check addresses

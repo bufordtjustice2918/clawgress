@@ -54,7 +54,6 @@ from vyos.vpp.config_verify import (
     verify_vpp_cpu_main_core,
     verify_vpp_settings_cpu_skip_cores,
     verify_vpp_settings_cpu_workers,
-    verify_vpp_nat44_workers,
     verify_vpp_memory,
     verify_vpp_statseg_size,
     verify_vpp_interfaces_dpdk_num_queues,
@@ -442,8 +441,8 @@ def get_config(config=None):
             set_dependents('vpp_kernel_interface', conf, iface)
 
     # NAT dependency
-    if conf.exists(['vpp', 'nat44']):
-        set_dependents('vpp_nat', conf)
+    if conf.exists(['vpp', 'nat', 'nat44']):
+        set_dependents('vpp_nat_nat44', conf)
     if conf.exists(['vpp', 'nat', 'cgnat']):
         set_dependents('vpp_nat_cgnat', conf)
 
@@ -538,11 +537,6 @@ def verify(config):
             verify_vpp_settings_cpu_corelist_workers(cpu_settings)
 
     workers = _get_workers_count(config['settings'].get('cpu', {}))
-
-    if 'workers' in config['settings']['nat44']:
-        verify_vpp_nat44_workers(
-            workers=workers, nat44_workers=config['settings']['nat44']['workers']
-        )
 
     verify_vpp_main_heap_size(config['settings'])
     verify_vpp_statseg_size(config['settings'])
@@ -881,23 +875,6 @@ def apply(config):
 
             # Syncronize routes via LCP
             vpp_control.lcp_resync()
-
-            # NAT44 settings
-            nat44_settings = config['settings'].get('nat44', {})
-
-            vpp_control.set_nat44_session_limit(
-                int(nat44_settings.get('session_limit'))
-            )
-
-            if nat44_settings.get('workers'):
-                bitmask = 0
-                for worker_range in nat44_settings['workers']:
-                    worker_numbers = worker_range.split('-')
-                    for wid in range(
-                        int(worker_numbers[0]), int(worker_numbers[-1]) + 1
-                    ):
-                        bitmask |= 1 << wid
-                vpp_control.set_nat_workers(bitmask)
 
         except (VPPIOError, VPPValueError, VppNotRunningError) as e:
             # if cannot connect to VPP or an error occurred then

@@ -357,12 +357,12 @@ def verify_vpp_remove_vif(ethernet: dict):
         # Known paths that already use VLAN interfaces
         r'(nat\.cgnat\.interface\.inside)|'
         r'(nat\.cgnat\.interface\.outside)|'
-        r'(nat44\.interface\.inside)|'
-        r'(nat44\.interface\.outside)|'
+        r'(nat\.nat44\.interface\.inside)|'
+        r'(nat\.nat44\.interface\.outside)|'
         # Potential paths for VLAN interfaces
-        r'(nat44\.address_pool\.translation\.interface)|'
-        r'(nat44\.address_pool\.twice_nat\.interface)|'
-        r'(nat44\.exclude\.rule\.(\d)+\.external_interface)|'
+        r'(nat\.nat44\.address_pool\.translation\.interface)|'
+        r'(nat\.nat44\.address_pool\.twice_nat\.interface)|'
+        r'(nat\.nat44\.exclude\.rule\.(\d)+\.external_interface)|'
         r'(interfaces\.bonding\.bond(\d)+\.member\.interface)|'
         r'(interfaces\.bridge\.br(\d)+\.member\.interface)|'
         r'(interfaces\.xconnect\.xcon(\d)+\.member\.interface)|'

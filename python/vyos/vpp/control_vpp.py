@@ -439,25 +439,6 @@ class VPPControl:
                 return iface.interface_dev_type
         return None
 
-    @_Decorators.api_call
-    def set_nat44_session_limit(self, session_limit: int) -> None:
-        """Set NAT44 session limit
-
-        Args:
-            session_limit (int): Maximum number of sessions per thread
-        """
-        self.__vpp_api_client.api.nat44_set_session_limit(
-            session_limit=session_limit,
-        )
-
-    @_Decorators.api_call
-    def set_nat_workers(self, workers: int) -> None:
-        """Set NAT44 session limit
-
-        Args:
-            workers (int): Bitmask of workers list
-        """
-        self.__vpp_api_client.api.nat_set_workers(worker_mask=workers)
 
     @property
     def connected(self) -> bool:

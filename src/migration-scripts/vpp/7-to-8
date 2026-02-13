@@ -16,6 +16,9 @@
 # Rename `vpp settings logging default-log-level` to
 # `vpp settings logging default-level` (T8255)
 #
+# Move 'vpp nat44' and 'vpp settings nat44' to 'vpp nat nat44'.
+# Drop settings for nat workers (T8254)
+
 
 from vyos.configtree import ConfigTree
 
@@ -26,5 +29,36 @@ def _migrate_vpp_log(config: ConfigTree) -> None:
         config.rename(base + ['default-log-level'], 'default-level')
 
 
+def _migrate_vpp_nat44(config: ConfigTree) -> None:
+    base_path = ['vpp', 'nat44']
+    new_base_path = ['vpp', 'nat', 'nat44']
+    settings_path = ['vpp', 'settings', 'nat44']
+
+    if not config.exists(base_path):
+        # Nothing to do
+        return
+
+    if not config.exists(['vpp', 'nat']):
+        config.set(['vpp', 'nat'])
+
+    # copy "vpp nat44" to "vpp nat nat44"
+    config.copy(base_path, new_base_path)
+    config.delete(base_path)
+
+    # move 'vpp settings nat44' to 'vpp nat nat44'
+    if config.exists(settings_path):
+        if config.exists(settings_path + ['session-limit']):
+            session_limit = config.return_value(settings_path + ['session-limit'])
+            config.set(new_base_path + ['session-limit'], value=session_limit)
+        if config.exists(settings_path + ['timeout']):
+            config.copy(settings_path + ['timeout'], new_base_path + ['timeout'])
+        config.delete(settings_path)
+
+
 def migrate(config: ConfigTree) -> None:
+    if not config.exists(['vpp']):
+        # Nothing to do
+        return
+
     _migrate_vpp_log(config)
+    _migrate_vpp_nat44(config)

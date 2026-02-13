@@ -82,8 +82,8 @@ def get_config(config=None) -> dict:
 
     if conf.exists(['vpp', 'nat', 'cgnat']):
         set_dependents('vpp_nat_cgnat', conf)
-    if conf.exists(['vpp', 'nat44']):
-        set_dependents('vpp_nat', conf)
+    if conf.exists(['vpp', 'nat', 'nat44']):
+        set_dependents('vpp_nat_nat44', conf)
 
     config['ifname'] = ifname
 

@@ -417,26 +417,6 @@ def verify_vpp_settings_cpu_corelist_workers(cpu_settings: dict):
         )
 
 
-def verify_vpp_nat44_workers(workers: int, nat44_workers: list):
-    if workers < 1:
-        raise ConfigError(
-            '"nat44 workers" requires cpu workers or corelist-workers to be set!'
-        )
-    try:
-        nat_workers = cpu_checks.worker_cores_list(
-            iface='nat44', worker_ranges=nat44_workers
-        )
-    except ValueError as e:
-        raise ConfigError(str(e))
-
-    invalid_workers = [str(el) for el in nat_workers if el not in range(workers)]
-    if invalid_workers:
-        raise ConfigError(
-            f'Cannot set VPP "nat44 workers": worker(s) #{",".join(invalid_workers)} not available. '
-            f'Available worker ids: {",".join(map(str, range(workers)))}'
-        )
-
-
 def verify_vpp_statseg_size(settings: dict):
     statseg_size = mem_checks.statseg_size(settings)
 
