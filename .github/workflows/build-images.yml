@@ -25,6 +25,7 @@ jobs:
             python3 python3-venv python3-distutils \
             python3.11 python3.11-venv \
             python3-pip python3-jinja2 python3-pystache python3-tomli python3-tomli-w python3-git python3-cracklib \
+            libcrack2-dev \
             fakechroot \
             squashfs-tools genisoimage \
             debootstrap live-build \
@@ -37,6 +38,11 @@ jobs:
         run: |
           sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
           python3 --version
+
+      - name: Install cracklib for Python 3.11
+        run: |
+          python3.11 -m pip install --upgrade pip
+          python3.11 -m pip install cracklib
 
       - name: Clone vyos-build
         run: |
