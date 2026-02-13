@@ -51,7 +51,7 @@ jobs:
       - name: Configure build
         run: |
           cd vyos-build
-          echo "VYOS_BUILD_FLAVOR=iso" >> build.conf
+          echo "VYOS_BUILD_FLAVOR=generic" >> build.conf
           echo "VYOS_BUILD_TYPE=release" >> build.conf
           echo "VYOS_VERSION=clawgress" >> build.conf
           echo "VYOS_BUILD_ARCH=amd64" >> build.conf
@@ -62,18 +62,18 @@ jobs:
         run: |
           cd vyos-build
           # ensure cracklib is available in the build environment
-          sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress iso
+          sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress generic
           sudo chroot vyos-build/ build/vyos-1x/.venv/bin/pip install --upgrade pip
           sudo chroot vyos-build/ build/vyos-1x/.venv/bin/pip install --upgrade --force-reinstall --no-binary :all: cracklib
-          sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress iso
+          sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress generic
 
       - name: Build OVA (if supported)
         run: |
           cd vyos-build
-          sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress iso
+          sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress generic
           sudo chroot vyos-build/ build/vyos-1x/.venv/bin/pip install --upgrade pip
           sudo chroot vyos-build/ build/vyos-1x/.venv/bin/pip install --upgrade --force-reinstall --no-binary :all: cracklib
-          sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress --image-type ova
+          sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress --image-type ova generic
         continue-on-error: true
 
       - name: Upload artifacts
