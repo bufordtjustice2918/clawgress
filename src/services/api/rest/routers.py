@@ -47,6 +47,8 @@ from vyos.config import Config
 from vyos.configtree import ConfigTree
 from vyos.configdiff import get_config_diff
 from vyos.configsession import ConfigSessionError
+from vyos.utils.file import makedir, write_file
+from vyos.utils.process import call
 
 from ..background import BackgroundOpManager
 from ..background import BackgroundOpError
@@ -66,6 +68,7 @@ from .models import BaseConfigureModel
 from .models import BaseConfigSectionModel
 from .models import RetrieveModel
 from .models import ConfigFileModel
+from .models import ClawgressPolicyModel
 from .models import ImageModel
 from .models import ContainerImageModel
 from .models import GenerateModel
@@ -725,6 +728,21 @@ async def config_file_op(data: ConfigFileModel, background_tasks: BackgroundTask
                 del env['IN_COMMIT_CONFIRM']
 
     return success(msg)
+
+
+@router.post('/clawgress/policy')
+async def clawgress_policy_op(data: ClawgressPolicyModel):
+    try:
+        makedir('/config/clawgress', user='root', group='root')
+        payload = json.dumps(data.policy, indent=2, sort_keys=True) + '\n'
+        write_file('/config/clawgress/policy.json', payload, user='root', group='root', mode=0o644)
+        if data.apply:
+            call('/usr/bin/clawgress-policy-apply')
+    except Exception:
+        LOG.critical(traceback.format_exc())
+        return error(500, 'An internal error occured. Check the logs for details.')
+
+    return success({'path': '/config/clawgress/policy.json', 'applied': data.apply})
 
 
 @router.post('/image')

@@ -27,6 +27,7 @@ from typing import Self
 from pydantic import BaseModel
 from pydantic import StrictStr
 from pydantic import StrictInt
+from pydantic import StrictBool
 from pydantic import field_validator
 from pydantic import model_validator
 from fastapi.responses import HTMLResponse
@@ -152,6 +153,30 @@ class ConfigFileModel(ApiModel):
                 'op': 'save | load | merge | confirm',
                 'file': 'filename',
                 'string': 'config_string'
+            }
+        }
+
+
+class ClawgressPolicyModel(ApiModel):
+    policy: Dict
+    apply: StrictBool = True
+
+    class Config:
+        json_schema_extra = {
+            'example': {
+                'key': 'id_key',
+                'policy': {
+                    'version': 1,
+                    'allow': {
+                        'domains': ['api.openai.com'],
+                        'ips': ['1.2.3.0/24'],
+                        'ports': [53, 80, 443],
+                    },
+                    'labels': {
+                        'api.openai.com': 'llm-provider'
+                    }
+                },
+                'apply': True
             }
         }
 
