@@ -32,6 +32,7 @@ Provide a VyOS‑based appliance that enforces **egress allowlists** for OpenCla
      - Allowed ports
      - Labels for reason tags
    - CLI command to import/update policy and regenerate bind9 + firewall
+   - **API endpoint** to POST policy.json and trigger reload
 
 5. **Observability**
    - Syslog / structured log for allow/deny

@@ -21,6 +21,7 @@
 - parse policy.json
 - generate bind9 + firewall config
 - apply + reload
+- add API endpoint for policy updates
 
 5) **Observability + docs** (3–4 days)
 - syslog structure
