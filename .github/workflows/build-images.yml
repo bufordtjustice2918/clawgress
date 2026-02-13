@@ -1,0 +1,53 @@
+name: Build Clawgress Images
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout clawgress (vyos-1x fork)
+        uses: actions/checkout@v4
+        with:
+          path: vyos-1x
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git make curl sudo qemu-utils python3 python3-venv
+
+      - name: Clone vyos-build
+        run: |
+          git clone https://github.com/vyos/vyos-build.git
+
+      - name: Configure build
+        run: |
+          cd vyos-build
+          echo "VYOS_BUILD_FLAVOR=iso" >> build.conf
+          echo "VYOS_BUILD_TYPE=release" >> build.conf
+          echo "VYOS_VERSION=clawgress" >> build.conf
+          echo "VYOS_BUILD_ARCH=amd64" >> build.conf
+          # use local vyos-1x tree
+          echo "VYOS_SOURCE=/home/runner/work/${{ github.repository }}/vyos-1x" >> build.conf
+
+      - name: Build ISO
+        run: |
+          cd vyos-build
+          ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress --vyos-1x-dir /home/runner/work/${{ github.repository }}/vyos-1x
+
+      - name: Build OVA (if supported)
+        run: |
+          cd vyos-build
+          ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress --vyos-1x-dir /home/runner/work/${{ github.repository }}/vyos-1x --image-type ova
+        continue-on-error: true
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: clawgress-images
+          path: |
+            vyos-build/build/*.iso
+            vyos-build/build/*.ova
