@@ -22,6 +22,7 @@ import asyncio
 import json
 import copy
 import logging
+import os
 import traceback
 from threading import Lock
 from typing import Union
@@ -48,7 +49,7 @@ from vyos.configtree import ConfigTree
 from vyos.configdiff import get_config_diff
 from vyos.configsession import ConfigSessionError
 from vyos.utils.file import makedir, write_file
-from vyos.utils.process import call
+from vyos.utils.process import call, cmd
 
 from ..background import BackgroundOpManager
 from ..background import BackgroundOpError
@@ -743,6 +744,27 @@ async def clawgress_policy_op(data: ClawgressPolicyModel):
         return error(500, 'An internal error occured. Check the logs for details.')
 
     return success({'path': '/config/clawgress/policy.json', 'applied': data.apply})
+
+
+@router.post('/clawgress/health')
+async def clawgress_health_op(data: ApiModel):
+    try:
+        bind9_active = False
+        try:
+            output = cmd('systemctl is-active bind9')
+            bind9_active = output.strip() == 'active'
+        except Exception:
+            bind9_active = False
+
+        policy_present = os.path.isfile('/config/clawgress/policy.json')
+        return success({
+            'bind9_active': bind9_active,
+            'policy_present': policy_present,
+            'policy_path': '/config/clawgress/policy.json',
+        })
+    except Exception:
+        LOG.critical(traceback.format_exc())
+        return error(500, 'An internal error occured. Check the logs for details.')
 
 
 @router.post('/image')

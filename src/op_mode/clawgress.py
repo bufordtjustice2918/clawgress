@@ -21,7 +21,7 @@ import json
 import os
 
 from vyos.utils.file import makedir, write_file
-from vyos.utils.process import call
+from vyos.utils.process import call, cmd, rc_cmd
 
 POLICY_DIR = '/config/clawgress'
 POLICY_PATH = f'{POLICY_DIR}/policy.json'
@@ -52,6 +52,28 @@ def import_policy(source_path: str) -> None:
     apply_policy(POLICY_PATH)
 
 
+def show_policy(path: str | None) -> None:
+    policy_path = path or POLICY_PATH
+    policy = _load_policy(policy_path)
+    print(json.dumps(policy, indent=2, sort_keys=True))
+
+
+def show_status() -> None:
+    policy_exists = os.path.isfile(POLICY_PATH)
+    bind9_active = False
+    try:
+        output = cmd('systemctl is-active bind9')
+        bind9_active = output.strip() == 'active'
+    except Exception:
+        bind9_active = False
+
+    print(json.dumps({
+        'policy_path': POLICY_PATH,
+        'policy_present': policy_exists,
+        'bind9_active': bind9_active,
+    }, indent=2))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description='Clawgress policy operations')
     subparsers = parser.add_subparsers(dest='command', required=True)
@@ -62,6 +84,11 @@ def main() -> None:
     import_parser = subparsers.add_parser('import', help='Import policy.json to /config and apply')
     import_parser.add_argument('--policy', required=True, help='Path to policy.json')
 
+    show_parser = subparsers.add_parser('show', help='Show policy.json')
+    show_parser.add_argument('--policy', help='Path to policy.json')
+
+    subparsers.add_parser('status', help='Show Clawgress status')
+
     args = parser.parse_args()
 
     if args.command == 'apply':
@@ -70,6 +97,14 @@ def main() -> None:
 
     if args.command == 'import':
         import_policy(args.policy)
+        return
+
+    if args.command == 'show':
+        show_policy(args.policy)
+        return
+
+    if args.command == 'status':
+        show_status()
         return
 
 

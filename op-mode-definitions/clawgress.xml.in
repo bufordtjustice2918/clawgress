@@ -5,11 +5,32 @@
       <help>Clawgress policy operations</help>
     </properties>
     <children>
+      <node name="status">
+        <properties>
+          <help>Show Clawgress status</help>
+        </properties>
+        <command>${vyos_op_scripts_dir}/clawgress.py status</command>
+      </node>
       <node name="policy">
         <properties>
           <help>Manage Clawgress policy.json</help>
         </properties>
         <children>
+          <node name="show">
+            <properties>
+              <help>Show policy.json</help>
+            </properties>
+            <command>${vyos_op_scripts_dir}/clawgress.py show</command>
+            <children>
+              <tagNode name="file">
+                <properties>
+                  <help>Path to policy.json</help>
+                  <completionHelp><imagePath/></completionHelp>
+                </properties>
+                <command>${vyos_op_scripts_dir}/clawgress.py show --policy "$4"</command>
+              </tagNode>
+            </children>
+          </node>
           <node name="apply">
             <properties>
               <help>Apply policy.json to bind9 RPZ</help>
