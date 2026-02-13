@@ -36,12 +36,12 @@ jobs:
       - name: Build ISO
         run: |
           cd vyos-build
-          ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress --vyos-1x-dir /home/runner/work/${{ github.repository }}/vyos-1x
+          sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress --vyos-1x-dir /home/runner/work/${{ github.repository }}/vyos-1x
 
       - name: Build OVA (if supported)
         run: |
           cd vyos-build
-          ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress --vyos-1x-dir /home/runner/work/${{ github.repository }}/vyos-1x --image-type ova
+          sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress --vyos-1x-dir /home/runner/work/${{ github.repository }}/vyos-1x --image-type ova
         continue-on-error: true
 
       - name: Upload artifacts
