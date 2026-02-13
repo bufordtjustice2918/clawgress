@@ -67,9 +67,9 @@ l2learn {
 
 {% if logging is vyos_defined %}
 logging {
-{%     if logging.default_log_level is vyos_defined %}
-    default-log-level {{ logging.default_log_level }}
-    default-syslog-log-level {{ logging.default_log_level }}
+{%     if logging.default_level is vyos_defined %}
+    default-log-level {{ logging.default_level }}
+    default-syslog-log-level {{ logging.default_level }}
 {%     endif %}
 }
 {% endif %}

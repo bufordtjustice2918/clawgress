@@ -809,9 +809,9 @@
             <help>Logging settings</help>
           </properties>
           <children>
-            <leafNode name="default-log-level">
+            <leafNode name="default-level">
               <properties>
-                <help>default-log-level</help>
+                <help>Default logging level</help>
                 <completionHelp>
                   <list>alert crit debug disabled emerg error info notice warn</list>
                 </completionHelp>

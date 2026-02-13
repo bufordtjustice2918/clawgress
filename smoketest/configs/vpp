@@ -123,6 +123,9 @@ vpp {
         unix {
             poll-sleep-usec "12"
         }
+        logging {
+            default-log-level "debug"
+        }
     }
 }
 
