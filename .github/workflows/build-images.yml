@@ -17,7 +17,19 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y git make curl sudo qemu-utils python3 python3-venv python3-jinja2 python3-tomli python3-git python3-cracklib
+          sudo apt-get install -y \
+            git make curl sudo \
+            build-essential \
+            pbuilder devscripts equivs lsb-release libtool libapt-pkg-dev pkg-config debhelper \
+            qemu-utils \
+            python3 python3-venv python3-pip python3-jinja2 python3-pystache python3-tomli python3-tomli-w python3-git python3-cracklib \
+            fakechroot \
+            squashfs-tools genisoimage \
+            debootstrap live-build \
+            gdisk sbsigntool dosfstools kpartx \
+            cpio \
+            syslinux grub2 grub-pc grub2-common \
+            parted udev
 
       - name: Clone vyos-build
         run: |
