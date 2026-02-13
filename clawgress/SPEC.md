@@ -43,6 +43,13 @@ Provide a VyOS‑based appliance that enforces **egress allowlists** for OpenCla
 - Proxy mode (SNI allowlist)
 - Per‑host policies (grouping clients)
 - Agent telemetry (usage, denied domains, cache hits)
+- mTLS between gateways/agents
+- Rate limiting + connection shaping
+- Policy signing + change approval workflow
+- Alerting on policy violations
+- Security dashboards (deny spikes, top blocked domains)
+- Time‑based policy windows
+- Data exfiltration caps (payload size limits)
 
 ## policy.json (Draft)
 ```json
