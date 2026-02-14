@@ -123,7 +123,7 @@ jobs:
             
             # Create OVA
             mkdir -p ova_output
-            /home/kavan/.openclaw/workspace/create_ova.sh "$ISO_FILE" "./ova_output" "$VERSION"
+            ./create_ova.sh "$ISO_FILE" "./ova_output" "$VERSION"
             
             # Move OVA to build directory
             mv ova_output/*.ova build/ 2>/dev/null || true
