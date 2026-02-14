@@ -14,6 +14,22 @@ jobs:
         with:
           path: vyos-1x
 
+      - name: Configure Debian bookworm repo for newer live-build
+        run: |
+          sudo tee /etc/apt/sources.list.d/debian-bookworm.list <<'EOF'
+          deb http://deb.debian.org/debian bookworm main
+          EOF
+          sudo tee /etc/apt/preferences.d/debian-bookworm <<'EOF'
+          Package: *
+          Pin: release n=bookworm
+          Pin-Priority: 100
+          EOF
+          sudo tee /etc/apt/preferences.d/debian-bookworm-live-build <<'EOF'
+          Package: live-build
+          Pin: release n=bookworm
+          Pin-Priority: 990
+          EOF
+
       - name: Install build dependencies
         run: |
           sudo apt-get update
@@ -28,11 +44,11 @@ jobs:
             libcrack2-dev \
             fakechroot \
             squashfs-tools genisoimage \
-            debootstrap live-build \
             gdisk sbsigntool dosfstools kpartx \
             cpio \
             syslinux grub2 grub-pc grub2-common \
             parted udev
+          sudo apt-get install -y -t bookworm debootstrap live-build
 
       - name: Use Python 3.11
         run: |
