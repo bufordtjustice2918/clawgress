@@ -24,7 +24,7 @@ jobs:
             qemu-utils \
             python3 python3-venv python3-distutils \
             python3.11 python3.11-venv python3.11-dev \
-            python3-pip python3-jinja2 python3-pystache python3-tomli python3-tomli-w python3-git python3-psutil \
+            python3-pip python3-jinja2 python3-pystache python3-tomli python3-tomli-w python3-git \
             libcrack2-dev \
             fakechroot \
             squashfs-tools genisoimage \
@@ -38,6 +38,8 @@ jobs:
         run: |
           sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
           python3 --version
+          sudo python3.11 -m pip install --upgrade pip
+          sudo python3.11 -m pip install --upgrade psutil
 
       - name: Install cracklib for Python 3.11
         run: |
