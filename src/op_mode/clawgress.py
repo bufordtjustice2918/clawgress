@@ -27,6 +27,7 @@ POLICY_DIR = '/config/clawgress'
 POLICY_PATH = f'{POLICY_DIR}/policy.json'
 APPLY_BIN = '/usr/bin/clawgress-policy-apply'
 FIREWALL_APPLY_BIN = '/usr/bin/clawgress-firewall-apply'
+LABELS_FILE = '/etc/bind/rpz/labels.json'
 
 
 def _load_policy(path: str) -> dict:
@@ -103,6 +104,16 @@ def show_status() -> None:
     print(json.dumps(status, indent=2))
 
 
+def _load_labels() -> dict:
+    try:
+        if os.path.isfile(LABELS_FILE):
+            with open(LABELS_FILE, 'r', encoding='utf-8') as handle:
+                return json.load(handle)
+    except Exception:
+        pass
+    return {}
+
+
 def show_stats() -> None:
     """Show detailed deny statistics"""
     stats = {
@@ -120,13 +131,16 @@ def show_stats() -> None:
     
     # Get top blocked domains (if we can parse the logs)
     try:
+        labels = _load_labels()
         rc, output = rc_cmd('journalctl -u bind9 --since "24 hours ago" -o cat 2>/dev/null | grep "rpz" | grep -oE "query:\s*[^\s]+" | sort | uniq -c | sort -rn | head -10')
         if rc == 0 and output:
             top_blocked = []
             for line in output.strip().split('\n'):
                 parts = line.strip().split()
                 if len(parts) >= 2:
-                    top_blocked.append({'count': parts[0], 'domain': parts[1]})
+                    domain = parts[1]
+                    reason = labels.get(domain, 'default-deny')
+                    top_blocked.append({'count': parts[0], 'domain': domain, 'reason': reason})
             stats['top_blocked_24h'] = top_blocked
     except Exception:
         stats['top_blocked_24h'] = []
