@@ -74,7 +74,7 @@ cat > "$OUTPUT_DIR/$OVF_NAME" <<EOF
 <Envelope ovf:version="1.0" xml:lang="en-US" xmlns="http://schemas.dmtf.org/ovf/envelope/1" xmlns:ovf="http://schemas.dmtf.org/ovf/envelope/1" xmlns:rasd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_ResourceAllocationSettingData" xmlns:vssd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_VirtualSystemSettingData" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <References>
     <File ovf:href="$ISO_BASENAME" ovf:id="iso" ovf:size="$(stat -c%s "$ISO_PATH")"/>
-    <File ovf:href="$VMDK_NAME" ovf:id="disk" ovf:size="$(qemu-img info "$DISK_PATH" --output=json | jq '."virtual-size"')"/>
+    <File ovf:href="$VMDK_NAME" ovf:id="disk" ovf:size="10737418240"/>
   </References>
   <DiskSection>
     <Info>Virtual disk information</Info>
