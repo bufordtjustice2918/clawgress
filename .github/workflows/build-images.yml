@@ -173,6 +173,7 @@ jobs:
           
           # Start QEMU with headless mode and serial console
           # Using virtio for network and disk, 2GB RAM, 2 CPUs
+          # Note: -nographic implies -serial stdio, don't add explicit -serial
           qemu-system-x86_64 \
             -name clawgress-smoke-test \
             -m 2048 \
@@ -180,11 +181,10 @@ jobs:
             -boot d \
             -cdrom "$ISO_PATH" \
             -nographic \
-            -serial stdio \
             -netdev user,id=net0,hostfwd=tcp::2222-:22 \
             -device virtio-net-pci,netdev=net0 \
             -drive file=/dev/null,format=raw,if=virtio \
-            2>&1 | tee "$SERIAL_LOG" &
+            > "$SERIAL_LOG" 2>&1 &
           
           QEMU_PID=$!
           echo "QEMU PID: $QEMU_PID"
