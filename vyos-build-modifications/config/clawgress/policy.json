@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "allow": {
+    "domains": [],
+    "ips": [],
+    "ports": [53, 80, 443]
+  },
+  "labels": {}
+}

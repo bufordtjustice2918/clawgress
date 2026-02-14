@@ -75,7 +75,7 @@ jobs:
           cd vyos-build
           echo "VYOS_BUILD_FLAVOR=generic" >> build.conf
           echo "VYOS_BUILD_TYPE=release" >> build.conf
-          echo "VYOS_VERSION=clawgress" >> build.conf
+          echo "VYOS_VERSION=1.5.0-clawgress" >> build.conf
           echo "VYOS_BUILD_ARCH=amd64" >> build.conf
           # use local vyos-1x tree (checkout is in vyos-1x subdir of workspace)
           echo "VYOS_SOURCE=${{ github.workspace }}/vyos-1x" >> build.conf
@@ -90,7 +90,11 @@ jobs:
       - name: Build OVA (if supported)
         run: |
           cd vyos-build
-          sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress --image-type ova generic
+          # OVA requires ISO first, then conversion
+          if [ -f build/*.iso ]; then
+            echo "OVA build would require additional tools (ovftool, etc.)"
+            echo "Skipping OVA for now - ISO is the primary artifact"
+          fi
         continue-on-error: true
 
       - name: Upload artifacts

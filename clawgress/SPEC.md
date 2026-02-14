@@ -1,13 +1,16 @@
 # Clawgress Spec (Draft)
 
+**Version:** 1.5.0 (tracks VyOS 1.5)
+
 ## Goal
-Provide a VyOS‑based appliance that enforces **egress allowlists** for OpenClaw deployments using DNS RPZ + firewall rules, with clear logging and a single JSON policy source of truth.
+Provide a VyOS-based appliance that enforces **egress allowlists** for OpenClaw deployments using DNS RPZ + firewall rules, with clear logging and a single JSON policy source of truth.
 
 ## Key Decisions
-- **Base distro:** VyOS
+- **Base distro:** VyOS 1.5 (current)
+- **Clawgress versioning:** Tracks VyOS base version (1.5.0 = Clawgress on VyOS 1.5)
 - **DNS:** **bind9** (not dnsmasq)
 - **Policy format:** `policy.json` (supports large allowlists)
-- **Targets:** OpenClaw clusters needing zero‑trust egress control
+- **Targets:** OpenClaw clusters needing zero-trust egress control
 
 ## MVP (v1)
 1. **Appliance**
@@ -41,14 +44,14 @@ Provide a VyOS‑based appliance that enforces **egress allowlists** for OpenCla
 
 ## v2 (Expansion)
 - Proxy mode (SNI allowlist)
-- Per‑host policies (grouping clients)
+- Per-host policies (grouping clients)
 - Agent telemetry (usage, denied domains, cache hits)
 - mTLS between gateways/agents
 - Rate limiting + connection shaping
 - Policy signing + change approval workflow
 - Alerting on policy violations
 - Security dashboards (deny spikes, top blocked domains)
-- Time‑based policy windows
+- Time-based policy windows
 - Data exfiltration caps (payload size limits)
 
 ## policy.json (Draft)

@@ -1,0 +1,14 @@
+#!/bin/bash
+# Clawgress bind9 enable hook
+# Enable bind9 service on first boot
+
+echo "I: Enabling Clawgress bind9 service..."
+systemctl enable bind9
+
+# Create policy directory
+echo "I: Creating Clawgress policy directory..."
+mkdir -p /config/clawgress
+
+# Ensure proper ownership
+chown root:root /config/clawgress
+chmod 755 /config/clawgress
