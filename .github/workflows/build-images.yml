@@ -2,8 +2,14 @@ name: Build Clawgress Images
 
 on:
   workflow_dispatch:
+  schedule:
+    # Nightly build at 2 AM UTC to track VyOS upstream
+    - cron: '0 2 * * *'
   push:
-    branches: [ main, current ]
+    # Only build on version tags, not every commit
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'
 
 jobs:
   build:
@@ -119,6 +125,7 @@ jobs:
           path: |
             vyos-build/build/*.iso
             vyos-build/build/*.ova
+          retention-days: 7
 
   smoke-test:
     name: Smoke Test ISO
