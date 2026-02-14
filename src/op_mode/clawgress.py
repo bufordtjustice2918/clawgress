@@ -77,12 +77,61 @@ def show_status() -> None:
     except Exception:
         nftables_active = False
 
-    print(json.dumps({
+    # Get deny statistics from syslog
+    deny_count = 0
+    recent_denies = []
+    try:
+        rc, output = rc_cmd('journalctl -u bind9 --since "1 hour ago" -o cat 2>/dev/null | grep -c "rpz" || echo 0')
+        deny_count = int(output.strip()) if rc == 0 else 0
+        
+        rc, output = rc_cmd('journalctl -u bind9 --since "1 hour ago" -o cat 2>/dev/null | grep "rpz" | tail -10')
+        if rc == 0 and output:
+            recent_denies = output.strip().split('\n')[-5:]
+    except Exception:
+        pass
+
+    status = {
         'policy_path': POLICY_PATH,
         'policy_present': policy_exists,
         'bind9_active': bind9_active,
         'nftables_active': nftables_active,
-    }, indent=2))
+        'stats': {
+            'denies_last_hour': deny_count,
+            'recent_denies': recent_denies,
+        }
+    }
+    print(json.dumps(status, indent=2))
+
+
+def show_stats() -> None:
+    """Show detailed deny statistics"""
+    stats = {
+        'time_periods': {}
+    }
+    
+    # Try to get stats from journalctl
+    for period, since in [('1h', '1 hour ago'), ('24h', '24 hours ago'), ('7d', '7 days ago')]:
+        try:
+            rc, output = rc_cmd(f'journalctl -u bind9 --since "{since}" -o cat 2>/dev/null | grep -c "rpz" || echo 0')
+            count = int(output.strip()) if rc == 0 else 0
+            stats['time_periods'][period] = count
+        except Exception:
+            stats['time_periods'][period] = None
+    
+    # Get top blocked domains (if we can parse the logs)
+    try:
+        rc, output = rc_cmd('journalctl -u bind9 --since "24 hours ago" -o cat 2>/dev/null | grep "rpz" | grep -oE "query:\s*[^\s]+" | sort | uniq -c | sort -rn | head -10')
+        if rc == 0 and output:
+            top_blocked = []
+            for line in output.strip().split('\n'):
+                parts = line.strip().split()
+                if len(parts) >= 2:
+                    top_blocked.append({'count': parts[0], 'domain': parts[1]})
+            stats['top_blocked_24h'] = top_blocked
+    except Exception:
+        stats['top_blocked_24h'] = []
+    
+    print(json.dumps(stats, indent=2))
 
 
 def show_firewall() -> None:
@@ -114,6 +163,8 @@ def main() -> None:
 
     subparsers.add_parser('rpz', help='Show bind9 RPZ zone')
 
+    subparsers.add_parser('stats', help='Show deny statistics')
+
     args = parser.parse_args()
 
     if args.command == 'apply':
@@ -138,6 +189,10 @@ def main() -> None:
 
     if args.command == 'rpz':
         show_rpz()
+        return
+
+    if args.command == 'stats':
+        show_stats()
         return
 
 

@@ -105,10 +105,11 @@ def render_allow_zone(domains, labels=None):
     return '\n'.join(lines).rstrip() + '\n'
 
 
-def render_deny_zone():
+def render_deny_zone(labels=None):
     serial = time.strftime('%Y%m%d%H')
     lines = [rpz_header(DENY_ZONE, serial)]
     lines.append('; default deny for all other names')
+    lines.append('; deny reasons are logged to syslog local1')
     lines.append('* CNAME .')
     return '\n'.join(lines).rstrip() + '\n'
 
@@ -137,6 +138,15 @@ logging {{
         print-time yes;
     }};
     category rpz {{ clawgress_rpz; }};
+
+    channel clawgress_deny {{
+        syslog local1;
+        severity warning;
+        print-category yes;
+        print-severity yes;
+        print-time yes;
+    }};
+    category rpz {{ clawgress_rpz; clawgress_deny; }};
 }};
 """.lstrip()
 

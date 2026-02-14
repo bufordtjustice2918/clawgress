@@ -23,6 +23,12 @@
         </properties>
         <command>${vyos_op_scripts_dir}/clawgress.py rpz</command>
       </node>
+      <node name="stats">
+        <properties>
+          <help>Show Clawgress deny statistics</help>
+        </properties>
+        <command>${vyos_op_scripts_dir}/clawgress.py stats</command>
+      </node>
       <node name="policy">
         <properties>
           <help>Manage Clawgress policy.json</help>
