@@ -138,8 +138,8 @@ def render_named_options():
 options {{
     directory \"{BIND_WORK_DIR}\";
     recursion yes;
-    allow-query {{ any; }};
-    allow-query-cache {{ any; }};
+    allow-query {{ localhost; localnets; }};
+    allow-query-cache {{ localhost; localnets; }};
     listen-on {{ any; }};
     listen-on-v6 {{ any; }};
     response-policy {{
