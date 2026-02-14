@@ -26,6 +26,7 @@ from vyos.utils.process import call, cmd, rc_cmd
 POLICY_DIR = '/config/clawgress'
 POLICY_PATH = f'{POLICY_DIR}/policy.json'
 APPLY_BIN = '/usr/bin/clawgress-policy-apply'
+FIREWALL_APPLY_BIN = '/usr/bin/clawgress-firewall-apply'
 
 
 def _load_policy(path: str) -> dict:
@@ -41,8 +42,10 @@ def _write_policy(policy: dict, path: str) -> None:
 def apply_policy(policy_path: str | None) -> None:
     if policy_path:
         call(f'{APPLY_BIN} --policy {policy_path}')
+        call(f'{FIREWALL_APPLY_BIN} --policy {policy_path}')
     else:
         call(f'{APPLY_BIN}')
+        call(f'{FIREWALL_APPLY_BIN}')
 
 
 def import_policy(source_path: str) -> None:
