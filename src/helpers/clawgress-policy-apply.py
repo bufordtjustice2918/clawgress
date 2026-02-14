@@ -30,6 +30,7 @@ POLICY_PATHS = [
 ]
 
 BIND_CONFIG_DIR = '/etc/bind'
+BIND_WORK_DIR = '/var/cache/bind'
 RPZ_DIR = f'{BIND_CONFIG_DIR}/rpz'
 
 ALLOW_ZONE = 'rpz-allow.clawgress'
@@ -117,7 +118,7 @@ def render_deny_zone(labels=None):
 def render_named_options():
     return f"""
 options {{
-    directory \"{BIND_CONFIG_DIR}\";
+    directory \"{BIND_WORK_DIR}\";
     recursion yes;
     allow-query {{ any; }};
     allow-query-cache {{ any; }};
@@ -138,7 +139,6 @@ logging {{
         print-severity yes;
         print-time yes;
     }};
-    category rpz {{ clawgress_rpz; }};
 
     channel clawgress_deny {{
         syslog local1;
@@ -147,6 +147,7 @@ logging {{
         print-severity yes;
         print-time yes;
     }};
+
     category rpz {{ clawgress_rpz; clawgress_deny; }};
 }};
 """.lstrip()
@@ -175,6 +176,7 @@ def apply_policy(policy_path=None, reload_named=True):
     labels = build_labels_map(policy.get('labels', {}), domains)
 
     makedir(RPZ_DIR, group='bind', user='root')
+    makedir(BIND_WORK_DIR, group='bind', user='bind')
 
     write_file(ALLOW_RPZ_FILE, render_allow_zone(domains, labels), user='root', group='bind', mode=0o644)
     write_file(DENY_RPZ_FILE, render_deny_zone(), user='root', group='bind', mode=0o644)
