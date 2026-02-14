@@ -118,6 +118,12 @@ jobs:
           # Build with local vyos-1x source (packages will be picked up from VYOS_SOURCE)
           sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress generic
 
+      - name: Build QCOW2
+        run: |
+          cd vyos-build
+          # Build QCOW2 image (VyOS build tool)
+          sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress --image-type qcow2 generic
+
       - name: Build OVA
         run: |
           cd vyos-build
@@ -153,12 +159,17 @@ jobs:
           fi
         continue-on-error: true
 
+      - name: Remove live-build ISO
+        run: |
+          rm -f vyos-build/build/live-image-*.iso
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: clawgress-images
           path: |
             vyos-build/build/*.iso
+            vyos-build/build/*.qcow2
             vyos-build/build/*.ova
             vyos-build/build/*.ovf
             vyos-build/build/*.mf
