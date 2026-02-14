@@ -108,13 +108,28 @@ jobs:
           # Build with local vyos-1x source (packages will be picked up from VYOS_SOURCE)
           sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress generic
 
-      - name: Build OVA (if supported)
+      - name: Build OVA
         run: |
           cd vyos-build
           # OVA requires ISO first, then conversion
           if [ -f build/*.iso ]; then
-            echo "OVA build would require additional tools (ovftool, etc.)"
-            echo "Skipping OVA for now - ISO is the primary artifact"
+            echo "Building OVA from ISO..."
+            ISO_FILE=$(ls -t build/*.iso | head -1)
+            VERSION="${{ github.ref_name }}"  # Get tag name like v1.4.0
+            
+            # Install required tools
+            sudo apt-get update
+            sudo apt-get install -y qemu-utils genisoimage
+            
+            # Create OVA
+            mkdir -p ova_output
+            /home/kavan/.openclaw/workspace/create_ova.sh "$ISO_FILE" "./ova_output" "$VERSION"
+            
+            # Move OVA to build directory
+            mv ova_output/*.ova build/ 2>/dev/null || true
+            echo "OVA build completed"
+          else
+            echo "No ISO found, skipping OVA build"
           fi
         continue-on-error: true
 
@@ -125,6 +140,9 @@ jobs:
           path: |
             vyos-build/build/*.iso
             vyos-build/build/*.ova
+            vyos-build/build/*.ovf
+            vyos-build/build/*.mf
+            vyos-build/build/*.vmdk
           retention-days: 7
 
   smoke-test:
