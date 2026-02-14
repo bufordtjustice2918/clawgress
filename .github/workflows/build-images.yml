@@ -85,16 +85,16 @@ jobs:
           cd vyos-build
           # ensure cracklib is available in the build environment
           sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress generic
-          sudo chroot vyos-build/ build/vyos-1x/.venv/bin/pip install --upgrade pip
-          sudo chroot vyos-build/ build/vyos-1x/.venv/bin/pip install --upgrade --force-reinstall --no-binary :all: cracklib
+          sudo chroot build /vyos-1x/.venv/bin/pip install --upgrade pip
+          sudo chroot build /vyos-1x/.venv/bin/pip install --upgrade --force-reinstall --no-binary :all: cracklib
           sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress generic
 
       - name: Build OVA (if supported)
         run: |
           cd vyos-build
           sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress generic
-          sudo chroot vyos-build/ build/vyos-1x/.venv/bin/pip install --upgrade pip
-          sudo chroot vyos-build/ build/vyos-1x/.venv/bin/pip install --upgrade --force-reinstall --no-binary :all: cracklib
+          sudo chroot build /vyos-1x/.venv/bin/pip install --upgrade pip
+          sudo chroot build /vyos-1x/.venv/bin/pip install --upgrade --force-reinstall --no-binary :all: cracklib
           sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress --image-type ova generic
         continue-on-error: true
 
