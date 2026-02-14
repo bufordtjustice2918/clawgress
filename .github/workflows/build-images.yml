@@ -81,6 +81,10 @@ jobs:
           # Copy build.conf to vyos-build
           cp vyos-1x/vyos-build-modifications/build.conf vyos-build/build.conf
           
+          # Copy build flavor overrides (qcow2)
+          mkdir -p vyos-build/data/build-flavors/
+          cp vyos-1x/vyos-build-modifications/build-flavors/qcow2.toml vyos-build/data/build-flavors/
+
           # Copy chroot hook for bind9
           mkdir -p vyos-build/data/live-build-config/hooks/live/
           cp vyos-1x/vyos-build-modifications/50-clawgress-bind9.chroot vyos-build/data/live-build-config/hooks/live/
@@ -130,8 +134,9 @@ jobs:
       - name: Build QCOW2
         run: |
           cd vyos-build
-          # Build QCOW2 image (VyOS build tool)
-          sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress qcow2
+          # Build QCOW2 image (VyOS build tool) from existing ISO
+          ISO_FILE=$(ls -t build/*.iso | head -1)
+          sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress --reuse-iso "$ISO_FILE" --disk-size 10G qcow2
 
       - name: Build OVA
         run: |

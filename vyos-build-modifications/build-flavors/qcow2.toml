@@ -1,0 +1,2 @@
+image_format = ["qcow2"]
+artifact_format = ["qcow2"]
