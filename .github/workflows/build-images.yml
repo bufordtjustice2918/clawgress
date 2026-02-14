@@ -70,21 +70,47 @@ jobs:
         run: |
           git clone https://github.com/vyos/vyos-build.git
 
+      - name: Copy vyos-build modifications
+        run: |
+          # Copy build.conf to vyos-build
+          cp vyos-1x/vyos-build-modifications/build.conf vyos-build/build.conf
+          
+          # Copy chroot hook for bind9
+          mkdir -p vyos-build/data/live-build-config/hooks/live/
+          cp vyos-1x/vyos-build-modifications/50-clawgress-bind9.chroot vyos-build/data/live-build-config/hooks/live/
+          chmod +x vyos-build/data/live-build-config/hooks/live/50-clawgress-bind9.chroot
+          
+          # Copy policy.json to includes.chroot
+          mkdir -p vyos-build/data/live-build-config/includes.chroot/config/clawgress/
+          cp vyos-1x/vyos-build-modifications/config/clawgress/policy.json vyos-build/data/live-build-config/includes.chroot/config/clawgress/
+          
+          echo "I: vyos-build modifications copied successfully"
+          ls -la vyos-build/data/live-build-config/hooks/live/
+          ls -la vyos-build/data/live-build-config/includes.chroot/config/clawgress/
+
+      - name: Build vyos-1x package
+        run: |
+          cd vyos-1x
+          # Build the Debian package
+          sudo apt-get build-dep -y .
+          dpkg-buildpackage -uc -us -b -nc
+          cd ..
+          # Show built packages
+          echo "I: Built packages:"
+          ls -la *.deb
+
       - name: Configure build
         run: |
           cd vyos-build
-          echo "VYOS_BUILD_FLAVOR=generic" >> build.conf
-          echo "VYOS_BUILD_TYPE=release" >> build.conf
-          echo "VYOS_VERSION=1.5.0-clawgress" >> build.conf
-          echo "VYOS_BUILD_ARCH=amd64" >> build.conf
-          # use local vyos-1x tree (checkout is in vyos-1x subdir of workspace)
-          echo "VYOS_SOURCE=${{ github.workspace }}/vyos-1x" >> build.conf
+          # Update build.conf to point to the workspace as the package source
+          # The vyos-build system will look for .deb packages in the parent directory
+          echo "VYOS_SOURCE=${{ github.workspace }}" >> build.conf
           cat build.conf
 
       - name: Build ISO
         run: |
           cd vyos-build
-          # Build with local vyos-1x source
+          # Build with local vyos-1x source (packages will be picked up from VYOS_SOURCE)
           sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress generic
 
       - name: Build OVA (if supported)
