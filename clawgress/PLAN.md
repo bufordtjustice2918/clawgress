@@ -36,6 +36,13 @@
 - support for new allowlist categories
 - improvements in logging + reporting
 
+## Rebranding (Pending legal review)
+- Full "VyOS" → "Clawgress" rebrand in code, CLI, docs, and artifacts
+- **Do not use “VyOS” name/logo/branding**; clean rebrand is required
+- Check artwork/marks files (e.g., `LICENSE.artwork`) for restrictions
+- Preserve license notices and required attributions
+- Complete only after legal review/approval
+
 ## Risks / Dependencies
 - VyOS build pipeline stability
 - bind9 packaging on VyOS
