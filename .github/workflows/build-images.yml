@@ -89,6 +89,16 @@ jobs:
           # Copy policy.json to includes.chroot
           mkdir -p vyos-build/data/live-build-config/includes.chroot/config/clawgress/
           cp vyos-1x/vyos-build-modifications/config/clawgress/policy.json vyos-build/data/live-build-config/includes.chroot/config/clawgress/
+
+          # Copy Clawgress op-mode + helper scripts into image
+          mkdir -p vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/op_mode/
+          mkdir -p vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/helpers/
+          cp vyos-1x/src/op_mode/clawgress.py vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/op_mode/
+          cp vyos-1x/src/helpers/clawgress-policy-apply.py vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/helpers/
+          cp vyos-1x/src/helpers/clawgress-firewall-apply.py vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/helpers/
+          chmod +x vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/op_mode/clawgress.py
+          chmod +x vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/helpers/clawgress-policy-apply.py
+          chmod +x vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/helpers/clawgress-firewall-apply.py
           
           echo "I: vyos-build modifications copied successfully"
           ls -la vyos-build/data/live-build-config/hooks/live/

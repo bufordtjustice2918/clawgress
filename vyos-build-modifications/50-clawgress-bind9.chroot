@@ -2,6 +2,10 @@
 # Clawgress bind9 enable hook
 # Enable bind9 service on first boot
 
+echo "I: Installing bind9..."
+apt-get update
+apt-get install -y bind9
+
 echo "I: Enabling Clawgress bind9 service..."
 systemctl enable bind9
 
