@@ -124,8 +124,9 @@ options {{
     listen-on {{ any; }};
     listen-on-v6 {{ any; }};
     response-policy {{
-        zone \"{ALLOW_ZONE}\";
-        zone \"{DENY_ZONE}\";
+        zone \"{ALLOW_ZONE}\" policy passthru;
+        zone \"{DENY_ZONE}\" policy nxdomain;
+        log yes;
     }};
 }};
 
