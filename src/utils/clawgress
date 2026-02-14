@@ -1,0 +1,2 @@
+#!/usr/bin/env sh
+exec /usr/libexec/vyos/op_mode/clawgress.py "$@"

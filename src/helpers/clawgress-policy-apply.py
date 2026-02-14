@@ -29,6 +29,16 @@ POLICY_PATHS = [
     '/etc/clawgress/policy.json',
 ]
 
+DEFAULT_POLICY = {
+    "version": 1,
+    "allow": {
+        "domains": [],
+        "ips": [],
+        "ports": [53, 80, 443],
+    },
+    "labels": {},
+}
+
 BIND_CONFIG_DIR = '/etc/bind'
 BIND_WORK_DIR = '/var/cache/bind'
 RPZ_DIR = f'{BIND_CONFIG_DIR}/rpz'
@@ -44,6 +54,13 @@ NAMED_CONF_OPTIONS = f'{BIND_CONFIG_DIR}/named.conf.options'
 NAMED_CONF_LOCAL = f'{BIND_CONFIG_DIR}/named.conf.local'
 
 
+def ensure_default_policy(path):
+    makedir(os.path.dirname(path), user='root', group='root')
+    if not os.path.isfile(path):
+        write_file(path, json.dumps(DEFAULT_POLICY, indent=2, sort_keys=True) + '\n',
+                   user='root', group='root', mode=0o644)
+
+
 def read_policy(path=None):
     if path:
         paths = [path]
@@ -55,9 +72,10 @@ def read_policy(path=None):
             with open(candidate, 'r', encoding='utf-8') as handle:
                 return json.load(handle), candidate
 
-    raise FileNotFoundError(
-        f'No policy.json found in: {", ".join(paths)}'
-    )
+    # Create default policy at primary path if none found
+    ensure_default_policy(POLICY_PATHS[0])
+    with open(POLICY_PATHS[0], 'r', encoding='utf-8') as handle:
+        return json.load(handle), POLICY_PATHS[0]
 
 
 def normalize_domains(domains):
