@@ -142,7 +142,10 @@ jobs:
           cd vyos-build
           # Build QCOW2 image (VyOS build tool) from existing ISO
           ISO_FILE=$(ls -t build/*.iso | head -1)
-          sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress --reuse-iso "$ISO_FILE" --disk-size 10240 qcow2
+          if [ "$(basename "$ISO_FILE")" != "vyos-clawgress-generic-amd64.iso" ]; then
+            cp "$ISO_FILE" build/vyos-clawgress-generic-amd64.iso
+          fi
+          sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress --reuse-iso build/vyos-clawgress-generic-amd64.iso --disk-size 10240 qcow2
 
       - name: Build OVA
         run: |
