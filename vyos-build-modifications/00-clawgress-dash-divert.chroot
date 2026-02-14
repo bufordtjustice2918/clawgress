@@ -3,5 +3,9 @@ set -e
 
 # Remove dash diversion of /bin/sh so vyatta-bash can own it
 if dpkg-divert --list /bin/sh 2>/dev/null | grep -q 'dash'; then
+  # ensure /bin/sh can be restored without overwrite
+  if [ -e /bin/sh ]; then
+    rm -f /bin/sh
+  fi
   dpkg-divert --remove --rename --package dash /bin/sh || true
 fi
