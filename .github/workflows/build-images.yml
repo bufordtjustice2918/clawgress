@@ -16,8 +16,8 @@ jobs:
 
       - name: Configure Debian bookworm repo for newer live-build
         run: |
-          sudo apt-get update
-          sudo apt-get install -y gnupg ca-certificates
+          for i in 1 2 3 4 5; do sudo apt-get update && break || sleep 10; done
+          for i in 1 2 3 4 5; do sudo apt-get install -y gnupg ca-certificates && break || sleep 10; done
           sudo mkdir -p /usr/share/keyrings
           curl -fsSL https://ftp-master.debian.org/keys/archive-key-12.asc | sudo gpg --dearmor -o /usr/share/keyrings/debian-archive-keyring.gpg
           sudo tee /etc/apt/sources.list.d/debian-bookworm.list <<'EOF'
@@ -36,8 +36,8 @@ jobs:
 
       - name: Install build dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
+          for i in 1 2 3 4 5; do sudo apt-get update && break || sleep 10; done
+          for i in 1 2 3 4 5; do sudo apt-get install -y \
             git make curl sudo \
             build-essential \
             pbuilder devscripts equivs lsb-release libtool libapt-pkg-dev pkg-config debhelper \
@@ -51,8 +51,8 @@ jobs:
             gdisk sbsigntool dosfstools kpartx \
             cpio \
             syslinux grub2 grub-pc grub2-common \
-            parted udev
-          sudo apt-get install -y -t bookworm debootstrap live-build
+            parted udev && break || sleep 10; done
+          for i in 1 2 3 4 5; do sudo apt-get install -y -t bookworm debootstrap live-build && break || sleep 10; done
 
       - name: Use Python 3.11
         run: |
@@ -85,7 +85,7 @@ jobs:
           cd vyos-build
           # ensure cracklib is available in the build environment
           sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress generic
-          sudo chroot build/chroot /bin/bash -lc "apt-get update && apt-get install -y python3-venv python3.11-venv"
+          sudo chroot build/chroot /bin/bash -lc "for i in 1 2 3 4 5; do apt-get update && break || sleep 10; done && for i in 1 2 3 4 5; do apt-get install -y python3-venv python3.11-venv && break || sleep 10; done"
           sudo chroot build/chroot /bin/bash -lc "if [ ! -x /vyos-1x/.venv/bin/pip ]; then python3 -m venv /vyos-1x/.venv; fi"
           sudo chroot build/chroot /vyos-1x/.venv/bin/pip install --upgrade pip
           sudo chroot build/chroot /vyos-1x/.venv/bin/pip install --upgrade --force-reinstall --no-binary :all: cracklib
@@ -95,7 +95,7 @@ jobs:
         run: |
           cd vyos-build
           sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress generic
-          sudo chroot build/chroot /bin/bash -lc "apt-get update && apt-get install -y python3-venv python3.11-venv"
+          sudo chroot build/chroot /bin/bash -lc "for i in 1 2 3 4 5; do apt-get update && break || sleep 10; done && for i in 1 2 3 4 5; do apt-get install -y python3-venv python3.11-venv && break || sleep 10; done"
           sudo chroot build/chroot /bin/bash -lc "if [ ! -x /vyos-1x/.venv/bin/pip ]; then python3 -m venv /vyos-1x/.venv; fi"
           sudo chroot build/chroot /vyos-1x/.venv/bin/pip install --upgrade pip
           sudo chroot build/chroot /vyos-1x/.venv/bin/pip install --upgrade --force-reinstall --no-binary :all: cracklib
