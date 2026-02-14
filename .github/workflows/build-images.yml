@@ -5,11 +5,7 @@ on:
   schedule:
     # Nightly build at 2 AM UTC to track VyOS upstream
     - cron: '0 2 * * *'
-  push:
-    # Only build on version tags, not every commit
-    tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+'
-      - 'v[0-9]+.[0-9]+.[0-9]+-*'
+  # push trigger disabled; use workflow_dispatch only
 
 jobs:
   build:
