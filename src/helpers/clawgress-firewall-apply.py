@@ -20,6 +20,7 @@ import argparse
 import json
 import os
 import ipaddress
+import hashlib
 
 from vyos.utils.file import makedir, write_file
 from vyos.utils.process import call
@@ -78,10 +79,11 @@ def normalize_ips(ips):
     return sorted(set(v4)), sorted(set(v6))
 
 
-def render_nft(v4, v6, ports):
+def render_nft(v4, v6, ports, policy_hash=''):
     port_set = ', '.join(str(p) for p in ports) if ports else ''
     v4_set = ', '.join(v4)
     v6_set = ', '.join(v6)
+    reason = f'clawgress-deny: reason=egress-default-deny policy={policy_hash} '
 
     lines = [
         'table inet clawgress {',
@@ -110,7 +112,7 @@ def render_nft(v4, v6, ports):
         lines.append(f'    ip6 daddr {{ {v6_set} }} accept')
 
     lines.extend([
-        '    log prefix "clawgress-deny: " level info',
+        f'    log prefix "{reason}" level info',
         '    drop',
         '  }',
         '}',
@@ -125,8 +127,10 @@ def apply_policy(policy_path=None):
     ports = normalize_ports(allow.get('ports', [53, 80, 443]))
     v4, v6 = normalize_ips(allow.get('ips', []))
 
+    policy_hash = hashlib.sha256(json.dumps(policy, sort_keys=True).encode('utf-8')).hexdigest()[:12]
+
     makedir(NFT_DIR, user='root', group='root')
-    write_file(NFT_FILE, render_nft(v4, v6, ports), user='root', group='root', mode=0o644)
+    write_file(NFT_FILE, render_nft(v4, v6, ports, policy_hash), user='root', group='root', mode=0o644)
     call(f'nft -f {NFT_FILE}')
 
 
