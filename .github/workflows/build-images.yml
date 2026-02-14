@@ -16,8 +16,12 @@ jobs:
 
       - name: Configure Debian bookworm repo for newer live-build
         run: |
+          sudo apt-get update
+          sudo apt-get install -y gnupg ca-certificates
+          sudo mkdir -p /usr/share/keyrings
+          curl -fsSL https://ftp-master.debian.org/keys/archive-key-12.asc | sudo gpg --dearmor -o /usr/share/keyrings/debian-archive-keyring.gpg
           sudo tee /etc/apt/sources.list.d/debian-bookworm.list <<'EOF'
-          deb http://deb.debian.org/debian bookworm main
+          deb [signed-by=/usr/share/keyrings/debian-archive-keyring.gpg] http://deb.debian.org/debian bookworm main
           EOF
           sudo tee /etc/apt/preferences.d/debian-bookworm <<'EOF'
           Package: *
