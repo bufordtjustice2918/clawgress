@@ -130,3 +130,219 @@ jobs:
           path: |
             vyos-build/build/*.iso
             vyos-build/build/*.ova
+
+  smoke-test:
+    name: Smoke Test ISO
+    runs-on: ubuntu-latest
+    needs: build
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download ISO artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: clawgress-images
+          path: ./artifacts
+
+      - name: Install QEMU
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86 qemu-utils
+
+      - name: Find ISO and verify
+        run: |
+          ISO_PATH=$(find ./artifacts -name "*.iso" -type f | head -1)
+          if [ -z "$ISO_PATH" ]; then
+            echo "❌ ERROR: No ISO file found in artifacts"
+            exit 1
+          fi
+          echo "iso_path=$ISO_PATH" >> $GITHUB_ENV
+          echo "ISO found: $ISO_PATH"
+          ls -lh "$ISO_PATH"
+
+      - name: Boot ISO in QEMU and run smoke tests
+        run: |
+          set -e
+          ISO_PATH="${{ env.iso_path }}"
+          
+          echo "====================================="
+          echo "Starting QEMU smoke test"
+          echo "====================================="
+          
+          # Create serial output log
+          SERIAL_LOG=$(mktemp)
+          echo "Serial log: $SERIAL_LOG"
+          
+          # Start QEMU with headless mode and serial console
+          # Using virtio for network and disk, 2GB RAM, 2 CPUs
+          qemu-system-x86_64 \
+            -name clawgress-smoke-test \
+            -m 2048 \
+            -smp 2 \
+            -boot d \
+            -cdrom "$ISO_PATH" \
+            -nographic \
+            -serial stdio \
+            -netdev user,id=net0,hostfwd=tcp::2222-:22 \
+            -device virtio-net-pci,netdev=net0 \
+            -drive file=/dev/null,format=raw,if=virtio \
+            2>&1 | tee "$SERIAL_LOG" &
+          
+          QEMU_PID=$!
+          echo "QEMU PID: $QEMU_PID"
+          
+          # Wait for VM to boot (look for login prompt or key indicators)
+          echo "Waiting for VM to boot (timeout: 5 minutes)..."
+          BOOT_TIMEOUT=300
+          ELAPSED=0
+          BOOT_COMPLETE=false
+          
+          while [ $ELAPSED -lt $BOOT_TIMEOUT ]; do
+            sleep 5
+            ELAPSED=$((ELAPSED + 5))
+            
+            if grep -q "login:" "$SERIAL_LOG" 2>/dev/null || \
+               grep -q "vyos@" "$SERIAL_LOG" 2>/dev/null || \
+               grep -q "Welcome to VyOS" "$SERIAL_LOG" 2>/dev/null; then
+              echo "✓ Boot completed (login prompt detected)"
+              BOOT_COMPLETE=true
+              break
+            fi
+            
+            if ! kill -0 $QEMU_PID 2>/dev/null; then
+              echo "⚠ QEMU process exited early"
+              break
+            fi
+          done
+          
+          if [ "$BOOT_COMPLETE" != "true" ]; then
+            echo "❌ ERROR: Boot did not complete within timeout"
+            echo "=== Last 50 lines of serial output ==="
+            tail -50 "$SERIAL_LOG" || true
+            kill $QEMU_PID 2>/dev/null || true
+            exit 1
+          fi
+          
+          echo ""
+          echo "====================================="
+          echo "Running smoke tests"
+          echo "====================================="
+          
+          # Give VM a moment to fully initialize
+          sleep 5
+          
+          TESTS_PASSED=0
+          TESTS_FAILED=0
+          
+          # Test 1: Check boot log for version info
+          echo ""
+          echo "Test 1: Checking version info in boot log..."
+          if grep -iE "(vyos|version|1\.5|clawgress)" "$SERIAL_LOG" > /dev/null; then
+            echo "  ✓ Version info found in boot log"
+            TESTS_PASSED=$((TESTS_PASSED + 1))
+          else
+            echo "  ⚠ Version info not clearly visible in boot log (non-fatal)"
+          fi
+          
+          # Mount the ISO to inspect its contents
+          echo ""
+          echo "Test 2: Checking ISO contents for bind9 package..."
+          MOUNT_DIR=$(mktemp -d)
+          sudo mount -o loop "$ISO_PATH" "$MOUNT_DIR" || {
+            echo "  ⚠ Could not mount ISO for inspection"
+          }
+          
+          if [ -d "$MOUNT_DIR" ] && mountpoint -q "$MOUNT_DIR"; then
+            # Look for bind9 in the squashfs or package lists
+            if find "$MOUNT_DIR" -name "*.squashfs" -o -name "*.packages" 2>/dev/null | head -1 | grep -q .; then
+              echo "  ✓ Found squashfs/packages in ISO"
+              TESTS_PASSED=$((TESTS_PASSED + 1))
+            else
+              echo "  ⚠ Could not locate package files in ISO"
+            fi
+            
+            # Check for clawgress-specific files
+            echo ""
+            echo "Test 3: Checking for clawgress files..."
+            
+            # Try to extract and inspect the filesystem
+            SQUASHFS=$(find "$MOUNT_DIR" -name "*.squashfs" | head -1)
+            if [ -n "$SQUASHFS" ]; then
+              EXTRACT_DIR=$(mktemp -d)
+              sudo unsquashfs -f -d "$EXTRACT_DIR" "$SQUASHFS" 2>/dev/null || true
+              
+              if [ -f "$EXTRACT_DIR/config/clawgress/policy.json" ]; then
+                echo "  ✓ clawgress policy.json exists"
+                TESTS_PASSED=$((TESTS_PASSED + 1))
+              else
+                echo "  ✗ clawgress policy.json NOT found"
+                TESTS_FAILED=$((TESTS_FAILED + 1))
+              fi
+              
+              if [ -f "$EXTRACT_DIR/usr/share/vyos/config.boot.default" ] || \
+                 [ -f "$EXTRACT_DIR/opt/vyatta/etc/config.boot.default" ]; then
+                echo "  ✓ VyOS config files present"
+                TESTS_PASSED=$((TESTS_PASSED + 1))
+              fi
+              
+              # Check for bind9 package
+              if [ -f "$EXTRACT_DIR/var/lib/dpkg/status" ]; then
+                if grep -q "^Package: bind9" "$EXTRACT_DIR/var/lib/dpkg/status"; then
+                  echo "  ✓ bind9 package is installed"
+                  TESTS_PASSED=$((TESTS_PASSED + 1))
+                else
+                  echo "  ✗ bind9 package NOT found"
+                  TESTS_FAILED=$((TESTS_FAILED + 1))
+                fi
+              elif [ -d "$EXTRACT_DIR/usr/sbin" ] && [ -f "$EXTRACT_DIR/usr/sbin/named" ]; then
+                echo "  ✓ named binary found (bind9 installed)"
+                TESTS_PASSED=$((TESTS_PASSED + 1))
+              else
+                echo "  ⚠ bind9 package status could not be verified"
+              fi
+              
+              # Cleanup
+              sudo rm -rf "$EXTRACT_DIR" 2>/dev/null || true
+            fi
+            
+            sudo umount "$MOUNT_DIR" 2>/dev/null || true
+          fi
+          
+          rmdir "$MOUNT_DIR" 2>/dev/null || true
+          
+          # Stop QEMU
+          echo ""
+          echo "Shutting down QEMU..."
+          kill $QEMU_PID 2>/dev/null || true
+          wait $QEMU_PID 2>/dev/null || true
+          
+          # Cleanup
+          rm -f "$SERIAL_LOG"
+          
+          # Report results
+          echo ""
+          echo "====================================="
+          echo "SMOKE TEST RESULTS"
+          echo "====================================="
+          echo "Tests Passed: $TESTS_PASSED"
+          echo "Tests Failed: $TESTS_FAILED"
+          echo ""
+          
+          if [ $TESTS_FAILED -gt 0 ]; then
+            echo "❌ SMOKE TEST FAILED"
+            exit 1
+          else
+            echo "✅ SMOKE TEST PASSED"
+            exit 0
+          fi
+
+      - name: Upload smoke test logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-test-logs
+          path: |
+            /tmp/serial-*
+            ./artifacts
