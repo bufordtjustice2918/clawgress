@@ -88,23 +88,12 @@ jobs:
           ls -la vyos-build/data/live-build-config/hooks/live/
           ls -la vyos-build/data/live-build-config/includes.chroot/config/clawgress/
 
-      - name: Build vyos-1x package
-        run: |
-          cd vyos-1x
-          # Build the Debian package
-          sudo apt-get build-dep -y .
-          dpkg-buildpackage -uc -us -b -nc
-          cd ..
-          # Show built packages
-          echo "I: Built packages:"
-          ls -la *.deb
-
       - name: Configure build
         run: |
           cd vyos-build
-          # Update build.conf to point to the workspace as the package source
-          # The vyos-build system will look for .deb packages in the parent directory
-          echo "VYOS_SOURCE=${{ github.workspace }}" >> build.conf
+          # Point VYOS_SOURCE to the vyos-1x source tree
+          # The build system will use this directly (no need to build .deb first)
+          echo "VYOS_SOURCE=${{ github.workspace }}/vyos-1x" >> build.conf
           cat build.conf
 
       - name: Build ISO
