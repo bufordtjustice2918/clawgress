@@ -37,6 +37,7 @@ DENY_ZONE = 'rpz-default-deny.clawgress'
 
 ALLOW_RPZ_FILE = f'{RPZ_DIR}/allow.rpz'
 DENY_RPZ_FILE = f'{RPZ_DIR}/default-deny.rpz'
+LABELS_FILE = f'{RPZ_DIR}/labels.json'
 
 NAMED_CONF_OPTIONS = f'{BIND_CONFIG_DIR}/named.conf.options'
 NAMED_CONF_LOCAL = f'{BIND_CONFIG_DIR}/named.conf.local'
@@ -70,6 +71,17 @@ def normalize_domains(domains):
     return sorted(set(normalized))
 
 
+def build_labels_map(labels, domains):
+    cleaned = {}
+    if not isinstance(labels, dict):
+        labels = {}
+    for domain in domains:
+        label = labels.get(domain)
+        if label:
+            cleaned[domain] = label
+    return cleaned
+
+
 def rpz_header(zone_name, serial):
     return (
         f'$TTL 60\n'
@@ -79,13 +91,16 @@ def rpz_header(zone_name, serial):
     )
 
 
-def render_allow_zone(domains):
+def render_allow_zone(domains, labels=None):
     serial = time.strftime('%Y%m%d%H')
     lines = [rpz_header(ALLOW_ZONE, serial)]
 
+    labels = labels or {}
     for domain in domains:
-        lines.append(f'{domain} CNAME rpz-passthru.')
-        lines.append(f'*.{domain} CNAME rpz-passthru.')
+        label = labels.get(domain)
+        comment = f' ; label={label}' if label else ''
+        lines.append(f'{domain} CNAME rpz-passthru.{comment}')
+        lines.append(f'*.{domain} CNAME rpz-passthru.{comment}')
 
     return '\n'.join(lines).rstrip() + '\n'
 
@@ -146,11 +161,13 @@ def apply_policy(policy_path=None, reload_named=True):
     policy, policy_path = read_policy(policy_path)
     allow = policy.get('allow', {})
     domains = normalize_domains(allow.get('domains', []))
+    labels = build_labels_map(policy.get('labels', {}), domains)
 
     makedir(RPZ_DIR, group='bind', user='root')
 
-    write_file(ALLOW_RPZ_FILE, render_allow_zone(domains), user='root', group='bind', mode=0o644)
+    write_file(ALLOW_RPZ_FILE, render_allow_zone(domains, labels), user='root', group='bind', mode=0o644)
     write_file(DENY_RPZ_FILE, render_deny_zone(), user='root', group='bind', mode=0o644)
+    write_file(LABELS_FILE, json.dumps(labels, indent=2, sort_keys=True) + '\n', user='root', group='bind', mode=0o644)
 
     write_file(NAMED_CONF_OPTIONS, render_named_options(), user='root', group='bind', mode=0o644)
     write_file(NAMED_CONF_LOCAL, render_named_local(), user='root', group='bind', mode=0o644)
