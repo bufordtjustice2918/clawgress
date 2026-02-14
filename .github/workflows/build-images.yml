@@ -77,30 +77,19 @@ jobs:
           echo "VYOS_BUILD_TYPE=release" >> build.conf
           echo "VYOS_VERSION=clawgress" >> build.conf
           echo "VYOS_BUILD_ARCH=amd64" >> build.conf
-          # use local vyos-1x tree
-          echo "VYOS_SOURCE=/home/runner/work/${{ github.repository }}/vyos-1x" >> build.conf
+          # use local vyos-1x tree (checkout is in vyos-1x subdir of workspace)
+          echo "VYOS_SOURCE=${{ github.workspace }}/vyos-1x" >> build.conf
+          cat build.conf
 
       - name: Build ISO
         run: |
           cd vyos-build
-          # ensure cracklib is available in the build environment
-          sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress generic
-          sudo cp /etc/resolv.conf build/chroot/etc/resolv.conf
-          sudo chroot build/chroot /bin/bash -lc "for i in 1 2 3 4 5; do apt-get update && break || sleep 10; done && for i in 1 2 3 4 5; do apt-get install -y python3-venv python3.11-venv python3.11-dev build-essential gcc && break || sleep 10; done"
-          sudo chroot build/chroot /bin/bash -lc "if [ ! -x /vyos-1x/.venv/bin/pip ]; then python3 -m venv /vyos-1x/.venv; fi"
-          sudo chroot build/chroot /vyos-1x/.venv/bin/pip install --upgrade pip
-          sudo chroot build/chroot /vyos-1x/.venv/bin/pip install --upgrade --force-reinstall --no-binary :all: cracklib
+          # Build with local vyos-1x source
           sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress generic
 
       - name: Build OVA (if supported)
         run: |
           cd vyos-build
-          sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress generic
-          sudo cp /etc/resolv.conf build/chroot/etc/resolv.conf
-          sudo chroot build/chroot /bin/bash -lc "for i in 1 2 3 4 5; do apt-get update && break || sleep 10; done && for i in 1 2 3 4 5; do apt-get install -y python3-venv python3.11-venv python3.11-dev build-essential gcc && break || sleep 10; done"
-          sudo chroot build/chroot /bin/bash -lc "if [ ! -x /vyos-1x/.venv/bin/pip ]; then python3 -m venv /vyos-1x/.venv; fi"
-          sudo chroot build/chroot /vyos-1x/.venv/bin/pip install --upgrade pip
-          sudo chroot build/chroot /vyos-1x/.venv/bin/pip install --upgrade --force-reinstall --no-binary :all: cracklib
           sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress --image-type ova generic
         continue-on-error: true
 

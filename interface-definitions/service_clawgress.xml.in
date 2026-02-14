@@ -1,0 +1,108 @@
+<?xml version="1.0"?>
+<interfaceDefinition>
+  <node name="service">
+    <children>
+      <node name="clawgress" owner="${vyos_conf_scripts_dir}/clawgress.py">
+        <properties>
+          <help>Clawgress egress control service</help>
+          <priority>900</priority>
+        </properties>
+        <children>
+          <leafNode name="enable">
+            <properties>
+              <help>Enable Clawgress service</help>
+              <valueless/>
+            </properties>
+          </leafNode>
+          <leafNode name="listen-address">
+            <properties>
+              <help>Local address for DNS listener (default: all)</help>
+              <valueHelp>
+                <format>ipv4</format>
+                <description>IPv4 address to listen on</description>
+              </valueHelp>
+              <valueHelp>
+                <format>ipv6</format>
+                <description>IPv6 address to listen on</description>
+              </valueHelp>
+              <multi/>
+            </properties>
+          </leafNode>
+          <node name="policy">
+            <properties>
+              <help>Policy configuration</help>
+            </properties>
+            <children>
+              <tagNode name="domain">
+                <properties>
+                  <help>Allowed domain</help>
+                  <valueHelp>
+                    <format>fqdn</format>
+                    <description>Domain name to allow</description>
+                  </valueHelp>
+                </properties>
+                <children>
+                  <leafNode name="label">
+                    <properties>
+                      <help>Policy label for this domain (e.g., llm-provider)</help>
+                      <constraint>
+                        <regex>^[a-zA-Z0-9_-]+$</regex>
+                      </constraint>
+                    </properties>
+                  </leafNode>
+                </children>
+              </tagNode>
+              <tagNode name="ip">
+                <properties>
+                  <help>Allowed IP or network</help>
+                  <valueHelp>
+                    <format>ipv4net</format>
+                    <description>IPv4 network (e.g., 1.2.3.0/24)</description>
+                  </valueHelp>
+                  <valueHelp>
+                    <format>ipv6net</format>
+                    <description>IPv6 network</description>
+                  </valueHelp>
+                </properties>
+              </tagNode>
+              <tagNode name="port">
+                <properties>
+                  <help>Allowed port</help>
+                  <valueHelp>
+                    <format>u32:1-65535</format>
+                    <description>Port number</description>
+                  </valueHelp>
+                </properties>
+              </tagNode>
+            </children>
+          </node>
+          <node name="logging">
+            <properties>
+              <help>Logging configuration</help>
+            </properties>
+            <children>
+              <leafNode name="facility">
+                <properties>
+                  <help>Syslog facility for RPZ logs</help>
+                  <valueHelp>
+                    <format>local0-local7</format>
+                    <description>Syslog facility</description>
+                  </valueHelp>
+                  <constraint>
+                    <regex>^(local[0-7])$</regex>
+                  </constraint>
+                </properties>
+              </leafNode>
+              <leafNode name="deny-log">
+                <properties>
+                  <help>Log denied DNS queries</help>
+                  <valueless/>
+                </properties>
+              </leafNode>
+            </children>
+          </node>
+        </children>
+      </node>
+    </children>
+  </node>
+</interfaceDefinition>

@@ -739,6 +739,7 @@ async def clawgress_policy_op(data: ClawgressPolicyModel):
         write_file('/config/clawgress/policy.json', payload, user='root', group='root', mode=0o644)
         if data.apply:
             call('/usr/bin/clawgress-policy-apply')
+            call('/usr/bin/clawgress-firewall-apply')
     except Exception:
         LOG.critical(traceback.format_exc())
         return error(500, 'An internal error occured. Check the logs for details.')
@@ -756,9 +757,17 @@ async def clawgress_health_op(data: ApiModel):
         except Exception:
             bind9_active = False
 
+        nftables_active = False
+        try:
+            output = cmd('nft list table inet clawgress 2>/dev/null || echo "not found"')
+            nftables_active = 'clawgress' in output
+        except Exception:
+            nftables_active = False
+
         policy_present = os.path.isfile('/config/clawgress/policy.json')
         return success({
             'bind9_active': bind9_active,
+            'nftables_active': nftables_active,
             'policy_present': policy_present,
             'policy_path': '/config/clawgress/policy.json',
         })

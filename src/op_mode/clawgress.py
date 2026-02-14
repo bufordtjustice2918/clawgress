@@ -70,11 +70,29 @@ def show_status() -> None:
     except Exception:
         bind9_active = False
 
+    nftables_active = False
+    try:
+        output = cmd('nft list table inet clawgress 2>/dev/null || echo "not found"')
+        nftables_active = 'clawgress' in output and 'not found' not in output
+    except Exception:
+        nftables_active = False
+
     print(json.dumps({
         'policy_path': POLICY_PATH,
         'policy_present': policy_exists,
         'bind9_active': bind9_active,
+        'nftables_active': nftables_active,
     }, indent=2))
+
+
+def show_firewall() -> None:
+    rc, output = rc_cmd('nft list table inet clawgress 2>/dev/null || echo "Table not found"')
+    print(output)
+
+
+def show_rpz() -> None:
+    rc, output = rc_cmd('cat /etc/bind/rpz/allow.rpz 2>/dev/null || echo "RPZ not configured"')
+    print(output)
 
 
 def main() -> None:
@@ -92,6 +110,10 @@ def main() -> None:
 
     subparsers.add_parser('status', help='Show Clawgress status')
 
+    subparsers.add_parser('firewall', help='Show nftables firewall rules')
+
+    subparsers.add_parser('rpz', help='Show bind9 RPZ zone')
+
     args = parser.parse_args()
 
     if args.command == 'apply':
@@ -108,6 +130,14 @@ def main() -> None:
 
     if args.command == 'status':
         show_status()
+        return
+
+    if args.command == 'firewall':
+        show_firewall()
+        return
+
+    if args.command == 'rpz':
+        show_rpz()
         return
 
 
