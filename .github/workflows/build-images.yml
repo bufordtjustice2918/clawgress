@@ -133,11 +133,6 @@ jobs:
           cd vyos-build
           # Build with local vyos-1x source (packages will be picked up from VYOS_SOURCE)
           sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress generic
-          # Ensure expected ISO name for reuse-iso
-          ISO_FILE=$(ls -t build/*.iso | head -1)
-          if [ "$(basename "$ISO_FILE")" != "vyos-clawgress-generic-amd64.iso" ]; then
-            cp "$ISO_FILE" build/vyos-clawgress-generic-amd64.iso
-          fi
 
       - name: Build QCOW2
         run: |
