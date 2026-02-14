@@ -131,7 +131,7 @@ jobs:
         run: |
           cd vyos-build
           # Build QCOW2 image (VyOS build tool)
-          sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress --image-type qcow2
+          sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress qcow2
 
       - name: Build OVA
         run: |
