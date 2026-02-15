@@ -125,9 +125,13 @@ jobs:
           cp vyos-1x/src/utils/clawgress-firewall-apply vyos-build/data/live-build-config/includes.chroot/usr/bin/
           cp vyos-1x/src/utils/clawgress vyos-build/data/live-build-config/includes.chroot/usr/bin/
 
-          # Sanity check: Clawgress CLI XML must exist in vyos-1x tree
-          test -f "${{ github.workspace }}/vyos-1x/interface-definitions/service_clawgress.xml.in"
-          test -f "${{ github.workspace }}/vyos-1x/op-mode-definitions/show-clawgress.xml.in"
+          # Ensure Clawgress Vyatta templates are in squashfs
+          mkdir -p vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-cfg/templates/service/clawgress
+          mkdir -p vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-op/templates/show/clawgress
+          cp -r vyos-1x/opt/vyatta/share/vyatta-cfg/templates/service/clawgress/* \
+            vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-cfg/templates/service/clawgress/
+          cp -r vyos-1x/opt/vyatta/share/vyatta-op/templates/show/clawgress/* \
+            vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-op/templates/show/clawgress/
 
           chmod +x vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/op_mode/clawgress.py
           chmod +x vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/conf_mode/clawgress.py
