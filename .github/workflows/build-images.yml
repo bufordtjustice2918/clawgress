@@ -59,7 +59,7 @@ jobs:
 
       - name: Use Python 3.11
         run: |
-          sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
+          # Keep system python3 pointing at distro version for apt/python-apt compatibility.
           python3 --version
           sudo python3.11 -m pip install --upgrade pip
           sudo python3.11 -m pip install --upgrade psutil lxml
