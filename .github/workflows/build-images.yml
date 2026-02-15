@@ -16,6 +16,13 @@ jobs:
         with:
           path: vyos-1x
 
+      - name: Force system python3.10 before apt installs
+        run: |
+          if [ -x /usr/bin/python3.10 ]; then
+            sudo ln -sf /usr/bin/python3.10 /usr/bin/python3
+          fi
+          python3 --version
+
       - name: Configure Debian bookworm repo for newer live-build
         run: |
           for i in 1 2 3 4 5; do sudo apt-get update && break || sleep 10; done
@@ -40,13 +47,6 @@ jobs:
           Pin: release o=Ubuntu
           Pin-Priority: 1001
           EOF
-
-      - name: Force system python3.10 before apt installs
-        run: |
-          if [ -x /usr/bin/python3.10 ]; then
-            sudo ln -sf /usr/bin/python3.10 /usr/bin/python3
-          fi
-          python3 --version
 
       - name: Install build dependencies
         run: |
