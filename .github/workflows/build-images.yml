@@ -16,12 +16,6 @@ jobs:
         with:
           path: vyos-1x
 
-      - name: Generate VyOS templates + XML caches
-        run: |
-          cd vyos-1x
-          make interface_definitions op_mode_definitions generate-configd-include-json
-          python3 python/vyos/xml_ref/update_cache.py
-
       - name: Configure Debian bookworm repo for newer live-build
         run: |
           for i in 1 2 3 4 5; do sudo apt-get update && break || sleep 10; done
@@ -68,6 +62,12 @@ jobs:
           python3 --version
           sudo python3.11 -m pip install --upgrade pip
           sudo python3.11 -m pip install --upgrade psutil lxml
+
+      - name: Generate VyOS templates + XML caches
+        run: |
+          cd vyos-1x
+          make interface_definitions op_mode_definitions generate-configd-include-json
+          python3 python/vyos/xml_ref/update_cache.py
 
       - name: Install cracklib for Python 3.11
         run: |
