@@ -35,6 +35,11 @@ jobs:
           Pin: release n=bookworm
           Pin-Priority: 990
           EOF
+          sudo tee /etc/apt/preferences.d/ubuntu-python3-apt <<'EOF'
+          Package: python3-apt
+          Pin: release o=Ubuntu
+          Pin-Priority: 1001
+          EOF
 
       - name: Force system python3.10 before apt installs
         run: |
@@ -63,6 +68,10 @@ jobs:
             syslinux grub2 grub-pc grub2-common \
             parted udev && break || sleep 10; done
           for i in 1 2 3 4 5; do sudo apt-get install -y -t bookworm debootstrap live-build && break || sleep 10; done
+
+      - name: Ensure Ubuntu python3-apt is installed
+        run: |
+          for i in 1 2 3 4 5; do sudo apt-get install -y --allow-downgrades -t jammy python3-apt && break || sleep 10; done
 
       - name: Ensure system python3 for apt_pkg
         run: |
