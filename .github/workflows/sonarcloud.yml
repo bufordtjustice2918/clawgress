@@ -1,18 +1,6 @@
 name: Sonar Checks
 on:
-  push:
-    branches:
-      - current
-    paths:
-      - '**'
-      - '!.github/**'
-      - '!**/*.md'
-  pull_request_target:
-    types: [opened, synchronize, reopened]
-    paths:
-      - '**'
-      - '!.github/**'
-      - '!**/*.md'
+  workflow_dispatch:
 jobs:
   sonar-cloud:
     name: SonarCloud
