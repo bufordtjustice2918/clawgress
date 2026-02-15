@@ -36,6 +36,25 @@ APPLY_BIN = '/usr/bin/clawgress-policy-apply'
 FIREWALL_APPLY_BIN = '/usr/bin/clawgress-firewall-apply'
 
 
+def build_time_window(window_config):
+    if not isinstance(window_config, dict):
+        return None
+    days = window_config.get('day') or window_config.get('days') or []
+    if isinstance(days, str):
+        days = [days]
+    start = window_config.get('start')
+    end = window_config.get('end')
+    if not start or not end:
+        return None
+    payload = {
+        'start': str(start),
+        'end': str(end),
+    }
+    if days:
+        payload['days'] = list(days)
+    return payload
+
+
 def get_config(config=None):
     if config is None:
         config = Config()
@@ -80,12 +99,23 @@ def generate(clawgress):
 
     # Process domains with labels
     policy_config = clawgress.get('policy', {})
-    
+
+    time_window = build_time_window(policy_config.get('time_window') or {})
+    if time_window:
+        policy['time_window'] = time_window
+
+    domain_time_windows = {}
     domains = policy_config.get('domain', {})
     for domain, domain_config in domains.items():
         policy['allow']['domains'].append(domain)
         if 'label' in domain_config:
             policy['labels'][domain] = domain_config['label']
+        window = build_time_window(domain_config.get('time_window') or {})
+        if window:
+            domain_time_windows[domain] = window
+
+    if domain_time_windows:
+        policy['domain_time_windows'] = domain_time_windows
 
     # Process IPs
     ips = policy_config.get('ip', {})
@@ -98,6 +128,47 @@ def generate(clawgress):
         policy['allow']['ports'] = [int(p) for p in ports.keys()]
     else:
         policy['allow']['ports'] = [53, 80, 443]
+
+    hosts_config = policy_config.get('host', {})
+    if hosts_config:
+        policy['hosts'] = {}
+        for host_name, host_config in hosts_config.items():
+            if not isinstance(host_config, dict):
+                continue
+            sources = host_config.get('source') or host_config.get('sources')
+            if not sources:
+                continue
+            if isinstance(sources, str):
+                sources = [sources]
+            host_entry = {
+                'sources': list(sources),
+            }
+
+            exfil = host_config.get('exfil', {}) or {}
+            domain_caps = {}
+            domains_config = exfil.get('domain', {}) or {}
+            for domain, cap_config in domains_config.items():
+                if not isinstance(cap_config, dict):
+                    continue
+                bytes_value = cap_config.get('bytes')
+                period = cap_config.get('period')
+                try:
+                    bytes_value = int(bytes_value)
+                except (TypeError, ValueError):
+                    continue
+                if bytes_value <= 0 or not period:
+                    continue
+                domain_caps[domain] = {
+                    'bytes': bytes_value,
+                    'period': period,
+                }
+
+            if domain_caps:
+                host_entry['exfil'] = {
+                    'domains': domain_caps,
+                }
+
+            policy['hosts'][host_name] = host_entry
 
     # Optional rate limits
     rate_limit_kbps = policy_config.get('rate_limit_kbps')

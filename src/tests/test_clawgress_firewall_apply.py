@@ -60,6 +60,32 @@ class TestClawgressFirewallApply(unittest.TestCase):
         self.assertIn('tls sni', output)
         self.assertIn('api.openai.com', output)
 
+    def test_render_nft_time_window(self):
+        output = self.module.render_nft(
+            v4=['1.2.3.0/24'],
+            v6=[],
+            ports=[80],
+            policy_hash='deadbeef',
+            time_window={'days': ['mon', 'tue'], 'start': '09:00', 'end': '17:00'},
+        )
+        self.assertIn('meta day { "Mon", "Tue" }', output)
+        self.assertIn('meta hour "09:00"-"17:00"', output)
+
+    def test_render_nft_domain_time_window(self):
+        output = self.module.render_nft(
+            v4=[],
+            v6=[],
+            ports=[80],
+            policy_hash='deadbeef',
+            sni_domains=['api.openai.com'],
+            domain_time_windows={
+                'api.openai.com': {'days': ['fri'], 'start': '10:00', 'end': '11:00'}
+            },
+        )
+        self.assertIn('tls sni "api.openai.com"', output)
+        self.assertIn('meta day { "Fri" }', output)
+        self.assertIn('meta hour "10:00"-"11:00"', output)
+
     def test_render_nft_host_policy(self):
         output = self.module.render_nft(
             v4=[],
@@ -114,3 +140,27 @@ class TestClawgressFirewallApply(unittest.TestCase):
             }],
         )
         self.assertIn('limit rate 2000 kbytes/second', output)
+
+    def test_render_nft_host_policy_exfil_caps(self):
+        output = self.module.render_nft(
+            v4=[],
+            v6=[],
+            ports=[],
+            policy_hash='deadbeef',
+            host_policies=[{
+                'name': 'agent-3',
+                'chain': 'clawgress_host_agent_3',
+                'source_v4': ['192.168.1.30/32'],
+                'source_v6': [],
+                'allow_v4': [],
+                'allow_v6': [],
+                'ports': [443],
+                'sni_domains': ['api.openai.com'],
+                'rate_limit_kbps': None,
+                'domain_time_windows': {},
+                'exfil_limits': {
+                    'api.openai.com': ' limit rate 1048576 bytes/hour'
+                },
+            }],
+        )
+        self.assertIn('limit rate 1048576 bytes/hour', output)

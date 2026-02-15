@@ -117,6 +117,147 @@ def normalize_sni_domains(domains):
     return sorted(set(normalized))
 
 
+DAY_ORDER = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+DAY_INDEX = {day: idx for idx, day in enumerate(DAY_ORDER)}
+DAY_ALIASES = {
+    'mon': 'Mon',
+    'monday': 'Mon',
+    'tue': 'Tue',
+    'tues': 'Tue',
+    'tuesday': 'Tue',
+    'wed': 'Wed',
+    'wednesday': 'Wed',
+    'thu': 'Thu',
+    'thur': 'Thu',
+    'thurs': 'Thu',
+    'thursday': 'Thu',
+    'fri': 'Fri',
+    'friday': 'Fri',
+    'sat': 'Sat',
+    'saturday': 'Sat',
+    'sun': 'Sun',
+    'sunday': 'Sun',
+}
+TIME_RE = re.compile(r'^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$')
+TIME_UNITS = {'second', 'minute', 'hour', 'day'}
+
+
+def normalize_domain_key(domain):
+    if not domain:
+        return None
+    domain = str(domain).strip().strip('.').lower()
+    return domain or None
+
+
+def sni_domain_key(domain):
+    if not domain:
+        return None
+    if domain.startswith('*.'):
+        domain = domain[2:]
+    return normalize_domain_key(domain)
+
+
+def normalize_days(days):
+    if not days:
+        return []
+    if isinstance(days, str):
+        days = [days]
+    cleaned = []
+    for day in days:
+        if not day:
+            continue
+        key = str(day).strip().lower()
+        if key in DAY_ALIASES:
+            cleaned.append(DAY_ALIASES[key])
+            continue
+        key = key[:3]
+        if key in DAY_ALIASES:
+            cleaned.append(DAY_ALIASES[key])
+    return sorted(set(cleaned), key=lambda d: DAY_INDEX.get(d, 0))
+
+
+def normalize_time_window(window):
+    if not isinstance(window, dict):
+        return None
+    days = normalize_days(window.get('days') or window.get('day') or [])
+    start = window.get('start')
+    end = window.get('end')
+    if start and not TIME_RE.match(str(start)):
+        start = None
+    if end and not TIME_RE.match(str(end)):
+        end = None
+    if (start and not end) or (end and not start):
+        return None
+    if not days and not (start and end):
+        return None
+    return {
+        'days': days,
+        'start': str(start) if start else None,
+        'end': str(end) if end else None,
+    }
+
+
+def normalize_domain_time_windows(domain_windows):
+    normalized = {}
+    if not isinstance(domain_windows, dict):
+        return normalized
+    for domain, window in domain_windows.items():
+        key = normalize_domain_key(domain)
+        time_window = normalize_time_window(window)
+        if key and time_window:
+            normalized[key] = time_window
+    return normalized
+
+
+def normalize_exfil_caps(exfil_caps):
+    normalized = {}
+    if not isinstance(exfil_caps, dict):
+        return normalized
+    domains = exfil_caps.get('domains') if 'domains' in exfil_caps else exfil_caps
+    if not isinstance(domains, dict):
+        return normalized
+    for domain, cap in domains.items():
+        if not isinstance(cap, dict):
+            continue
+        try:
+            byte_limit = int(cap.get('bytes'))
+        except (TypeError, ValueError):
+            continue
+        if byte_limit <= 0:
+            continue
+        period = str(cap.get('period') or '').strip().lower()
+        if period not in TIME_UNITS:
+            continue
+        key = normalize_domain_key(domain)
+        if not key:
+            continue
+        normalized[key] = f' limit rate {byte_limit} bytes/{period}'
+    return normalized
+
+
+def render_time_clause(window):
+    if not window:
+        return ''
+    clauses = []
+    days = window.get('days') or []
+    if days:
+        day_values = ', '.join(f'"{day}"' for day in days)
+        clauses.append(f'meta day {{ {day_values} }}')
+    start = window.get('start')
+    end = window.get('end')
+    if start and end:
+        start = str(start)
+        end = str(end)
+        if start <= end:
+            clauses.append(f'meta hour "{start}"-"{end}"')
+        else:
+            end_of_day = '23:59:59' if (start.count(':') == 2 or end.count(':') == 2) else '23:59'
+            clauses.append(f'meta hour {{ "{start}"-"{end_of_day}", "00:00"-"{end}" }}')
+    if not clauses:
+        return ''
+    return ' ' + ' '.join(clauses)
+
+
 def sanitize_chain_name(name):
     safe = re.sub(r'[^A-Za-z0-9_]', '_', name)
     if not safe:
@@ -134,35 +275,48 @@ def resolve_proxy_settings(proxy, allow):
     return proxy_mode, sni_domains
 
 
-def render_allow_rules(lines, v4, v6, ports, sni_domains, limit_clause):
+def render_allow_rules(lines, v4, v6, ports, sni_domains, limit_clause,
+                       time_clause='', domain_time_windows=None, domain_exfil_limits=None):
     port_set = ', '.join(str(p) for p in ports) if ports else ''
     v4_set = ', '.join(v4)
     v6_set = ', '.join(v6)
-    sni_set = ', '.join(f'"{domain}"' for domain in (sni_domains or []))
 
-    if sni_set:
-        lines.append(f'    tcp dport 443 tls sni {{ {sni_set} }}{limit_clause} counter accept')
+    domain_time_windows = domain_time_windows or {}
+    domain_exfil_limits = domain_exfil_limits or {}
+
+    for domain in sni_domains or []:
+        domain_key = sni_domain_key(domain)
+        window_clause = render_time_clause(domain_time_windows.get(domain_key))
+        domain_limit_clause = domain_exfil_limits.get(domain_key, '')
+        effective_limit_clause = domain_limit_clause or limit_clause
+        lines.append(
+            f'    tcp dport 443 tls sni "{domain}"{time_clause}{window_clause}{effective_limit_clause} counter accept'
+        )
 
     if v4_set and port_set:
-        lines.append(f'    ip daddr {{ {v4_set} }} tcp dport {{ {port_set} }}{limit_clause} counter accept')
-        lines.append(f'    ip daddr {{ {v4_set} }} udp dport {{ {port_set} }}{limit_clause} counter accept')
+        lines.append(f'    ip daddr {{ {v4_set} }} tcp dport {{ {port_set} }}{time_clause}{limit_clause} counter accept')
+        lines.append(f'    ip daddr {{ {v4_set} }} udp dport {{ {port_set} }}{time_clause}{limit_clause} counter accept')
     elif v4_set:
-        lines.append(f'    ip daddr {{ {v4_set} }}{limit_clause} counter accept')
+        lines.append(f'    ip daddr {{ {v4_set} }}{time_clause}{limit_clause} counter accept')
 
     if v6_set and port_set:
-        lines.append(f'    ip6 daddr {{ {v6_set} }} tcp dport {{ {port_set} }}{limit_clause} counter accept')
-        lines.append(f'    ip6 daddr {{ {v6_set} }} udp dport {{ {port_set} }}{limit_clause} counter accept')
+        lines.append(f'    ip6 daddr {{ {v6_set} }} tcp dport {{ {port_set} }}{time_clause}{limit_clause} counter accept')
+        lines.append(f'    ip6 daddr {{ {v6_set} }} udp dport {{ {port_set} }}{time_clause}{limit_clause} counter accept')
     elif v6_set:
-        lines.append(f'    ip6 daddr {{ {v6_set} }}{limit_clause} counter accept')
+        lines.append(f'    ip6 daddr {{ {v6_set} }}{time_clause}{limit_clause} counter accept')
 
 
-def render_nft(v4, v6, ports, policy_hash='', rate_limit_kbps=None, sni_domains=None, host_policies=None):
+def render_nft(v4, v6, ports, policy_hash='', rate_limit_kbps=None, sni_domains=None,
+               host_policies=None, time_window=None, domain_time_windows=None):
     reason = f'clawgress-deny: reason=egress-default-deny policy={policy_hash} '
 
     limit_clause = ''
     if rate_limit_kbps:
         rate_kbytes = max(1, rate_limit_kbps // 8)
         limit_clause = f' limit rate {rate_kbytes} kbytes/second'
+
+    time_clause = render_time_clause(time_window)
+    domain_time_windows = domain_time_windows or {}
 
     lines = [
         'table inet clawgress {',
@@ -186,7 +340,8 @@ def render_nft(v4, v6, ports, policy_hash='', rate_limit_kbps=None, sni_domains=
             src_v6 = ', '.join(host['source_v6'])
             lines.append(f'    ip6 saddr {{ {src_v6} }} jump {host["chain"]}')
 
-    render_allow_rules(lines, v4, v6, ports, sni_domains, limit_clause)
+    render_allow_rules(lines, v4, v6, ports, sni_domains, limit_clause,
+                       time_clause, domain_time_windows)
 
     lines.extend([
         f'    log prefix "{reason}" level info',
@@ -200,6 +355,10 @@ def render_nft(v4, v6, ports, policy_hash='', rate_limit_kbps=None, sni_domains=
             rate_kbytes = max(1, host['rate_limit_kbps'] // 8)
             host_limit_clause = f' limit rate {rate_kbytes} kbytes/second'
 
+        host_time_clause = render_time_clause(host.get('time_window') or time_window)
+        host_domain_time_windows = host.get('domain_time_windows') or domain_time_windows
+        host_exfil_limits = host.get('exfil_limits') or {}
+
         host_reason = (
             f'clawgress-deny: reason=egress-host-deny host={host["name"]} '
             f'policy={policy_hash} '
@@ -208,7 +367,17 @@ def render_nft(v4, v6, ports, policy_hash='', rate_limit_kbps=None, sni_domains=
         lines.append('    ct state established,related accept')
         lines.append('    udp dport 53 accept')
         lines.append('    tcp dport 53 accept')
-        render_allow_rules(lines, host['allow_v4'], host['allow_v6'], host['ports'], host['sni_domains'], host_limit_clause)
+        render_allow_rules(
+            lines,
+            host['allow_v4'],
+            host['allow_v6'],
+            host['ports'],
+            host['sni_domains'],
+            host_limit_clause,
+            host_time_clause,
+            host_domain_time_windows,
+            host_exfil_limits,
+        )
         lines.append(f'    log prefix "{host_reason}" level info')
         lines.append('    drop')
         lines.append('  }')
@@ -228,6 +397,9 @@ def apply_policy(policy_path=None):
     proxy_mode, sni_domains = resolve_proxy_settings(proxy, allow)
     if proxy_mode == 'sni-allowlist':
         ports = [port for port in ports if port != 443]
+
+    time_window = normalize_time_window(policy.get('time_window') or {})
+    domain_time_windows = normalize_domain_time_windows(policy.get('domain_time_windows') or {})
 
     limits = policy.get('limits', {})
     rate_limit_kbps = normalize_rate_limit_kbps(limits.get('egress_kbps'))
@@ -268,6 +440,13 @@ def apply_policy(policy_path=None):
             host_limits.get('egress_kbps', limits.get('egress_kbps'))
         )
 
+        host_time_window = normalize_time_window(host_policy.get('time_window') or {})
+        host_domain_time_windows = dict(domain_time_windows)
+        host_domain_time_windows.update(
+            normalize_domain_time_windows(host_policy.get('domain_time_windows') or {})
+        )
+        host_exfil_limits = normalize_exfil_caps(host_policy.get('exfil', {}))
+
         host_policies.append({
             'name': host_name,
             'chain': sanitize_chain_name(host_name),
@@ -278,6 +457,9 @@ def apply_policy(policy_path=None):
             'ports': host_ports,
             'sni_domains': host_sni_domains,
             'rate_limit_kbps': host_rate_limit_kbps,
+            'time_window': host_time_window,
+            'domain_time_windows': host_domain_time_windows,
+            'exfil_limits': host_exfil_limits,
         })
 
     policy_hash = hashlib.sha256(json.dumps(policy, sort_keys=True).encode('utf-8')).hexdigest()[:12]
@@ -285,7 +467,17 @@ def apply_policy(policy_path=None):
     makedir(NFT_DIR, user='root', group='root')
     write_file(
         NFT_FILE,
-        render_nft(v4, v6, ports, policy_hash, rate_limit_kbps, sni_domains, host_policies),
+        render_nft(
+            v4,
+            v6,
+            ports,
+            policy_hash,
+            rate_limit_kbps,
+            sni_domains,
+            host_policies,
+            time_window=time_window,
+            domain_time_windows=domain_time_windows,
+        ),
         user='root',
         group='root',
         mode=0o644,

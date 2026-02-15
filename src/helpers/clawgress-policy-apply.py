@@ -37,6 +37,8 @@ DEFAULT_POLICY = {
         "ports": [53, 80, 443],
     },
     "labels": {},
+    "time_window": {},
+    "domain_time_windows": {},
     "limits": {},
     "proxy": {
         "mode": "disabled",

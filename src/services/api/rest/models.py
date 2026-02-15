@@ -175,6 +175,18 @@ class ClawgressPolicyModel(ApiModel):
                     'labels': {
                         'api.openai.com': 'llm-provider'
                     },
+                    'time_window': {
+                        'days': ['mon', 'tue'],
+                        'start': '09:00',
+                        'end': '17:00'
+                    },
+                    'domain_time_windows': {
+                        'api.openai.com': {
+                            'days': ['fri'],
+                            'start': '10:00',
+                            'end': '12:00'
+                        }
+                    },
                     'proxy': {
                         'mode': 'sni-allowlist',
                         'domains': ['api.openai.com']
@@ -185,6 +197,14 @@ class ClawgressPolicyModel(ApiModel):
                             'allow': {
                                 'domains': ['api.openai.com'],
                                 'ports': [443]
+                            },
+                            'exfil': {
+                                'domains': {
+                                    'api.openai.com': {
+                                        'bytes': 1048576,
+                                        'period': 'hour'
+                                    }
+                                }
                             }
                         }
                     }
