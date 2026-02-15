@@ -184,6 +184,20 @@ jobs:
           test -d /tmp/squash/opt/vyatta/share/vyatta-cfg/templates/service/clawgress
           test -d /tmp/squash/opt/vyatta/share/vyatta-op/templates/show/clawgress
           test -d /tmp/squash/usr/share/vyos/templates/service/clawgress
+          test -f /tmp/squash/usr/share/vyos/reftree.cache
+          test -f /tmp/squash/usr/share/vyos/op_cache.json
+          test -f /tmp/squash/usr/libexec/vyos/conf_mode/clawgress.py
+          test -f /tmp/squash/usr/libexec/vyos/op_mode/clawgress.py
+          test -f /tmp/squash/usr/libexec/vyos/clawgress-policy-apply.py
+          test -f /tmp/squash/usr/libexec/vyos/clawgress-firewall-apply.py
+          test -f /tmp/squash/usr/bin/clawgress
+          test -f /tmp/squash/usr/bin/clawgress-policy-apply
+          test -f /tmp/squash/usr/bin/clawgress-firewall-apply
+          test -f /tmp/squash/usr/share/clawgress/policy.json
+          test -d /tmp/squash/var/cache/bind
+          test -d /tmp/squash/etc/bind/zones
+          test -x /tmp/squash/usr/libexec/vyos/conf_mode/clawgress.py
+          test -x /tmp/squash/usr/libexec/vyos/op_mode/clawgress.py
           echo "Clawgress templates present in ISO"
 
       - name: Remove live-build ISO
@@ -362,6 +376,51 @@ jobs:
                 TESTS_PASSED=$((TESTS_PASSED + 1))
               else
                 echo "  ✗ clawgress templates missing"
+                TESTS_FAILED=$((TESTS_FAILED + 1))
+              fi
+
+              if [ -f "$EXTRACT_DIR/usr/share/vyos/reftree.cache" ] && \
+                 [ -f "$EXTRACT_DIR/usr/share/vyos/op_cache.json" ]; then
+                echo "  ✓ vyos xml caches present"
+                TESTS_PASSED=$((TESTS_PASSED + 1))
+              else
+                echo "  ✗ vyos xml caches missing"
+                TESTS_FAILED=$((TESTS_FAILED + 1))
+              fi
+
+              if [ -x "$EXTRACT_DIR/usr/libexec/vyos/conf_mode/clawgress.py" ] && \
+                 [ -x "$EXTRACT_DIR/usr/libexec/vyos/op_mode/clawgress.py" ]; then
+                echo "  ✓ clawgress handlers present"
+                TESTS_PASSED=$((TESTS_PASSED + 1))
+              else
+                echo "  ✗ clawgress handlers missing"
+                TESTS_FAILED=$((TESTS_FAILED + 1))
+              fi
+
+              if [ -f "$EXTRACT_DIR/usr/bin/clawgress" ] && \
+                 [ -f "$EXTRACT_DIR/usr/bin/clawgress-policy-apply" ] && \
+                 [ -f "$EXTRACT_DIR/usr/bin/clawgress-firewall-apply" ]; then
+                echo "  ✓ clawgress cli utils present"
+                TESTS_PASSED=$((TESTS_PASSED + 1))
+              else
+                echo "  ✗ clawgress cli utils missing"
+                TESTS_FAILED=$((TESTS_FAILED + 1))
+              fi
+
+              if [ -f "$EXTRACT_DIR/usr/share/clawgress/policy.json" ]; then
+                echo "  ✓ clawgress default policy present"
+                TESTS_PASSED=$((TESTS_PASSED + 1))
+              else
+                echo "  ✗ clawgress default policy missing"
+                TESTS_FAILED=$((TESTS_FAILED + 1))
+              fi
+
+              if [ -d "$EXTRACT_DIR/var/cache/bind" ] && \
+                 [ -d "$EXTRACT_DIR/etc/bind/zones" ]; then
+                echo "  ✓ bind9 runtime dirs present"
+                TESTS_PASSED=$((TESTS_PASSED + 1))
+              else
+                echo "  ✗ bind9 runtime dirs missing"
                 TESTS_FAILED=$((TESTS_FAILED + 1))
               fi
               
