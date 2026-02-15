@@ -117,6 +117,7 @@ jobs:
           mkdir -p vyos-build/data/live-build-config/includes.chroot/usr/bin/
           mkdir -p vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/op-mode-definitions/
           mkdir -p vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/interface-definitions/
+          mkdir -p vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/cli/interface-definitions/
           cp vyos-1x/src/op_mode/clawgress.py vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/op_mode/
           cp vyos-1x/src/helpers/clawgress-policy-apply.py vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/
           cp vyos-1x/src/helpers/clawgress-firewall-apply.py vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/
@@ -125,6 +126,7 @@ jobs:
           cp vyos-1x/src/utils/clawgress vyos-build/data/live-build-config/includes.chroot/usr/bin/
           cp vyos-1x/op-mode-definitions/show-clawgress.xml.in vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/op-mode-definitions/show-clawgress.xml
           cp vyos-1x/interface-definitions/service_clawgress.xml.in vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/interface-definitions/service_clawgress.xml
+          cp vyos-1x/interface-definitions/service_clawgress.xml.in vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/cli/interface-definitions/service_clawgress.xml
           chmod +x vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/op_mode/clawgress.py
           chmod +x vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/clawgress-policy-apply.py
           chmod +x vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/clawgress-firewall-apply.py
