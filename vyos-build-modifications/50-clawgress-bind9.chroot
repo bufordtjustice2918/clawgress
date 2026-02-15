@@ -16,3 +16,8 @@ mkdir -p /config/clawgress
 # Ensure proper ownership
 chown root:root /config/clawgress
 chmod 755 /config/clawgress
+
+# Ensure bind work dir exists with proper permissions
+mkdir -p /var/cache/bind
+chown bind:bind /var/cache/bind
+chmod 755 /var/cache/bind

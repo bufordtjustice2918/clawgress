@@ -1,0 +1,7 @@
+#!/bin/bash
+# Ensure /bin/sh points to bash (avoid dash incompatibilities)
+set -e
+
+if [ -x /bin/bash ]; then
+  ln -sf /bin/bash /bin/sh
+fi
