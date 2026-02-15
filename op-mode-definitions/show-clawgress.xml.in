@@ -1,0 +1,89 @@
+<?xml version="1.0"?>
+<interfaceDefinition>
+  <node name="show">
+    <children>
+      <node name="clawgress">
+        <properties>
+          <help>Clawgress policy operations</help>
+        </properties>
+        <children>
+          <node name="status">
+            <properties>
+              <help>Show Clawgress status</help>
+            </properties>
+            <command>${vyos_op_scripts_dir}/clawgress.py status</command>
+          </node>
+          <node name="firewall">
+            <properties>
+              <help>Show Clawgress nftables firewall rules</help>
+            </properties>
+            <command>${vyos_op_scripts_dir}/clawgress.py firewall</command>
+          </node>
+          <node name="rpz">
+            <properties>
+              <help>Show Clawgress bind9 RPZ zone</help>
+            </properties>
+            <command>${vyos_op_scripts_dir}/clawgress.py rpz</command>
+          </node>
+          <node name="stats">
+            <properties>
+              <help>Show Clawgress deny statistics</help>
+            </properties>
+            <command>${vyos_op_scripts_dir}/clawgress.py stats</command>
+          </node>
+          <node name="policy">
+            <properties>
+              <help>Manage Clawgress policy.json</help>
+            </properties>
+            <children>
+              <node name="show">
+                <properties>
+                  <help>Show policy.json</help>
+                </properties>
+                <command>${vyos_op_scripts_dir}/clawgress.py show</command>
+                <children>
+                  <tagNode name="file">
+                    <properties>
+                      <help>Path to policy.json</help>
+                      <completionHelp><imagePath/></completionHelp>
+                    </properties>
+                    <command>${vyos_op_scripts_dir}/clawgress.py show --policy "$4"</command>
+                  </tagNode>
+                </children>
+              </node>
+              <node name="apply">
+                <properties>
+                  <help>Apply policy.json to bind9 RPZ</help>
+                </properties>
+                <command>${vyos_op_scripts_dir}/clawgress.py apply</command>
+                <children>
+                  <tagNode name="file">
+                    <properties>
+                      <help>Path to policy.json</help>
+                      <completionHelp><imagePath/></completionHelp>
+                    </properties>
+                    <command>${vyos_op_scripts_dir}/clawgress.py apply --policy "$4"</command>
+                  </tagNode>
+                </children>
+              </node>
+              <node name="import">
+                <properties>
+                  <help>Import policy.json into /config/clawgress and apply</help>
+                </properties>
+                <children>
+                  <tagNode name="file">
+                    <properties>
+                      <help>Path to policy.json</help>
+                      <completionHelp><imagePath/></completionHelp>
+                    </properties>
+                    <command>${vyos_op_scripts_dir}/clawgress.py import --policy "$4"</command>
+                  </tagNode>
+                </children>
+              </node>
+            </children>
+          </node>
+        </children>
+      </node>
+    </children>
+  </node>
+</interfaceDefinition>

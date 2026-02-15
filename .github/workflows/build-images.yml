@@ -122,7 +122,7 @@ jobs:
           cp vyos-1x/src/utils/clawgress-policy-apply vyos-build/data/live-build-config/includes.chroot/usr/bin/
           cp vyos-1x/src/utils/clawgress-firewall-apply vyos-build/data/live-build-config/includes.chroot/usr/bin/
           cp vyos-1x/src/utils/clawgress vyos-build/data/live-build-config/includes.chroot/usr/bin/
-          cp vyos-1x/op-mode-definitions/clawgress.xml.in vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/op-mode-definitions/clawgress.xml
+          cp vyos-1x/op-mode-definitions/show-clawgress.xml.in vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/op-mode-definitions/show-clawgress.xml
           chmod +x vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/op_mode/clawgress.py
           chmod +x vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/clawgress-policy-apply.py
           chmod +x vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/clawgress-firewall-apply.py
