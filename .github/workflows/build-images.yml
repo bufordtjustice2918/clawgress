@@ -67,6 +67,8 @@ jobs:
       - name: Generate VyOS templates + XML caches
         run: |
           cd vyos-1x
+          sudo opam init --root=/opt/opam --disable-sandboxing -y
+          sudo sh -c 'eval $(opam env --root=/opt/opam --set-root) ; opam install -y ocamlfind ctypes'
           make libvyosconfig
           make interface_definitions op_mode_definitions generate-configd-include-json
           python3 python/vyos/xml_ref/update_cache.py
