@@ -48,3 +48,14 @@ class TestClawgressFirewallApply(unittest.TestCase):
             policy_hash='deadbeef',
         )
         self.assertNotIn('limit rate', output)
+
+    def test_render_nft_sni_allowlist(self):
+        output = self.module.render_nft(
+            v4=[],
+            v6=[],
+            ports=[80],
+            policy_hash='deadbeef',
+            sni_domains=['api.openai.com', '*.example.com'],
+        )
+        self.assertIn('tls sni', output)
+        self.assertIn('api.openai.com', output)

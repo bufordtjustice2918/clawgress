@@ -37,6 +37,11 @@ DEFAULT_POLICY = {
         "ports": [53, 80, 443],
     },
     "labels": {},
+    "limits": {},
+    "proxy": {
+        "mode": "disabled",
+        "domains": [],
+    },
 }
 
 BIND_CONFIG_DIR = '/etc/bind'

@@ -174,6 +174,10 @@ class ClawgressPolicyModel(ApiModel):
                     },
                     'labels': {
                         'api.openai.com': 'llm-provider'
+                    },
+                    'proxy': {
+                        'mode': 'sni-allowlist',
+                        'domains': ['api.openai.com']
                     }
                 },
                 'apply': True

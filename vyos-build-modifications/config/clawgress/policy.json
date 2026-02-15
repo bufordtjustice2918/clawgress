@@ -6,5 +6,9 @@
     "ports": [53, 80, 443]
   },
   "labels": {},
-  "limits": {}
+  "limits": {},
+  "proxy": {
+    "mode": "disabled",
+    "domains": []
+  }
 }

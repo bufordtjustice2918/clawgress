@@ -91,10 +91,36 @@ def normalize_rate_limit_kbps(rate_kbps):
     return rate_kbps
 
 
-def render_nft(v4, v6, ports, policy_hash='', rate_limit_kbps=None):
+def normalize_domains(domains):
+    cleaned = []
+    for domain in domains or []:
+        if not domain:
+            continue
+        domain = domain.strip().strip('.').lower()
+        if not domain:
+            continue
+        cleaned.append(domain)
+    return sorted(set(cleaned))
+
+
+def normalize_sni_domains(domains):
+    normalized = []
+    for domain in normalize_domains(domains):
+        if domain.startswith('*.'):
+            normalized.append(domain)
+            normalized.append(domain[2:])
+            continue
+        normalized.append(domain)
+        if '.' in domain:
+            normalized.append(f'*.{domain}')
+    return sorted(set(normalized))
+
+
+def render_nft(v4, v6, ports, policy_hash='', rate_limit_kbps=None, sni_domains=None):
     port_set = ', '.join(str(p) for p in ports) if ports else ''
     v4_set = ', '.join(v4)
     v6_set = ', '.join(v6)
+    sni_set = ', '.join(f'"{domain}"' for domain in (sni_domains or []))
     reason = f'clawgress-deny: reason=egress-default-deny policy={policy_hash} '
 
     limit_clause = ''
@@ -115,6 +141,9 @@ def render_nft(v4, v6, ports, policy_hash='', rate_limit_kbps=None):
         '    udp dport 53 accept',
         '    tcp dport 53 accept',
     ]
+
+    if sni_set:
+        lines.append(f'    tcp dport 443 tls sni {{ {sni_set} }}{limit_clause} accept')
 
     if v4_set and port_set:
         lines.append(f'    ip daddr {{ {v4_set} }} tcp dport {{ {port_set} }}{limit_clause} accept')
@@ -144,6 +173,14 @@ def apply_policy(policy_path=None):
     ports = normalize_ports(allow.get('ports', [53, 80, 443]))
     v4, v6 = normalize_ips(allow.get('ips', []))
 
+    proxy = policy.get('proxy', {}) or {}
+    proxy_mode = (proxy.get('mode') or '').lower()
+    sni_domains = []
+    if proxy_mode == 'sni-allowlist':
+        domain_source = proxy.get('domains') or allow.get('domains', [])
+        sni_domains = normalize_sni_domains(domain_source)
+        ports = [port for port in ports if port != 443]
+
     limits = policy.get('limits', {})
     rate_limit_kbps = normalize_rate_limit_kbps(limits.get('egress_kbps'))
 
@@ -152,7 +189,7 @@ def apply_policy(policy_path=None):
     makedir(NFT_DIR, user='root', group='root')
     write_file(
         NFT_FILE,
-        render_nft(v4, v6, ports, policy_hash, rate_limit_kbps),
+        render_nft(v4, v6, ports, policy_hash, rate_limit_kbps, sni_domains),
         user='root',
         group='root',
         mode=0o644,

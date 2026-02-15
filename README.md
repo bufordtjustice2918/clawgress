@@ -41,9 +41,17 @@ commit
   "labels": {
     "api.openai.com": "llm-provider",
     "api.anthropic.com": "llm-provider"
+  },
+  "proxy": {
+    "mode": "sni-allowlist",
+    "domains": ["api.openai.com", "api.anthropic.com"]
   }
 }
 ```
+
+### Proxy/SNI allowlist mode
+
+Set `proxy.mode` to `sni-allowlist` to allow outbound TLS only when the ClientHello SNI matches the allowlist. By default this reuses `allow.domains` (or `proxy.domains` when provided) and removes port 443 from the IP-based allowlist.
 
 ## API Usage
 
