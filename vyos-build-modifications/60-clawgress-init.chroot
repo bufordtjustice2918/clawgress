@@ -1,0 +1,43 @@
+#!/bin/bash
+set -e
+
+# Install init script
+cat > /usr/libexec/clawgress-init.sh <<'EOF'
+#!/bin/bash
+set -e
+
+# Ensure bind cache + zones exist
+mkdir -p /var/cache/bind /etc/bind/zones
+chown bind:bind /var/cache/bind /etc/bind/zones
+chmod 755 /var/cache/bind /etc/bind/zones
+
+# Ensure clawgress config dir exists
+mkdir -p /config/clawgress
+chown root:root /config/clawgress
+chmod 755 /config/clawgress
+
+# Seed default policy if missing
+if [ ! -f /config/clawgress/policy.json ] && [ -f /usr/share/clawgress/policy.json ]; then
+  cp /usr/share/clawgress/policy.json /config/clawgress/policy.json
+  chown root:root /config/clawgress/policy.json
+  chmod 644 /config/clawgress/policy.json
+fi
+EOF
+chmod +x /usr/libexec/clawgress-init.sh
+
+# Install systemd unit
+cat > /etc/systemd/system/clawgress-init.service <<'EOF'
+[Unit]
+Description=Clawgress init (bind dirs + policy seed)
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/clawgress-init.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl enable clawgress-init.service
