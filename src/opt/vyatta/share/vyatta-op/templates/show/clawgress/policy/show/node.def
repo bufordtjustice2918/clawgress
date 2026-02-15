@@ -1,0 +1,2 @@
+help: Show Clawgress policy.json
+run: ${vyos_op_scripts_dir}/clawgress.py policy show

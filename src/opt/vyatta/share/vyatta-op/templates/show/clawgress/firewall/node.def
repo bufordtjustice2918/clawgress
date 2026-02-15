@@ -1,0 +1,2 @@
+help: Show Clawgress nftables firewall rules
+run: ${vyos_op_scripts_dir}/clawgress.py firewall
