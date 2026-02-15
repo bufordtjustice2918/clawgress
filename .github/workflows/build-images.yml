@@ -71,6 +71,7 @@ jobs:
 
       - name: Ensure Ubuntu python3-apt is installed
         run: |
+          for i in 1 2 3 4 5; do sudo apt-get update && break || sleep 10; done
           for i in 1 2 3 4 5; do sudo apt-get install -y --allow-downgrades -t jammy python3-apt && break || sleep 10; done
 
       - name: Ensure system python3 for apt_pkg
@@ -78,7 +79,7 @@ jobs:
           if [ -x /usr/bin/python3.10 ]; then
             sudo ln -sf /usr/bin/python3.10 /usr/bin/python3
           fi
-          sudo apt-get install -y --reinstall -t jammy python3-apt
+          for i in 1 2 3 4 5; do sudo apt-get install -y --reinstall -t jammy python3-apt && break || sleep 10; done
           python3 --version
           python3 -c "import apt_pkg; print('apt_pkg OK')"
 
