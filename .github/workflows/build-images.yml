@@ -137,51 +137,6 @@ jobs:
             ln -sf "$(basename "$ISO_FILE")" build/vyos-clawgress-generic-amd64.iso
           fi
 
-      # QCOW2/OVA disabled per request — ISO only for now
-      # - name: Build QCOW2
-      #   run: |
-      #     cd vyos-build
-      #     # Build QCOW2 image (VyOS build tool) from existing ISO
-      #     if [ ! -f build/vyos-clawgress-generic-amd64.iso ]; then
-      #       echo "ISO alias missing"; ls -la build; exit 1
-      #     fi
-      #     sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress --reuse-iso build/vyos-clawgress-generic-amd64.iso --disk-size 10240 qcow2
-
-      # - name: Build OVA
-      #   run: |
-      #     cd vyos-build
-      #     # OVA requires ISO first, then conversion
-      #     if [ -f build/*.iso ]; then
-      #       echo "Building OVA from ISO..."
-      #       ISO_FILE=$(ls -t build/*.iso | head -1)
-      #       VERSION="${{ github.ref_name }}"  # Get tag name like v1.4.0
-      #       
-      #       # Install required tools
-      #       sudo apt-get update
-      #       sudo apt-get install -y qemu-utils genisoimage jq
-      #       
-      #       # Copy OVA script from workspace
-      #       cp ../create_ova.sh ./
-      #       chmod +x create_ova.sh
-      #       
-      #       # Create OVA
-      #       mkdir -p ova_output
-      #       if ./create_ova.sh "$ISO_FILE" "./ova_output" "$VERSION"; then
-      #         # Move OVA to build directory
-      #         mv ova_output/*.ova build/ 2>/dev/null || true
-      #         mv ova_output/*.ovf build/ 2>/dev/null || true
-      #         mv ova_output/*.mf build/ 2>/dev/null || true
-      #         mv ova_output/*.vmdk build/ 2>/dev/null || true
-      #         echo "OVA build completed successfully"
-      #       else
-      #         echo "OVA build failed, but continuing with ISO only"
-      #         echo "This is acceptable for MVPv1 - ISO is the primary artifact"
-      #       fi
-      #     else
-      #       echo "No ISO found, skipping OVA build"
-      #     fi
-      #   continue-on-error: true
-
       - name: Remove live-build ISO
         run: |
           rm -f vyos-build/build/live-image-*.iso
