@@ -203,6 +203,15 @@ jobs:
           echo "VYOS_SOURCE=${{ github.workspace }}/vyos-1x" >> build.conf
           cat build.conf
 
+      - name: Reassert python3-apt before build
+        run: |
+          if [ -x /usr/bin/python3.10 ]; then
+            sudo ln -sf /usr/bin/python3.10 /usr/bin/python3
+          fi
+          for i in 1 2 3 4 5; do sudo apt-get update && break || sleep 10; done
+          for i in 1 2 3 4 5; do sudo apt-get install -y --reinstall -t jammy python3-apt && break || sleep 10; done
+          /usr/bin/python3.10 -c "import apt_pkg; print('apt_pkg OK (pre-build)')"
+
       - name: Build ISO
         run: |
           cd vyos-build
