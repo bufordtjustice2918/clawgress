@@ -16,6 +16,12 @@ jobs:
         with:
           path: vyos-1x
 
+      - name: Generate VyOS templates + XML caches
+        run: |
+          cd vyos-1x
+          make interface_definitions op_mode_definitions generate-configd-include-json
+          python3 python/vyos/xml_ref/update_cache.py
+
       - name: Configure Debian bookworm repo for newer live-build
         run: |
           for i in 1 2 3 4 5; do sudo apt-get update && break || sleep 10; done
@@ -46,7 +52,7 @@ jobs:
             qemu-utils \
             python3 python3-venv python3-distutils \
             python3.11 python3.11-venv python3.11-dev \
-            python3-pip python3-jinja2 python3-pystache python3-tomli python3-tomli-w python3-git \
+            python3-pip python3-jinja2 python3-pystache python3-tomli python3-tomli-w python3-git python3-xmltodict \
             libcrack2-dev \
             fakechroot \
             squashfs-tools genisoimage \
@@ -177,6 +183,7 @@ jobs:
           sudo umount /tmp/iso_mnt
           test -d /tmp/squash/opt/vyatta/share/vyatta-cfg/templates/service/clawgress
           test -d /tmp/squash/opt/vyatta/share/vyatta-op/templates/show/clawgress
+          test -d /tmp/squash/usr/share/vyos/templates/service/clawgress
           echo "Clawgress templates present in ISO"
 
       - name: Remove live-build ISO
@@ -349,7 +356,8 @@ jobs:
               fi
 
               if [ -d "$EXTRACT_DIR/opt/vyatta/share/vyatta-cfg/templates/service/clawgress" ] && \
-                 [ -d "$EXTRACT_DIR/opt/vyatta/share/vyatta-op/templates/show/clawgress" ]; then
+                 [ -d "$EXTRACT_DIR/opt/vyatta/share/vyatta-op/templates/show/clawgress" ] && \
+                 [ -d "$EXTRACT_DIR/usr/share/vyos/templates/service/clawgress" ]; then
                 echo "  ✓ clawgress templates present"
                 TESTS_PASSED=$((TESTS_PASSED + 1))
               else
