@@ -155,6 +155,66 @@
                   </valueHelp>
                 </properties>
               </leafNode>
+              <tagNode name="host">
+                <properties>
+                  <help>Per-agent policy configuration</help>
+                </properties>
+                <children>
+                  <leafNode name="source">
+                    <properties>
+                      <help>Source IP or network for this agent</help>
+                      <valueHelp>
+                        <format>ipv4net</format>
+                        <description>IPv4 network (e.g., 192.168.1.10/32)</description>
+                      </valueHelp>
+                      <valueHelp>
+                        <format>ipv6net</format>
+                        <description>IPv6 network</description>
+                      </valueHelp>
+                      <multi/>
+                    </properties>
+                  </leafNode>
+                  <node name="exfil">
+                    <properties>
+                      <help>Exfiltration caps per domain</help>
+                    </properties>
+                    <children>
+                      <tagNode name="domain">
+                        <properties>
+                          <help>Domain for exfiltration cap</help>
+                          <valueHelp>
+                            <format>fqdn</format>
+                            <description>Domain name</description>
+                          </valueHelp>
+                        </properties>
+                        <children>
+                          <leafNode name="bytes">
+                            <properties>
+                              <help>Byte limit per time period</help>
+                              <valueHelp>
+                                <format>u32:1-4294967295</format>
+                                <description>Byte limit</description>
+                              </valueHelp>
+                            </properties>
+                          </leafNode>
+                          <leafNode name="period">
+                            <properties>
+                              <help>Time period for byte limit</help>
+                              <valueHelp>
+                                <format>second|minute|hour|day</format>
+                                <description>Time unit</description>
+                              </valueHelp>
+                              <constraint>
+                                <regex>^(second|minute|hour|day)$</regex>
+                              </constraint>
+                            </properties>
+                          </leafNode>
+                        </children>
+                      </tagNode>
+                    </children>
+                  </node>
+                </children>
+              </tagNode>
             </children>
           </node>
           <node name="logging">
