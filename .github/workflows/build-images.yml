@@ -67,7 +67,7 @@ jobs:
           sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
           python3 --version
           sudo python3.11 -m pip install --upgrade pip
-          sudo python3.11 -m pip install --upgrade psutil
+          sudo python3.11 -m pip install --upgrade psutil lxml
 
       - name: Install cracklib for Python 3.11
         run: |
