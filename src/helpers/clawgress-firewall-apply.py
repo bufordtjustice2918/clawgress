@@ -79,11 +79,28 @@ def normalize_ips(ips):
     return sorted(set(v4)), sorted(set(v6))
 
 
-def render_nft(v4, v6, ports, policy_hash=''):
+def normalize_rate_limit_kbps(rate_kbps):
+    if rate_kbps is None:
+        return None
+    try:
+        rate_kbps = int(rate_kbps)
+    except (TypeError, ValueError):
+        return None
+    if rate_kbps <= 0:
+        return None
+    return rate_kbps
+
+
+def render_nft(v4, v6, ports, policy_hash='', rate_limit_kbps=None):
     port_set = ', '.join(str(p) for p in ports) if ports else ''
     v4_set = ', '.join(v4)
     v6_set = ', '.join(v6)
     reason = f'clawgress-deny: reason=egress-default-deny policy={policy_hash} '
+
+    limit_clause = ''
+    if rate_limit_kbps:
+        rate_kbytes = max(1, rate_limit_kbps // 8)
+        limit_clause = f' limit rate {rate_kbytes} kbytes/second'
 
     lines = [
         'table inet clawgress {',
@@ -100,16 +117,16 @@ def render_nft(v4, v6, ports, policy_hash=''):
     ]
 
     if v4_set and port_set:
-        lines.append(f'    ip daddr {{ {v4_set} }} tcp dport {{ {port_set} }} accept')
-        lines.append(f'    ip daddr {{ {v4_set} }} udp dport {{ {port_set} }} accept')
+        lines.append(f'    ip daddr {{ {v4_set} }} tcp dport {{ {port_set} }}{limit_clause} accept')
+        lines.append(f'    ip daddr {{ {v4_set} }} udp dport {{ {port_set} }}{limit_clause} accept')
     elif v4_set:
-        lines.append(f'    ip daddr {{ {v4_set} }} accept')
+        lines.append(f'    ip daddr {{ {v4_set} }}{limit_clause} accept')
 
     if v6_set and port_set:
-        lines.append(f'    ip6 daddr {{ {v6_set} }} tcp dport {{ {port_set} }} accept')
-        lines.append(f'    ip6 daddr {{ {v6_set} }} udp dport {{ {port_set} }} accept')
+        lines.append(f'    ip6 daddr {{ {v6_set} }} tcp dport {{ {port_set} }}{limit_clause} accept')
+        lines.append(f'    ip6 daddr {{ {v6_set} }} udp dport {{ {port_set} }}{limit_clause} accept')
     elif v6_set:
-        lines.append(f'    ip6 daddr {{ {v6_set} }} accept')
+        lines.append(f'    ip6 daddr {{ {v6_set} }}{limit_clause} accept')
 
     lines.extend([
         f'    log prefix "{reason}" level info',
@@ -127,10 +144,19 @@ def apply_policy(policy_path=None):
     ports = normalize_ports(allow.get('ports', [53, 80, 443]))
     v4, v6 = normalize_ips(allow.get('ips', []))
 
+    limits = policy.get('limits', {})
+    rate_limit_kbps = normalize_rate_limit_kbps(limits.get('egress_kbps'))
+
     policy_hash = hashlib.sha256(json.dumps(policy, sort_keys=True).encode('utf-8')).hexdigest()[:12]
 
     makedir(NFT_DIR, user='root', group='root')
-    write_file(NFT_FILE, render_nft(v4, v6, ports, policy_hash), user='root', group='root', mode=0o644)
+    write_file(
+        NFT_FILE,
+        render_nft(v4, v6, ports, policy_hash, rate_limit_kbps),
+        user='root',
+        group='root',
+        mode=0o644,
+    )
     call(f'nft -f {NFT_FILE}')
 
 

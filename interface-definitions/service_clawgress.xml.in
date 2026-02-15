@@ -74,6 +74,15 @@
                   </valueHelp>
                 </properties>
               </tagNode>
+              <leafNode name="rate-limit-kbps">
+                <properties>
+                  <help>Egress rate limit (Kbps)</help>
+                  <valueHelp>
+                    <format>u32:1-100000000</format>
+                    <description>Limit in Kbps (applies to allowed egress)</description>
+                  </valueHelp>
+                </properties>
+              </leafNode>
             </children>
           </node>
           <node name="logging">

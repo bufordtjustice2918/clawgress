@@ -99,6 +99,16 @@ def generate(clawgress):
     else:
         policy['allow']['ports'] = [53, 80, 443]
 
+    # Optional rate limits
+    rate_limit_kbps = policy_config.get('rate_limit_kbps')
+    if rate_limit_kbps is not None:
+        try:
+            rate_limit_kbps = int(rate_limit_kbps)
+        except (TypeError, ValueError):
+            rate_limit_kbps = None
+        if rate_limit_kbps and rate_limit_kbps > 0:
+            policy.setdefault('limits', {})['egress_kbps'] = rate_limit_kbps
+
     # Write policy.json
     makedir(POLICY_DIR, user='root', group='root')
     payload = json.dumps(policy, indent=2, sort_keys=True) + '\n'
