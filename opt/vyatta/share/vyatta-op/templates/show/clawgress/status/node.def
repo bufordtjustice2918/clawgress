@@ -1,0 +1,2 @@
+help: Show Clawgress status
+run: ${vyos_op_scripts_dir}/clawgress.py status

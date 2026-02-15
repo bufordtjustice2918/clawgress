@@ -1,0 +1,2 @@
+help: Show Clawgress bind9 RPZ zone
+run: ${vyos_op_scripts_dir}/clawgress.py rpz
