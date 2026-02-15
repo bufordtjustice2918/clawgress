@@ -98,7 +98,8 @@ jobs:
           if [ -x /usr/bin/python3.10 ]; then
             sudo ln -sf /usr/bin/python3.10 /usr/bin/python3
           fi
-          sudo apt-get install -y --reinstall -t jammy python3-apt
+          for i in 1 2 3 4 5; do sudo apt-get update && break || sleep 10; done
+          for i in 1 2 3 4 5; do sudo apt-get install -y --allow-downgrades --reinstall -t jammy python3-apt && break || sleep 10; done
           /usr/bin/python3.10 --version
           /usr/bin/python3.10 -c "import apt_pkg; print('apt_pkg OK')"
 
