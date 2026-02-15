@@ -66,6 +66,7 @@ jobs:
       - name: Generate VyOS templates + XML caches
         run: |
           cd vyos-1x
+          make libvyosconfig
           make interface_definitions op_mode_definitions generate-configd-include-json
           python3 python/vyos/xml_ref/update_cache.py
 
