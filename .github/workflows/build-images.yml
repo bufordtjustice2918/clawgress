@@ -126,8 +126,8 @@ jobs:
           cp vyos-1x/src/utils/clawgress vyos-build/data/live-build-config/includes.chroot/usr/bin/
 
           # Stage Clawgress CLI XML into vyos-1x tree (so it lands in squashfs)
-          cp interface-definitions/service_clawgress.xml.in vyos-1x/interface-definitions/service_clawgress.xml.in
-          cp op-mode-definitions/show-clawgress.xml.in vyos-1x/op-mode-definitions/show-clawgress.xml.in
+          cp ${{ github.workspace }}/interface-definitions/service_clawgress.xml.in ${{ github.workspace }}/vyos-1x/interface-definitions/service_clawgress.xml.in
+          cp ${{ github.workspace }}/op-mode-definitions/show-clawgress.xml.in ${{ github.workspace }}/vyos-1x/op-mode-definitions/show-clawgress.xml.in
 
           chmod +x vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/op_mode/clawgress.py
           chmod +x vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/conf_mode/clawgress.py
