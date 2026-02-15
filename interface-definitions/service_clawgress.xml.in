@@ -52,7 +52,7 @@
                   </leafNode>
                 </children>
               </tagNode>
-              <tagNode name="ip">
+              <leafNode name="ip">
                 <properties>
                   <help>Allowed IP or network</help>
                   <valueHelp>
@@ -63,17 +63,19 @@
                     <format>ipv6net</format>
                     <description>IPv6 network</description>
                   </valueHelp>
+                  <multi/>
                 </properties>
-              </tagNode>
-              <tagNode name="port">
+              </leafNode>
+              <leafNode name="port">
                 <properties>
                   <help>Allowed port</help>
                   <valueHelp>
                     <format>u32:1-65535</format>
                     <description>Port number</description>
                   </valueHelp>
+                  <multi/>
                 </properties>
-              </tagNode>
+              </leafNode>
             </children>
           </node>
           <node name="logging">
