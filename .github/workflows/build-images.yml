@@ -57,6 +57,14 @@ jobs:
             parted udev && break || sleep 10; done
           for i in 1 2 3 4 5; do sudo apt-get install -y -t bookworm debootstrap live-build && break || sleep 10; done
 
+      - name: Ensure system python3 for apt_pkg
+        run: |
+          if [ -x /usr/bin/python3.10 ]; then
+            sudo ln -sf /usr/bin/python3.10 /usr/bin/python3
+          fi
+          python3 --version
+          python3 -c "import apt_pkg; print('apt_pkg OK')"
+
       - name: Use Python 3.11
         run: |
           # Keep system python3 pointing at distro version for apt/python-apt compatibility.
