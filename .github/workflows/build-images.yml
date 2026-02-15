@@ -139,7 +139,7 @@ jobs:
 
       - name: Remove live-build ISO
         run: |
-          rm -f vyos-build/build/live-image-*.iso
+          sudo rm -f vyos-build/build/live-image-*.iso
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
