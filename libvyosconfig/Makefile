@@ -41,9 +41,19 @@ all: sharedlib
 
 PHONY: depends
 depends:
-	sudo sh -c 'eval $$(opam env --root=/opt/opam --set-root) ;\
-		opam pin add vyos1x-config https://github.com/vyos/vyos1x-config.git#6ebd5d80f9a212beba6352494392ae811f66d64e -y ; \
-		opam pin add vyconf https://github.com/vyos/vyconf.git#2c16a5ad7171362d71ff241adab873fa3752b784 -y'
+	@if command -v opam >/dev/null 2>&1; then \
+		if command -v sudo >/dev/null 2>&1; then \
+			sudo sh -c 'eval $$(opam env --root=/opt/opam --set-root) ;\
+				opam pin add vyos1x-config https://github.com/vyos/vyos1x-config.git#6ebd5d80f9a212beba6352494392ae811f66d64e -y || true ; \
+				opam pin add vyconf https://github.com/vyos/vyconf.git#2c16a5ad7171362d71ff241adab873fa3752b784 -y || true'; \
+		else \
+			sh -c 'eval $$(opam env --root=/opt/opam --set-root) ;\
+				opam pin add vyos1x-config https://github.com/vyos/vyos1x-config.git#6ebd5d80f9a212beba6352494392ae811f66d64e -y || true ; \
+				opam pin add vyconf https://github.com/vyos/vyconf.git#2c16a5ad7171362d71ff241adab873fa3752b784 -y || true'; \
+		fi; \
+	else \
+		echo "opam not found; skipping pinning"; \
+	fi
 
 sharedlib: depends $(BUILDDIR)/libvyosconfig$(EXTDLL)
 
