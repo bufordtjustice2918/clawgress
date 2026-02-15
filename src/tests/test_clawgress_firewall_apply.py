@@ -80,3 +80,17 @@ class TestClawgressFirewallApply(unittest.TestCase):
         )
         self.assertIn('jump clawgress_host_agent_1', output)
         self.assertIn('chain clawgress_host_agent_1', output)
+
+    def test_resolve_proxy_settings_prefers_proxy_domains(self):
+        proxy = {
+            'mode': 'sni-allowlist',
+            'domains': ['api.openai.com']
+        }
+        allow = {
+            'domains': ['example.com']
+        }
+        mode, domains = self.module.resolve_proxy_settings(proxy, allow)
+        self.assertEqual(mode, 'sni-allowlist')
+        self.assertIn('api.openai.com', domains)
+        self.assertIn('*.api.openai.com', domains)
+        self.assertNotIn('example.com', domains)
