@@ -18,7 +18,11 @@ libvyosconfig:
 	@if [ ! -f /usr/lib/libvyosconfig.so.0 ]; then \
 		make -C libvyosconfig clean ; \
 		make -C libvyosconfig all ; \
-		sudo make -C libvyosconfig install ; \
+		if command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then \
+			sudo make -C libvyosconfig install ; \
+		else \
+			make -C libvyosconfig install ; \
+		fi; \
 	fi
 
 %.xml: %.xml.in
