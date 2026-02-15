@@ -90,11 +90,13 @@ jobs:
           cp vyos-1x/vyos-build-modifications/00-clawgress-dash-divert.chroot vyos-build/data/live-build-config/hooks/normal/
           cp vyos-1x/vyos-build-modifications/99-clawgress-force-bash.chroot vyos-build/data/live-build-config/hooks/chroot/
           cp vyos-1x/vyos-build-modifications/99-clawgress-force-bash.chroot vyos-build/data/live-build-config/hooks/normal/
+          cp vyos-1x/vyos-build-modifications/99-clawgress-force-bash.chroot vyos-build/data/live-build-config/hooks/live/
           chmod +x vyos-build/data/live-build-config/hooks/live/50-clawgress-bind9.chroot
           chmod +x vyos-build/data/live-build-config/hooks/chroot/00-clawgress-dash-divert.chroot
           chmod +x vyos-build/data/live-build-config/hooks/normal/00-clawgress-dash-divert.chroot
           chmod +x vyos-build/data/live-build-config/hooks/chroot/99-clawgress-force-bash.chroot
           chmod +x vyos-build/data/live-build-config/hooks/normal/99-clawgress-force-bash.chroot
+          chmod +x vyos-build/data/live-build-config/hooks/live/99-clawgress-force-bash.chroot
           
           # Copy policy.json to includes.chroot
           mkdir -p vyos-build/data/live-build-config/includes.chroot/config/clawgress/

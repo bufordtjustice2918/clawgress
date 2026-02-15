@@ -3,5 +3,12 @@
 set -e
 
 if [ -x /bin/bash ]; then
+  # remove dash diversion if present
+  if dpkg-divert --list /bin/sh 2>/dev/null | grep -q 'dash'; then
+    rm -f /bin/sh
+    dpkg-divert --remove --rename --package dash /bin/sh || true
+  fi
   ln -sf /bin/bash /bin/sh
+  update-alternatives --install /bin/sh sh /bin/bash 100 || true
+  update-alternatives --set sh /bin/bash || true
 fi
