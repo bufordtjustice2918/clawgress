@@ -159,6 +159,21 @@ jobs:
             ln -sf "$(basename "$ISO_FILE")" build/vyos-clawgress-generic-amd64.iso
           fi
 
+      - name: Validate ISO contains Clawgress templates
+        run: |
+          ISO_FILE=$(ls -t vyos-build/build/*.iso | head -1)
+          if [ -z "$ISO_FILE" ]; then
+            echo "No ISO found"; exit 1; fi
+          mkdir -p /tmp/iso_mnt /tmp/squash
+          sudo mount -o loop "$ISO_FILE" /tmp/iso_mnt
+          if [ ! -f /tmp/iso_mnt/live/filesystem.squashfs ]; then
+            echo "Missing filesystem.squashfs"; sudo umount /tmp/iso_mnt; exit 1; fi
+          sudo unsquashfs -d /tmp/squash /tmp/iso_mnt/live/filesystem.squashfs >/dev/null
+          sudo umount /tmp/iso_mnt
+          test -d /tmp/squash/opt/vyatta/share/vyatta-cfg/templates/service/clawgress
+          test -d /tmp/squash/opt/vyatta/share/vyatta-op/templates/show/clawgress
+          echo "Clawgress templates present in ISO"
+
       - name: Remove live-build ISO
         run: |
           sudo rm -f vyos-build/build/live-image-*.iso
