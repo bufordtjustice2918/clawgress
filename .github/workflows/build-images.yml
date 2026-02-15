@@ -205,10 +205,10 @@ jobs:
           name: clawgress-images
           path: ./artifacts
 
-      - name: Install QEMU
+      - name: Install QEMU + squashfs tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y qemu-system-x86 qemu-utils
+          sudo apt-get install -y qemu-system-x86 qemu-utils squashfs-tools
 
       - name: Find ISO and verify
         run: |
@@ -344,6 +344,15 @@ jobs:
                 TESTS_PASSED=$((TESTS_PASSED + 1))
               else
                 echo "  ✗ clawgress policy.json NOT found"
+                TESTS_FAILED=$((TESTS_FAILED + 1))
+              fi
+
+              if [ -d "$EXTRACT_DIR/opt/vyatta/share/vyatta-cfg/templates/service/clawgress" ] && \
+                 [ -d "$EXTRACT_DIR/opt/vyatta/share/vyatta-op/templates/show/clawgress" ]; then
+                echo "  ✓ clawgress templates present"
+                TESTS_PASSED=$((TESTS_PASSED + 1))
+              else
+                echo "  ✗ clawgress templates missing"
                 TESTS_FAILED=$((TESTS_FAILED + 1))
               fi
               
