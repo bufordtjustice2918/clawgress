@@ -172,6 +172,7 @@ jobs:
           sudo mount -o loop "$ISO_FILE" /tmp/iso_mnt
           if [ ! -f /tmp/iso_mnt/live/filesystem.squashfs ]; then
             echo "Missing filesystem.squashfs"; sudo umount /tmp/iso_mnt; exit 1; fi
+          sudo rm -rf /tmp/squash >/dev/null 2>&1 || true
           sudo unsquashfs -d /tmp/squash /tmp/iso_mnt/live/filesystem.squashfs >/dev/null
           sudo umount /tmp/iso_mnt
           test -d /tmp/squash/opt/vyatta/share/vyatta-cfg/templates/service/clawgress
