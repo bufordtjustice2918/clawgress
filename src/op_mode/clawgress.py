@@ -21,6 +21,7 @@ import json
 import os
 import re
 import time
+import hashlib
 
 from vyos.utils.file import makedir, write_file
 from vyos.utils.process import call, cmd, rc_cmd
@@ -177,6 +178,25 @@ def _sum_nft_counters() -> dict:
     return {'packets': packets, 'bytes': bytes_total}
 
 
+def _load_policy_safe() -> dict | None:
+    try:
+        if os.path.isfile(POLICY_PATH):
+            return _load_policy(POLICY_PATH)
+    except Exception:
+        pass
+    return None
+
+
+def _policy_hash(policy: dict | None) -> str | None:
+    if not policy:
+        return None
+    try:
+        payload = json.dumps(policy, sort_keys=True).encode('utf-8')
+        return hashlib.sha256(payload).hexdigest()[:12]
+    except Exception:
+        return None
+
+
 def collect_telemetry() -> dict:
     usage = _sum_nft_counters()
 
@@ -191,10 +211,17 @@ def collect_telemetry() -> dict:
         },
     }
 
+    policy = _load_policy_safe()
     telemetry = {
         'generated_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
         'usage': usage,
         'denies': denies,
+        'policy': {
+            'path': POLICY_PATH,
+            'present': bool(policy),
+            'hash': _policy_hash(policy),
+            'version': policy.get('version') if policy else None,
+        },
         'cache': {
             'status': 'unavailable'
         },
