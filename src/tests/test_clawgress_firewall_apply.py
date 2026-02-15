@@ -94,3 +94,23 @@ class TestClawgressFirewallApply(unittest.TestCase):
         self.assertIn('api.openai.com', domains)
         self.assertIn('*.api.openai.com', domains)
         self.assertNotIn('example.com', domains)
+
+    def test_render_nft_host_policy_rate_limit(self):
+        output = self.module.render_nft(
+            v4=[],
+            v6=[],
+            ports=[],
+            policy_hash='deadbeef',
+            host_policies=[{
+                'name': 'agent-2',
+                'chain': 'clawgress_host_agent_2',
+                'source_v4': ['192.168.1.20/32'],
+                'source_v6': [],
+                'allow_v4': ['203.0.113.0/24'],
+                'allow_v6': [],
+                'ports': [443],
+                'sni_domains': [],
+                'rate_limit_kbps': 16000,
+            }],
+        )
+        self.assertIn('limit rate 2000 kbytes/second', output)
