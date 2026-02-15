@@ -42,6 +42,7 @@ DEFAULT_POLICY = {
         "mode": "disabled",
         "domains": [],
     },
+    "hosts": {},
 }
 
 BIND_CONFIG_DIR = '/etc/bind'

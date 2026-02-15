@@ -10,5 +10,6 @@
   "proxy": {
     "mode": "disabled",
     "domains": []
-  }
+  },
+  "hosts": {}
 }

@@ -45,6 +45,18 @@ commit
   "proxy": {
     "mode": "sni-allowlist",
     "domains": ["api.openai.com", "api.anthropic.com"]
+  },
+  "hosts": {
+    "agent-1": {
+      "sources": ["192.168.10.10/32"],
+      "allow": {
+        "domains": ["api.openai.com"],
+        "ports": [443]
+      },
+      "limits": {
+        "egress_kbps": 2000
+      }
+    }
   }
 }
 ```
@@ -52,6 +64,10 @@ commit
 ### Proxy/SNI allowlist mode
 
 Set `proxy.mode` to `sni-allowlist` to allow outbound TLS only when the ClientHello SNI matches the allowlist. By default this reuses `allow.domains` (or `proxy.domains` when provided) and removes port 443 from the IP-based allowlist.
+
+### Per-host policies
+
+Define `hosts` to apply host-scoped allowlists, proxy settings, and limits based on source IPs. Hosts bypass the global allowlist and drop any traffic that is not explicitly permitted by their host policy.
 
 ## API Usage
 

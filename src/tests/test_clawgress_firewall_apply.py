@@ -59,3 +59,24 @@ class TestClawgressFirewallApply(unittest.TestCase):
         )
         self.assertIn('tls sni', output)
         self.assertIn('api.openai.com', output)
+
+    def test_render_nft_host_policy(self):
+        output = self.module.render_nft(
+            v4=[],
+            v6=[],
+            ports=[],
+            policy_hash='deadbeef',
+            host_policies=[{
+                'name': 'agent-1',
+                'chain': 'clawgress_host_agent_1',
+                'source_v4': ['192.168.1.10/32'],
+                'source_v6': [],
+                'allow_v4': ['1.2.3.0/24'],
+                'allow_v6': [],
+                'ports': [443],
+                'sni_domains': ['api.openai.com'],
+                'rate_limit_kbps': None,
+            }],
+        )
+        self.assertIn('jump clawgress_host_agent_1', output)
+        self.assertIn('chain clawgress_host_agent_1', output)

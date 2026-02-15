@@ -178,6 +178,15 @@ class ClawgressPolicyModel(ApiModel):
                     'proxy': {
                         'mode': 'sni-allowlist',
                         'domains': ['api.openai.com']
+                    },
+                    'hosts': {
+                        'agent-1': {
+                            'sources': ['192.168.10.10/32'],
+                            'allow': {
+                                'domains': ['api.openai.com'],
+                                'ports': [443]
+                            }
+                        }
                     }
                 },
                 'apply': True
