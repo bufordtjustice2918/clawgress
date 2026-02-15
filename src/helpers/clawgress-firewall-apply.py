@@ -141,19 +141,19 @@ def render_allow_rules(lines, v4, v6, ports, sni_domains, limit_clause):
     sni_set = ', '.join(f'"{domain}"' for domain in (sni_domains or []))
 
     if sni_set:
-        lines.append(f'    tcp dport 443 tls sni {{ {sni_set} }}{limit_clause} accept')
+        lines.append(f'    tcp dport 443 tls sni {{ {sni_set} }}{limit_clause} counter accept')
 
     if v4_set and port_set:
-        lines.append(f'    ip daddr {{ {v4_set} }} tcp dport {{ {port_set} }}{limit_clause} accept')
-        lines.append(f'    ip daddr {{ {v4_set} }} udp dport {{ {port_set} }}{limit_clause} accept')
+        lines.append(f'    ip daddr {{ {v4_set} }} tcp dport {{ {port_set} }}{limit_clause} counter accept')
+        lines.append(f'    ip daddr {{ {v4_set} }} udp dport {{ {port_set} }}{limit_clause} counter accept')
     elif v4_set:
-        lines.append(f'    ip daddr {{ {v4_set} }}{limit_clause} accept')
+        lines.append(f'    ip daddr {{ {v4_set} }}{limit_clause} counter accept')
 
     if v6_set and port_set:
-        lines.append(f'    ip6 daddr {{ {v6_set} }} tcp dport {{ {port_set} }}{limit_clause} accept')
-        lines.append(f'    ip6 daddr {{ {v6_set} }} udp dport {{ {port_set} }}{limit_clause} accept')
+        lines.append(f'    ip6 daddr {{ {v6_set} }} tcp dport {{ {port_set} }}{limit_clause} counter accept')
+        lines.append(f'    ip6 daddr {{ {v6_set} }} udp dport {{ {port_set} }}{limit_clause} counter accept')
     elif v6_set:
-        lines.append(f'    ip6 daddr {{ {v6_set} }}{limit_clause} accept')
+        lines.append(f'    ip6 daddr {{ {v6_set} }}{limit_clause} counter accept')
 
 
 def render_nft(v4, v6, ports, policy_hash='', rate_limit_kbps=None, sni_domains=None, host_policies=None):

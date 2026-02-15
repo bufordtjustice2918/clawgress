@@ -19,6 +19,8 @@
 import argparse
 import json
 import os
+import re
+import time
 
 from vyos.utils.file import makedir, write_file
 from vyos.utils.process import call, cmd, rc_cmd
@@ -28,6 +30,8 @@ POLICY_PATH = f'{POLICY_DIR}/policy.json'
 APPLY_BIN = '/usr/bin/clawgress-policy-apply'
 FIREWALL_APPLY_BIN = '/usr/bin/clawgress-firewall-apply'
 LABELS_FILE = '/etc/bind/rpz/labels.json'
+TELEMETRY_DIR = '/var/lib/clawgress'
+TELEMETRY_PATH = f'{TELEMETRY_DIR}/telemetry.json'
 
 
 def _load_policy(path: str) -> dict:
@@ -119,7 +123,7 @@ def show_stats() -> None:
     stats = {
         'time_periods': {}
     }
-    
+
     # Try to get stats from journalctl
     for period, since in [('1h', '1 hour ago'), ('24h', '24 hours ago'), ('7d', '7 days ago')]:
         try:
@@ -128,7 +132,7 @@ def show_stats() -> None:
             stats['time_periods'][period] = count
         except Exception:
             stats['time_periods'][period] = None
-    
+
     # Get top blocked domains (if we can parse the logs)
     try:
         labels = _load_labels()
@@ -144,8 +148,65 @@ def show_stats() -> None:
             stats['top_blocked_24h'] = top_blocked
     except Exception:
         stats['top_blocked_24h'] = []
-    
+
     print(json.dumps(stats, indent=2))
+
+
+def _count_journal(pattern: str, since: str, unit: str | None = None) -> int:
+    unit_clause = f'-u {unit}' if unit else ''
+    rc, output = rc_cmd(
+        f'journalctl {unit_clause} --since "{since}" -o cat 2>/dev/null | grep -c "{pattern}" || echo 0'
+    )
+    if rc != 0:
+        return 0
+    try:
+        return int(output.strip())
+    except (TypeError, ValueError):
+        return 0
+
+
+def _sum_nft_counters() -> dict:
+    rc, output = rc_cmd('nft list table inet clawgress 2>/dev/null || echo ""')
+    if rc != 0 or not output:
+        return {'packets': 0, 'bytes': 0}
+    packets = 0
+    bytes_total = 0
+    for match in re.finditer(r'counter packets (\d+) bytes (\d+)', output):
+        packets += int(match.group(1))
+        bytes_total += int(match.group(2))
+    return {'packets': packets, 'bytes': bytes_total}
+
+
+def collect_telemetry() -> dict:
+    usage = _sum_nft_counters()
+
+    denies = {
+        '1h': {
+            'dns_rpz': _count_journal('rpz', '1 hour ago', unit='bind9'),
+            'egress': _count_journal('clawgress-deny', '1 hour ago'),
+        },
+        '24h': {
+            'dns_rpz': _count_journal('rpz', '24 hours ago', unit='bind9'),
+            'egress': _count_journal('clawgress-deny', '24 hours ago'),
+        },
+    }
+
+    telemetry = {
+        'generated_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+        'usage': usage,
+        'denies': denies,
+        'cache': {
+            'status': 'unavailable'
+        },
+    }
+    return telemetry
+
+
+def show_telemetry() -> None:
+    telemetry = collect_telemetry()
+    makedir(TELEMETRY_DIR, user='root', group='root')
+    write_file(TELEMETRY_PATH, json.dumps(telemetry, indent=2) + '\n', user='root', group='root', mode=0o644)
+    print(json.dumps(telemetry, indent=2))
 
 
 def show_firewall() -> None:
@@ -179,6 +240,8 @@ def main() -> None:
 
     subparsers.add_parser('stats', help='Show deny statistics')
 
+    subparsers.add_parser('telemetry', help='Show telemetry snapshot')
+
     args = parser.parse_args()
 
     if args.command == 'apply':
@@ -207,6 +270,10 @@ def main() -> None:
 
     if args.command == 'stats':
         show_stats()
+        return
+
+    if args.command == 'telemetry':
+        show_telemetry()
         return
 
 

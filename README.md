@@ -91,6 +91,11 @@ curl -X POST https://clawgress/api/clawgress/policy \
 curl -X POST https://clawgress/api/clawgress/health \
   -H "Content-Type: application/json" \
   -d '{"key": "your-api-key"}'
+
+# Fetch telemetry
+curl -X POST https://clawgress/api/clawgress/telemetry \
+  -H "Content-Type: application/json" \
+  -d '{"key": "your-api-key"}'
 ```
 
 ## CLI Commands
@@ -101,6 +106,9 @@ clawgress status
 
 # Show deny statistics
 clawgress stats
+
+# Show telemetry snapshot
+clawgress telemetry
 
 # Show firewall rules
 clawgress firewall

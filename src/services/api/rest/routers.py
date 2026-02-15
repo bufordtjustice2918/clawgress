@@ -776,6 +776,16 @@ async def clawgress_health_op(data: ApiModel):
         return error(500, 'An internal error occured. Check the logs for details.')
 
 
+@router.post('/clawgress/telemetry')
+async def clawgress_telemetry_op(data: ApiModel):
+    try:
+        output = cmd('/usr/bin/clawgress telemetry')
+        return success(json.loads(output))
+    except Exception:
+        LOG.critical(traceback.format_exc())
+        return error(500, 'An internal error occured. Check the logs for details.')
+
+
 @router.post('/image')
 def image_op(data: ImageModel):
     state = SessionState()
