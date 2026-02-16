@@ -141,6 +141,11 @@ jobs:
           if [ -n "$ISO_FILE" ] && [ "$(basename "$ISO_FILE")" != "vyos-clawgress-generic-amd64.iso" ]; then
             ln -sf "$(basename "$ISO_FILE")" build/vyos-clawgress-generic-amd64.iso
           fi
+          echo "Artifacts in build/:"
+          ls -la build/
+          ls -la build/*.qcow2 || true
+          echo "Manifest:"
+          cat manifest.json
 
       - name: Remove live-build ISO
         run: |
