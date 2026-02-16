@@ -18,7 +18,7 @@ Clawgress is purpose-built for agentic workloads and LLM tooling deployments tha
 
 ```bash
 # Install Clawgress (after booting the ISO)
-set service clawgress enable
+set service clawgress enable true
 set service clawgress policy domain api.openai.com label llm-provider
 set service clawgress policy domain api.anthropic.com label llm-provider
 set service clawgress policy port 443

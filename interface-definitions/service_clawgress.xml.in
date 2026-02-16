@@ -11,7 +11,13 @@
           <leafNode name="enable">
             <properties>
               <help>Enable Clawgress service</help>
-              <valueless/>
+              <valueHelp>
+                <format>bool</format>
+                <description>true or false</description>
+              </valueHelp>
+              <constraint>
+                <regex>^(true|false)$</regex>
+              </constraint>
             </properties>
           </leafNode>
           <leafNode name="listen-address">
