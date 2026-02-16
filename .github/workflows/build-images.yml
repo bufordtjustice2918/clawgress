@@ -145,8 +145,13 @@ jobs:
           ls -la build/
           ls -la build/*.qcow2 || true
           echo "Manifest:"
-          if [ -f build/manifest.json ]; then
+          if [ -f manifest.json ]; then
+            cat manifest.json
+          elif [ -f build/manifest.json ]; then
             cat build/manifest.json
+          else
+            echo "manifest.json not found"
+          fi
           elif [ -f manifest.json ]; then
             cat manifest.json
           else
@@ -164,6 +169,7 @@ jobs:
           path: |
             vyos-build/build/*.iso
             vyos-build/build/*.qcow2
+            vyos-build/build/*.raw
           retention-days: 7
 
   smoke-test:
