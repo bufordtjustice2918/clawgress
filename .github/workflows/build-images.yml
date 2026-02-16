@@ -96,6 +96,11 @@ jobs:
           (cd /tmp/aptrepo && dpkg-scanpackages . /dev/null > Packages)
           (cd /tmp/aptrepo && gzip -9c Packages > Packages.gz)
 
+      - name: Sync local apt repo into chroot
+        run: |
+          mkdir -p vyos-build/data/live-build-config/includes.chroot/tmp/aptrepo
+          cp -r /tmp/aptrepo/* vyos-build/data/live-build-config/includes.chroot/tmp/aptrepo/
+
       - name: Configure build
         run: |
           cd vyos-build
