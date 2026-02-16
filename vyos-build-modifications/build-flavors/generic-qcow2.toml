@@ -1,0 +1,3 @@
+# Generic ISO + QCOW2 artifacts
+image_format = ["iso", "qcow2"]
+artifact_format = ["iso", "qcow2"]
