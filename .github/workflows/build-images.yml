@@ -35,11 +35,6 @@ jobs:
           Pin: release n=bookworm
           Pin-Priority: 990
           EOF
-          sudo tee /etc/apt/preferences.d/ubuntu-python3-apt <<'EOF'
-          Package: python3-apt
-          Pin: release o=Ubuntu
-          Pin-Priority: 1001
-          EOF
 
       - name: Ensure python3-apt (system)
         run: |
