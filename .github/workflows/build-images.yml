@@ -57,23 +57,7 @@ jobs:
 
       - name: Copy vyos-build modifications
         run: |
-          set -euo pipefail
-          # Fail fast on required files and use explicit workspace paths.
-          test -f "${{ github.workspace }}/vyos-1x/vyos-build-modifications/build.conf"
-          test -f "${{ github.workspace }}/vyos-1x/vyos-build-modifications/50-clawgress-bind9.chroot"
-          test -f "${{ github.workspace }}/vyos-1x/vyos-build-modifications/60-clawgress-init.chroot"
-          test -f "${{ github.workspace }}/vyos-1x/vyos-build-modifications/00-clawgress-dash-divert.chroot"
-          test -f "${{ github.workspace }}/vyos-1x/vyos-build-modifications/99-clawgress-force-bash.chroot"
-          test -f "${{ github.workspace }}/vyos-1x/vyos-build-modifications/config/clawgress/policy.json"
-          test -f "${{ github.workspace }}/vyos-1x/src/op_mode/clawgress.py"
-          test -f "${{ github.workspace }}/vyos-1x/src/conf_mode/clawgress.py"
-          test -f "${{ github.workspace }}/vyos-1x/src/helpers/clawgress-policy-apply.py"
-          test -f "${{ github.workspace }}/vyos-1x/src/helpers/clawgress-firewall-apply.py"
-          test -f "${{ github.workspace }}/vyos-1x/src/utils/clawgress-policy-apply"
-          test -f "${{ github.workspace }}/vyos-1x/src/utils/clawgress-firewall-apply"
-          test -f "${{ github.workspace }}/vyos-1x/src/utils/clawgress"
-          test -f "${{ github.workspace }}/vyos-1x/interface-definitions/service_clawgress.xml.in"
-          test -f "${{ github.workspace }}/vyos-1x/op-mode-definitions/show-clawgress.xml.in"
+          set -euxo pipefail
 
           # Copy build.conf to vyos-build and point source at checked out tree.
           cp "${{ github.workspace }}/vyos-1x/vyos-build-modifications/build.conf" vyos-build/build.conf
