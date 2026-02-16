@@ -152,11 +152,6 @@ jobs:
           else
             echo "manifest.json not found"
           fi
-          elif [ -f manifest.json ]; then
-            cat manifest.json
-          else
-            echo "manifest.json not found"
-          fi
 
       - name: Remove live-build ISO
         run: |
