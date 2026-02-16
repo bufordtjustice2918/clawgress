@@ -27,6 +27,9 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-22.04
+    container:
+      image: vyos/vyos-build:current
+      options: --privileged
     outputs:
       artifact_name: ${{ steps.artifact_meta.outputs.artifact_name }}
       iso_version: ${{ steps.iso_version.outputs.iso_version }}
@@ -45,76 +48,9 @@ jobs:
             echo "iso_version=clawgress-nightly-${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Configure Debian bookworm repo for newer live-build
-        run: |
-          for i in 1 2 3 4 5; do sudo apt-get update && break || sleep 10; done
-          for i in 1 2 3 4 5; do sudo apt-get install -y gnupg ca-certificates && break || sleep 10; done
-          sudo mkdir -p /usr/share/keyrings
-          curl -fsSL https://ftp-master.debian.org/keys/archive-key-12.asc | sudo gpg --dearmor -o /usr/share/keyrings/debian-archive-keyring.gpg
-          sudo tee /etc/apt/sources.list.d/debian-bookworm.list <<'EOF'
-          deb [signed-by=/usr/share/keyrings/debian-archive-keyring.gpg] http://deb.debian.org/debian bookworm main
-          EOF
-          sudo tee /etc/apt/preferences.d/debian-bookworm <<'EOF'
-          Package: *
-          Pin: release n=bookworm
-          Pin-Priority: 100
-          EOF
-          sudo tee /etc/apt/preferences.d/debian-bookworm-live-build <<'EOF'
-          Package: live-build
-          Pin: release n=bookworm
-          Pin-Priority: 990
-          EOF
-
-      - name: Install build dependencies
-        run: |
-          for i in 1 2 3 4 5; do sudo apt-get update && break || sleep 10; done
-          for i in 1 2 3 4 5; do sudo apt-get install -y \
-            git make curl sudo \
-            build-essential \
-            pbuilder devscripts equivs lsb-release libtool libapt-pkg-dev pkg-config debhelper \
-            opam ocaml ocaml-findlib \
-            qemu-utils \
-            python3 python3-venv python3-distutils \
-            python3.11 python3.11-venv python3.11-dev \
-            python3-pip python3-jinja2 python3-pystache python3-tomli python3-tomli-w python3-git \
-            libcrack2-dev \
-            fakechroot \
-            squashfs-tools genisoimage \
-            gdisk sbsigntool dosfstools kpartx \
-            cpio \
-            syslinux grub2 grub-pc grub2-common \
-            parted udev && break || sleep 10; done
-          for i in 1 2 3 4 5; do sudo apt-get install -y -t bookworm debootstrap live-build && break || sleep 10; done
-
-      - name: Use Python 3.11
-        run: |
-          sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
-          python3 --version
-          sudo python3.11 -m pip install --upgrade pip
-          sudo python3.11 -m pip install --upgrade psutil lxml xmltodict
-
-      - name: Install cracklib for Python 3.11
-        run: |
-          sudo python3.11 -m pip install --upgrade pip
-          sudo python3.11 -m pip install --upgrade --force-reinstall --no-binary :all: cracklib
-
       - name: Clone vyos-build
         run: |
           git clone https://github.com/vyos/vyos-build.git
-
-      - name: Generate Clawgress CLI templates from XML
-        run: |
-          set -euo pipefail
-          cd vyos-1x
-          GEN_ROOT=/tmp/clawgress-cli-gen
-          rm -rf "${GEN_ROOT}"
-          mkdir -p "${GEN_ROOT}/build/interface-definitions" "${GEN_ROOT}/build/op-mode-definitions" "${GEN_ROOT}/templates-cfg" "${GEN_ROOT}/templates-op"
-          ./scripts/transclude-template interface-definitions/service_clawgress.xml.in > "${GEN_ROOT}/build/interface-definitions/service_clawgress.xml"
-          ./scripts/transclude-template op-mode-definitions/show-clawgress.xml.in > "${GEN_ROOT}/build/op-mode-definitions/show-clawgress.xml"
-          ./scripts/build-command-templates "${GEN_ROOT}/build/interface-definitions/service_clawgress.xml" schema/interface_definition.rng "${GEN_ROOT}/templates-cfg"
-          ./scripts/build-command-op-templates "${GEN_ROOT}/build/op-mode-definitions/show-clawgress.xml" schema/op-mode-definition.rng "${GEN_ROOT}/templates-op"
-          test -d "${GEN_ROOT}/templates-cfg/service/clawgress"
-          test -d "${GEN_ROOT}/templates-op/show/clawgress"
 
       - name: Copy vyos-build modifications
         run: |
@@ -136,8 +72,9 @@ jobs:
           test -f "${{ github.workspace }}/vyos-1x/interface-definitions/service_clawgress.xml.in"
           test -f "${{ github.workspace }}/vyos-1x/op-mode-definitions/show-clawgress.xml.in"
 
-          # Copy build.conf to vyos-build
+          # Copy build.conf to vyos-build and point source at checked out tree.
           cp "${{ github.workspace }}/vyos-1x/vyos-build-modifications/build.conf" vyos-build/build.conf
+          sed -i "s|^VYOS_SOURCE=.*|VYOS_SOURCE=${GITHUB_WORKSPACE}/vyos-1x|" vyos-build/build.conf
           
           # Copy build flavor overrides (qcow2)
           mkdir -p vyos-build/data/build-flavors/
@@ -191,15 +128,6 @@ jobs:
           cp "${{ github.workspace }}/vyos-1x/src/utils/clawgress" vyos-build/data/live-build-config/includes.chroot/usr/bin/
           cp "${{ github.workspace }}/vyos-1x/op-mode-definitions/show-clawgress.xml.in" vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/op-mode-definitions/show-clawgress.xml.in
           cp "${{ github.workspace }}/vyos-1x/interface-definitions/service_clawgress.xml.in" vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/interface-definitions/service_clawgress.xml.in
-          # Copy generated command templates + reftree cache so CLI nodes are actually available at runtime.
-          mkdir -p vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-cfg/templates/service/
-          mkdir -p vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-op/templates/show/
-          mkdir -p vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-op/templates/
-          cp -a "/tmp/clawgress-cli-gen/templates-cfg/service/clawgress" vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-cfg/templates/service/
-          cp -a "/tmp/clawgress-cli-gen/templates-op/show/clawgress" vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-op/templates/show/
-          if [ -d "/tmp/clawgress-cli-gen/templates-op/clawgress" ]; then
-            cp -a "/tmp/clawgress-cli-gen/templates-op/clawgress" vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-op/templates/
-          fi
           chmod +x vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/op_mode/clawgress.py
           chmod +x vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/conf_mode/clawgress.py
           chmod +x vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/clawgress-policy-apply.py
@@ -212,12 +140,38 @@ jobs:
           ls -la vyos-build/data/live-build-config/hooks/live/
           ls -la vyos-build/data/live-build-config/includes.chroot/config/clawgress/
 
+      - name: Build vyos-1x package
+        run: |
+          cd vyos-1x
+          dpkg-buildpackage -uc -us -b
+          mkdir -p /opt/aptrepo
+          cp ../*.deb /opt/aptrepo/
+          (cd /opt/aptrepo && dpkg-scanpackages . /dev/null > Packages)
+          (cd /opt/aptrepo && gzip -9c Packages > Packages.gz)
+
+      - name: Sync local apt repo into chroot
+        run: |
+          mkdir -p vyos-build/data/live-build-config/includes.chroot/opt/aptrepo
+          cp -r /opt/aptrepo/* vyos-build/data/live-build-config/includes.chroot/opt/aptrepo/
+          (cd vyos-build/data/live-build-config/includes.chroot/opt/aptrepo && dpkg-scanpackages . /dev/null > Packages)
+          (cd vyos-build/data/live-build-config/includes.chroot/opt/aptrepo && gzip -9c Packages > Packages.gz)
+
+          mkdir -p vyos-build/data/live-build-config/hooks/normal
+          cat > vyos-build/data/live-build-config/hooks/normal/90-install-vyos-1x.chroot <<'EOF'
+          #!/bin/sh
+          set -e
+          if ls /opt/aptrepo/*.deb >/dev/null 2>&1; then
+            dpkg -i /opt/aptrepo/*.deb || apt-get -f install -y
+          else
+            echo "No local vyos-1x .deb found in /opt/aptrepo"
+            exit 1
+          fi
+          EOF
+          chmod +x vyos-build/data/live-build-config/hooks/normal/90-install-vyos-1x.chroot
+
       - name: Configure build
         run: |
           cd vyos-build
-          # Point VYOS_SOURCE to the vyos-1x source tree
-          # The build system will use this directly (no need to build .deb first)
-          echo "VYOS_SOURCE=${{ github.workspace }}/vyos-1x" >> build.conf
           cat build.conf
 
       - name: Build ISO
