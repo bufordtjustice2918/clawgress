@@ -14,6 +14,7 @@ on:
           - 'vmware'
           - 'azure'
           - 'qcow2'
+          - 'all'
   schedule:
     # Nightly build at 2 AM UTC to track VyOS upstream
     - cron: '0 2 * * *'
@@ -143,12 +144,36 @@ jobs:
           cd vyos-build
           cat build.conf
 
-      - name: Build ISO
+      - name: Build Images
         run: |
           cd vyos-build
           # Build with local vyos-1x source (packages will be picked up from VYOS_SOURCE)
           FLAVOR="${{ github.event.inputs.flavor || 'generic-qcow2' }}"
-          sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress "$FLAVOR"
+          
+          if [ "$FLAVOR" = "all" ]; then
+            echo "Building all flavors sequentially: generic-qcow2, raw, vmware"
+            for flavor in generic-qcow2 raw vmware; do
+              echo "=== Building $flavor flavor ==="
+              sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress "$flavor"
+              
+              # Move artifacts to flavor-specific directory
+              mkdir -p "build-$flavor"
+              mv build/* "build-$flavor/" 2>/dev/null || true
+              mkdir -p build
+            done
+            
+            # Combine all artifacts back to build directory
+            echo "=== Combining all artifacts ==="
+            for flavor in generic-qcow2 raw vmware; do
+              if [ -d "build-$flavor" ]; then
+                cp -r "build-$flavor"/* build/ 2>/dev/null || true
+              fi
+            done
+          else
+            echo "Building single flavor: $FLAVOR"
+            sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress "$FLAVOR"
+          fi
+          
           ISO_FILE=$(ls -t build/*.iso | head -1)
           if [ -n "$ISO_FILE" ] && [ "$(basename "$ISO_FILE")" != "vyos-clawgress-generic-amd64.iso" ]; then
             ln -sf "$(basename "$ISO_FILE")" build/vyos-clawgress-generic-amd64.iso
@@ -182,6 +207,7 @@ jobs:
             vyos-build/build/*.raw
             vyos-build/build/*.vmdk
             vyos-build/build/*.vhdx
+            vyos-build/build/*.img
           retention-days: 7
 
   smoke-test:
