@@ -16,6 +16,14 @@ jobs:
         with:
           path: vyos-1x
 
+      - name: Prevent service start/stop during apt
+        run: |
+          sudo tee /usr/sbin/policy-rc.d <<'EOF'
+          #!/bin/sh
+          exit 101
+          EOF
+          sudo chmod +x /usr/sbin/policy-rc.d
+
       - name: Configure Debian bookworm repo for newer live-build
         run: |
           for i in 1 2 3 4 5; do sudo apt-get update && break || sleep 10; done
