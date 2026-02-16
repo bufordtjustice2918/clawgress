@@ -213,7 +213,7 @@ jobs:
       - name: Generate checksums
         run: |
           cd vyos-build/build
-          sha256sum *.iso > SHA256SUMS
+          sudo sh -c 'sha256sum *.iso > SHA256SUMS'
 
       - name: Compute artifact metadata
         id: artifact_meta
