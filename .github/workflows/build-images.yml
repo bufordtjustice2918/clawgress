@@ -66,8 +66,6 @@ jobs:
           mkdir -p vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/op_mode/
           mkdir -p vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/
           mkdir -p vyos-build/data/live-build-config/includes.chroot/usr/bin/
-          mkdir -p vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/op-mode-definitions/
-          mkdir -p vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/interface-definitions/
           cp vyos-1x/src/op_mode/clawgress.py vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/op_mode/
           cp vyos-1x/src/helpers/clawgress-policy-apply.py vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/
           cp vyos-1x/src/helpers/clawgress-firewall-apply.py vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/
@@ -77,8 +75,6 @@ jobs:
           cp vyos-1x/src/utils/clawgress-policy-apply vyos-build/data/live-build-config/includes.chroot/usr/bin/
           cp vyos-1x/src/utils/clawgress-firewall-apply vyos-build/data/live-build-config/includes.chroot/usr/bin/
           cp vyos-1x/src/utils/clawgress vyos-build/data/live-build-config/includes.chroot/usr/bin/
-          cp vyos-1x/op-mode-definitions/show-clawgress.xml.in vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/op-mode-definitions/show-clawgress.xml.in
-          cp vyos-1x/interface-definitions/service_clawgress.xml.in vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/interface-definitions/service_clawgress.xml.in
           chmod +x vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/op_mode/clawgress.py
           chmod +x vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/conf_mode/clawgress.py
           chmod +x vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/clawgress-policy-apply.py
@@ -91,19 +87,26 @@ jobs:
           ls -la vyos-build/data/live-build-config/hooks/live/
           ls -la vyos-build/data/live-build-config/includes.chroot/config/clawgress/
 
+      - name: Build vyos-1x package
+        run: |
+          cd vyos-1x
+          dpkg-buildpackage -uc -us -b
+          mkdir -p /tmp/aptrepo
+          cp ../*.deb /tmp/aptrepo/
+          (cd /tmp/aptrepo && dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz)
+
       - name: Configure build
         run: |
           cd vyos-build
-          # Point VYOS_SOURCE to the vyos-1x source tree
-          # The build system will use this directly (no need to build .deb first)
-          echo "VYOS_SOURCE=${{ github.workspace }}/vyos-1x" >> build.conf
           cat build.conf
 
       - name: Build ISO
         run: |
           cd vyos-build
           # Build with local vyos-1x source (packages will be picked up from VYOS_SOURCE)
-          sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress generic
+          sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress generic \
+            --custom-apt-entry "deb [trusted=yes] file:/tmp/aptrepo ./" \
+            --custom-package vyos-1x
           ISO_FILE=$(ls -t build/*.iso | head -1)
           if [ -n "$ISO_FILE" ] && [ "$(basename "$ISO_FILE")" != "vyos-clawgress-generic-amd64.iso" ]; then
             ln -sf "$(basename "$ISO_FILE")" build/vyos-clawgress-generic-amd64.iso
