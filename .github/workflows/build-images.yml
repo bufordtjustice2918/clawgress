@@ -145,12 +145,15 @@ jobs:
           ls -la build/
           ls -la build/*.qcow2 || true
           echo "Manifest:"
+          # Check for manifest.json with explicit error handling
           if [ -f manifest.json ]; then
             cat manifest.json
-          elif [ -f build/manifest.json ]; then
-            cat build/manifest.json
           else
-            echo "manifest.json not found"
+            if [ -f build/manifest.json ]; then
+              cat build/manifest.json
+            else
+              echo "manifest.json not found"
+            fi
           fi
 
       - name: Remove live-build ISO
