@@ -103,6 +103,20 @@ jobs:
           (cd vyos-build/data/live-build-config/includes.chroot/tmp/aptrepo && dpkg-scanpackages . /dev/null > Packages)
           (cd vyos-build/data/live-build-config/includes.chroot/tmp/aptrepo && gzip -9c Packages > Packages.gz)
 
+          # Install vyos-1x from the local repo during chroot build (avoid apt bootstrap on file:/tmp/aptrepo)
+          mkdir -p vyos-build/data/live-build-config/hooks/normal
+          cat > vyos-build/data/live-build-config/hooks/normal/90-install-vyos-1x.chroot <<'EOF'
+          #!/bin/sh
+          set -e
+          if ls /tmp/aptrepo/*.deb >/dev/null 2>&1; then
+            dpkg -i /tmp/aptrepo/*.deb || apt-get -f install -y
+          else
+            echo "No local vyos-1x .deb found in /tmp/aptrepo"
+            exit 1
+          fi
+          EOF
+          chmod +x vyos-build/data/live-build-config/hooks/normal/90-install-vyos-1x.chroot
+
       - name: Configure build
         run: |
           cd vyos-build
@@ -112,9 +126,7 @@ jobs:
         run: |
           cd vyos-build
           # Build with local vyos-1x source (packages will be picked up from VYOS_SOURCE)
-          sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress generic \
-            --custom-apt-entry "deb [trusted=yes] file:/tmp/aptrepo ./" \
-            --custom-package vyos-1x
+          sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress generic
           ISO_FILE=$(ls -t build/*.iso | head -1)
           if [ -n "$ISO_FILE" ] && [ "$(basename "$ISO_FILE")" != "vyos-clawgress-generic-amd64.iso" ]; then
             ln -sf "$(basename "$ISO_FILE")" build/vyos-clawgress-generic-amd64.iso
