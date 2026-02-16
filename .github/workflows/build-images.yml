@@ -27,6 +27,8 @@ jobs:
         run: |
           # Copy build.conf to vyos-build
           cp vyos-1x/vyos-build-modifications/build.conf vyos-build/build.conf
+          # Ensure VYOS_SOURCE points at the checked-out repo in the GitHub workspace
+          sed -i "s|^VYOS_SOURCE=.*|VYOS_SOURCE=${GITHUB_WORKSPACE}/vyos-1x|" vyos-build/build.conf
           
           # Copy build flavor overrides (qcow2)
           mkdir -p vyos-build/data/build-flavors/
