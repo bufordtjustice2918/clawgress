@@ -17,12 +17,10 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import json
-import os
 
 from sys import exit
 
 from vyos.config import Config
-from vyos.configdict import node_changed
 from vyos.utils.file import makedir, write_file
 from vyos.utils.process import call
 from vyos import ConfigError
