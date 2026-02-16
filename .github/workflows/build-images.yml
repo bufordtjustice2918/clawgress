@@ -102,14 +102,19 @@ jobs:
         run: |
           git clone https://github.com/vyos/vyos-build.git
 
-      - name: Generate Clawgress CLI templates/cache from XML
+      - name: Generate Clawgress CLI templates from XML
         run: |
           set -euo pipefail
           cd vyos-1x
-          make libvyosconfig interface_definitions op_mode_definitions
-          test -d templates-cfg/service/clawgress
-          test -d templates-op/show/clawgress
-          test -f data/reftree.cache
+          GEN_ROOT=/tmp/clawgress-cli-gen
+          rm -rf "${GEN_ROOT}"
+          mkdir -p "${GEN_ROOT}/build/interface-definitions" "${GEN_ROOT}/build/op-mode-definitions" "${GEN_ROOT}/templates-cfg" "${GEN_ROOT}/templates-op"
+          ./scripts/transclude-template interface-definitions/service_clawgress.xml.in > "${GEN_ROOT}/build/interface-definitions/service_clawgress.xml"
+          ./scripts/transclude-template op-mode-definitions/show-clawgress.xml.in > "${GEN_ROOT}/build/op-mode-definitions/show-clawgress.xml"
+          ./scripts/build-command-templates "${GEN_ROOT}/build/interface-definitions/service_clawgress.xml" schema/interface_definition.rng "${GEN_ROOT}/templates-cfg"
+          ./scripts/build-command-op-templates "${GEN_ROOT}/build/op-mode-definitions/show-clawgress.xml" schema/op-mode-definition.rng "${GEN_ROOT}/templates-op"
+          test -d "${GEN_ROOT}/templates-cfg/service/clawgress"
+          test -d "${GEN_ROOT}/templates-op/show/clawgress"
 
       - name: Copy vyos-build modifications
         run: |
@@ -190,13 +195,11 @@ jobs:
           mkdir -p vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-cfg/templates/service/
           mkdir -p vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-op/templates/show/
           mkdir -p vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-op/templates/
-          mkdir -p vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/
-          cp -a "${{ github.workspace }}/vyos-1x/templates-cfg/service/clawgress" vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-cfg/templates/service/
-          cp -a "${{ github.workspace }}/vyos-1x/templates-op/show/clawgress" vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-op/templates/show/
-          if [ -d "${{ github.workspace }}/vyos-1x/templates-op/clawgress" ]; then
-            cp -a "${{ github.workspace }}/vyos-1x/templates-op/clawgress" vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-op/templates/
+          cp -a "/tmp/clawgress-cli-gen/templates-cfg/service/clawgress" vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-cfg/templates/service/
+          cp -a "/tmp/clawgress-cli-gen/templates-op/show/clawgress" vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-op/templates/show/
+          if [ -d "/tmp/clawgress-cli-gen/templates-op/clawgress" ]; then
+            cp -a "/tmp/clawgress-cli-gen/templates-op/clawgress" vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-op/templates/
           fi
-          cp "${{ github.workspace }}/vyos-1x/data/reftree.cache" vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/reftree.cache
           chmod +x vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/op_mode/clawgress.py
           chmod +x vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/conf_mode/clawgress.py
           chmod +x vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/clawgress-policy-apply.py
