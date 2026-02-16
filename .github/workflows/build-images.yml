@@ -2,6 +2,18 @@ name: Build Clawgress Images
 
 on:
   workflow_dispatch:
+    inputs:
+      flavor:
+        description: 'Build flavor to use'
+        required: true
+        default: 'generic-qcow2'
+        type: choice
+        options:
+          - 'generic-qcow2'
+          - 'raw'
+          - 'vmware'
+          - 'azure'
+          - 'qcow2'
   schedule:
     # Nightly build at 2 AM UTC to track VyOS upstream
     - cron: '0 2 * * *'
@@ -30,10 +42,9 @@ jobs:
           # Ensure VYOS_SOURCE points at the checked-out repo in the GitHub workspace
           sed -i "s|^VYOS_SOURCE=.*|VYOS_SOURCE=${GITHUB_WORKSPACE}/vyos-1x|" vyos-build/build.conf
           
-          # Copy build flavor overrides (qcow2 + generic-qcow2)
+          # Copy build flavor overrides
           mkdir -p vyos-build/data/build-flavors/
-          cp vyos-1x/vyos-build-modifications/build-flavors/qcow2.toml vyos-build/data/build-flavors/
-          cp vyos-1x/vyos-build-modifications/build-flavors/generic-qcow2.toml vyos-build/data/build-flavors/
+          cp vyos-1x/vyos-build-modifications/build-flavors/*.toml vyos-build/data/build-flavors/
 
           # Copy chroot hooks
           mkdir -p vyos-build/data/live-build-config/hooks/live/
@@ -136,7 +147,8 @@ jobs:
         run: |
           cd vyos-build
           # Build with local vyos-1x source (packages will be picked up from VYOS_SOURCE)
-          sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress generic-qcow2
+          FLAVOR="${{ github.event.inputs.flavor || 'generic-qcow2' }}"
+          sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress "$FLAVOR"
           ISO_FILE=$(ls -t build/*.iso | head -1)
           if [ -n "$ISO_FILE" ] && [ "$(basename "$ISO_FILE")" != "vyos-clawgress-generic-amd64.iso" ]; then
             ln -sf "$(basename "$ISO_FILE")" build/vyos-clawgress-generic-amd64.iso
@@ -168,6 +180,8 @@ jobs:
             vyos-build/build/*.iso
             vyos-build/build/*.qcow2
             vyos-build/build/*.raw
+            vyos-build/build/*.vmdk
+            vyos-build/build/*.vhdx
           retention-days: 7
 
   smoke-test:
