@@ -137,6 +137,26 @@ jobs:
           (cd /opt/aptrepo && dpkg-scanpackages . /dev/null > Packages)
           (cd /opt/aptrepo && gzip -9c Packages > Packages.gz)
 
+      - name: Verify generated Clawgress op templates and cache
+        run: |
+          set -euxo pipefail
+          test -d vyos-1x/templates-op/show/clawgress
+          test -f vyos-1x/templates-op/show/clawgress/status/node.def
+          test -f vyos-1x/data/op_cache.json
+          grep -q 'clawgress' vyos-1x/data/op_cache.json
+
+      - name: Overlay generated Clawgress op templates/cache into image
+        run: |
+          set -euxo pipefail
+          mkdir -p vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-op/templates/show/
+          mkdir -p vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-op/templates/
+          mkdir -p vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/
+          cp -r vyos-1x/templates-op/show/clawgress vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-op/templates/show/
+          if [ -d vyos-1x/templates-op/clawgress ]; then
+            cp -r vyos-1x/templates-op/clawgress vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-op/templates/
+          fi
+          cp vyos-1x/data/op_cache.json vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/op_cache.json
+
       - name: Sync local apt repo into chroot
         run: |
           mkdir -p vyos-build/data/live-build-config/includes.chroot/opt/aptrepo

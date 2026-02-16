@@ -15,10 +15,10 @@ import pexpect
 
 
 DEFAULT_COMMANDS = [
-    "vbash -ic 'show clawgress status'",
-    "vbash -ic 'show clawgress telemetry'",
-    "vbash -ic 'show clawgress firewall'",
-    "vbash -ic 'show clawgress rpz'",
+    "/opt/vyatta/bin/vyatta-op-cmd-wrapper show clawgress status",
+    "/opt/vyatta/bin/vyatta-op-cmd-wrapper show clawgress telemetry",
+    "/opt/vyatta/bin/vyatta-op-cmd-wrapper show clawgress firewall",
+    "/opt/vyatta/bin/vyatta-op-cmd-wrapper show clawgress rpz",
 ]
 QEMU_LOCK_FILE = "/tmp/clawgress-qemu.lock"
 QEMU_PROCESS_PATTERN = r"qemu-system-.*clawgress-(local-test|cmd-suite|smoke-test)"
