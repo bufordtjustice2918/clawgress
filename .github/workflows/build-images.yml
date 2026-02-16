@@ -105,7 +105,7 @@ jobs:
         run: |
           set -euo pipefail
           cd vyos-1x
-          make interface_definitions op_mode_definitions
+          make libvyosconfig interface_definitions op_mode_definitions
           test -d templates-cfg/service/clawgress
           test -d templates-op/show/clawgress
           test -f data/reftree.cache
