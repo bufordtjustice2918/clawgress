@@ -84,6 +84,13 @@ jobs:
           chmod +x vyos-build/data/live-build-config/includes.chroot/usr/bin/clawgress-policy-apply
           chmod +x vyos-build/data/live-build-config/includes.chroot/usr/bin/clawgress-firewall-apply
           chmod +x vyos-build/data/live-build-config/includes.chroot/usr/bin/clawgress
+
+          # Copy Clawgress CLI definitions (config-mode + op-mode)
+          mkdir -p vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/op-mode-definitions/
+          cp vyos-1x/op-mode-definitions/clawgress.xml.in vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/op-mode-definitions/
+          cp vyos-1x/op-mode-definitions/show-clawgress.xml.in vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/op-mode-definitions/
+          mkdir -p vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-cfg/templates/service/clawgress/
+          cp vyos-1x/interface-definitions/service_clawgress.xml.in vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-cfg/templates/service/clawgress/node.def
           
           echo "I: vyos-build modifications copied successfully"
           ls -la vyos-build/data/live-build-config/hooks/live/
