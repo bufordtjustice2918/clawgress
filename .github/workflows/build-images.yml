@@ -2,19 +2,48 @@ name: Build Clawgress Images
 
 on:
   workflow_dispatch:
+    inputs:
+      iso_version:
+        description: ISO version label passed to build-vyos-image
+        required: true
+        default: clawgress-mvpv2
+      publish_release:
+        description: Publish ISO + checksums as a GitHub release
+        required: true
+        default: false
+        type: boolean
+      release_tag:
+        description: Git tag for release (required if publish_release=true)
+        required: false
+        default: ""
   schedule:
     # Nightly build at 2 AM UTC to track VyOS upstream
     - cron: '0 2 * * *'
   # push trigger disabled; use workflow_dispatch only
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-22.04
+    outputs:
+      artifact_name: ${{ steps.artifact_meta.outputs.artifact_name }}
+      iso_version: ${{ steps.iso_version.outputs.iso_version }}
     steps:
       - name: Checkout clawgress (vyos-1x fork)
         uses: actions/checkout@v4
         with:
           path: vyos-1x
+
+      - name: Resolve ISO version
+        id: iso_version
+        run: |
+          if [ -n "${{ inputs.iso_version }}" ]; then
+            echo "iso_version=${{ inputs.iso_version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "iso_version=clawgress-nightly-${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Configure Debian bookworm repo for newer live-build
         run: |
@@ -74,26 +103,44 @@ jobs:
 
       - name: Copy vyos-build modifications
         run: |
+          set -euo pipefail
+          # Fail fast on required files and use explicit workspace paths.
+          test -f "${{ github.workspace }}/vyos-1x/vyos-build-modifications/build.conf"
+          test -f "${{ github.workspace }}/vyos-1x/vyos-build-modifications/50-clawgress-bind9.chroot"
+          test -f "${{ github.workspace }}/vyos-1x/vyos-build-modifications/60-clawgress-init.chroot"
+          test -f "${{ github.workspace }}/vyos-1x/vyos-build-modifications/00-clawgress-dash-divert.chroot"
+          test -f "${{ github.workspace }}/vyos-1x/vyos-build-modifications/99-clawgress-force-bash.chroot"
+          test -f "${{ github.workspace }}/vyos-1x/vyos-build-modifications/config/clawgress/policy.json"
+          test -f "${{ github.workspace }}/vyos-1x/src/op_mode/clawgress.py"
+          test -f "${{ github.workspace }}/vyos-1x/src/conf_mode/clawgress.py"
+          test -f "${{ github.workspace }}/vyos-1x/src/helpers/clawgress-policy-apply.py"
+          test -f "${{ github.workspace }}/vyos-1x/src/helpers/clawgress-firewall-apply.py"
+          test -f "${{ github.workspace }}/vyos-1x/src/utils/clawgress-policy-apply"
+          test -f "${{ github.workspace }}/vyos-1x/src/utils/clawgress-firewall-apply"
+          test -f "${{ github.workspace }}/vyos-1x/src/utils/clawgress"
+          test -f "${{ github.workspace }}/vyos-1x/interface-definitions/service_clawgress.xml.in"
+          test -f "${{ github.workspace }}/vyos-1x/op-mode-definitions/show-clawgress.xml.in"
+
           # Copy build.conf to vyos-build
-          cp vyos-1x/vyos-build-modifications/build.conf vyos-build/build.conf
+          cp "${{ github.workspace }}/vyos-1x/vyos-build-modifications/build.conf" vyos-build/build.conf
           
           # Copy build flavor overrides (qcow2)
           mkdir -p vyos-build/data/build-flavors/
-          cp vyos-1x/vyos-build-modifications/build-flavors/qcow2.toml vyos-build/data/build-flavors/
+          cp "${{ github.workspace }}/vyos-1x/vyos-build-modifications/build-flavors/qcow2.toml" vyos-build/data/build-flavors/
 
           # Copy chroot hooks
           mkdir -p vyos-build/data/live-build-config/hooks/live/
           mkdir -p vyos-build/data/live-build-config/hooks/chroot/
           mkdir -p vyos-build/data/live-build-config/hooks/normal/
-          cp vyos-1x/vyos-build-modifications/50-clawgress-bind9.chroot vyos-build/data/live-build-config/hooks/live/
-          cp vyos-1x/vyos-build-modifications/60-clawgress-init.chroot vyos-build/data/live-build-config/hooks/chroot/
-          cp vyos-1x/vyos-build-modifications/60-clawgress-init.chroot vyos-build/data/live-build-config/hooks/normal/
-          cp vyos-1x/vyos-build-modifications/60-clawgress-init.chroot vyos-build/data/live-build-config/hooks/live/
-          cp vyos-1x/vyos-build-modifications/00-clawgress-dash-divert.chroot vyos-build/data/live-build-config/hooks/chroot/
-          cp vyos-1x/vyos-build-modifications/00-clawgress-dash-divert.chroot vyos-build/data/live-build-config/hooks/normal/
-          cp vyos-1x/vyos-build-modifications/99-clawgress-force-bash.chroot vyos-build/data/live-build-config/hooks/chroot/
-          cp vyos-1x/vyos-build-modifications/99-clawgress-force-bash.chroot vyos-build/data/live-build-config/hooks/normal/
-          cp vyos-1x/vyos-build-modifications/99-clawgress-force-bash.chroot vyos-build/data/live-build-config/hooks/live/
+          cp "${{ github.workspace }}/vyos-1x/vyos-build-modifications/50-clawgress-bind9.chroot" vyos-build/data/live-build-config/hooks/live/
+          cp "${{ github.workspace }}/vyos-1x/vyos-build-modifications/60-clawgress-init.chroot" vyos-build/data/live-build-config/hooks/chroot/
+          cp "${{ github.workspace }}/vyos-1x/vyos-build-modifications/60-clawgress-init.chroot" vyos-build/data/live-build-config/hooks/normal/
+          cp "${{ github.workspace }}/vyos-1x/vyos-build-modifications/60-clawgress-init.chroot" vyos-build/data/live-build-config/hooks/live/
+          cp "${{ github.workspace }}/vyos-1x/vyos-build-modifications/00-clawgress-dash-divert.chroot" vyos-build/data/live-build-config/hooks/chroot/
+          cp "${{ github.workspace }}/vyos-1x/vyos-build-modifications/00-clawgress-dash-divert.chroot" vyos-build/data/live-build-config/hooks/normal/
+          cp "${{ github.workspace }}/vyos-1x/vyos-build-modifications/99-clawgress-force-bash.chroot" vyos-build/data/live-build-config/hooks/chroot/
+          cp "${{ github.workspace }}/vyos-1x/vyos-build-modifications/99-clawgress-force-bash.chroot" vyos-build/data/live-build-config/hooks/normal/
+          cp "${{ github.workspace }}/vyos-1x/vyos-build-modifications/99-clawgress-force-bash.chroot" vyos-build/data/live-build-config/hooks/live/
           chmod +x vyos-build/data/live-build-config/hooks/live/50-clawgress-bind9.chroot
           chmod +x vyos-build/data/live-build-config/hooks/chroot/60-clawgress-init.chroot
           chmod +x vyos-build/data/live-build-config/hooks/normal/60-clawgress-init.chroot
@@ -106,28 +153,29 @@ jobs:
           
           # Copy policy.json to includes.chroot
           mkdir -p vyos-build/data/live-build-config/includes.chroot/config/clawgress/
-          cp vyos-1x/vyos-build-modifications/config/clawgress/policy.json vyos-build/data/live-build-config/includes.chroot/config/clawgress/
+          cp "${{ github.workspace }}/vyos-1x/vyos-build-modifications/config/clawgress/policy.json" vyos-build/data/live-build-config/includes.chroot/config/clawgress/
           # Also store default policy in /usr/share/clawgress for seeding /config on boot
           mkdir -p vyos-build/data/live-build-config/includes.chroot/usr/share/clawgress/
-          cp vyos-1x/vyos-build-modifications/config/clawgress/policy.json vyos-build/data/live-build-config/includes.chroot/usr/share/clawgress/policy.json
+          cp "${{ github.workspace }}/vyos-1x/vyos-build-modifications/config/clawgress/policy.json" vyos-build/data/live-build-config/includes.chroot/usr/share/clawgress/policy.json
 
-          # Copy Clawgress op-mode + helper scripts into image
+          # Copy Clawgress Python handlers + helper scripts into image.
+          # Also copy XML definitions to ensure MVP CLI/op-mode definitions are present.
           mkdir -p vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/op_mode/
           mkdir -p vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/
           mkdir -p vyos-build/data/live-build-config/includes.chroot/usr/bin/
           mkdir -p vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/op-mode-definitions/
           mkdir -p vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/interface-definitions/
-          cp vyos-1x/src/op_mode/clawgress.py vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/op_mode/
-          cp vyos-1x/src/helpers/clawgress-policy-apply.py vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/
-          cp vyos-1x/src/helpers/clawgress-firewall-apply.py vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/
+          cp "${{ github.workspace }}/vyos-1x/src/op_mode/clawgress.py" vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/op_mode/
+          cp "${{ github.workspace }}/vyos-1x/src/helpers/clawgress-policy-apply.py" vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/
+          cp "${{ github.workspace }}/vyos-1x/src/helpers/clawgress-firewall-apply.py" vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/
           # Config-mode handler
           mkdir -p vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/conf_mode/
-          cp vyos-1x/src/conf_mode/clawgress.py vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/conf_mode/
-          cp vyos-1x/src/utils/clawgress-policy-apply vyos-build/data/live-build-config/includes.chroot/usr/bin/
-          cp vyos-1x/src/utils/clawgress-firewall-apply vyos-build/data/live-build-config/includes.chroot/usr/bin/
-          cp vyos-1x/src/utils/clawgress vyos-build/data/live-build-config/includes.chroot/usr/bin/
-          cp vyos-1x/op-mode-definitions/show-clawgress.xml.in vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/op-mode-definitions/show-clawgress.xml.in
-          cp vyos-1x/interface-definitions/service_clawgress.xml.in vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/interface-definitions/service_clawgress.xml.in
+          cp "${{ github.workspace }}/vyos-1x/src/conf_mode/clawgress.py" vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/conf_mode/
+          cp "${{ github.workspace }}/vyos-1x/src/utils/clawgress-policy-apply" vyos-build/data/live-build-config/includes.chroot/usr/bin/
+          cp "${{ github.workspace }}/vyos-1x/src/utils/clawgress-firewall-apply" vyos-build/data/live-build-config/includes.chroot/usr/bin/
+          cp "${{ github.workspace }}/vyos-1x/src/utils/clawgress" vyos-build/data/live-build-config/includes.chroot/usr/bin/
+          cp "${{ github.workspace }}/vyos-1x/op-mode-definitions/show-clawgress.xml.in" vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/op-mode-definitions/show-clawgress.xml.in
+          cp "${{ github.workspace }}/vyos-1x/interface-definitions/service_clawgress.xml.in" vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/interface-definitions/service_clawgress.xml.in
           chmod +x vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/op_mode/clawgress.py
           chmod +x vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/conf_mode/clawgress.py
           chmod +x vyos-build/data/live-build-config/includes.chroot/usr/libexec/vyos/clawgress-policy-apply.py
@@ -152,7 +200,7 @@ jobs:
         run: |
           cd vyos-build
           # Build with local vyos-1x source (packages will be picked up from VYOS_SOURCE)
-          sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version clawgress generic
+          sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version "${{ steps.iso_version.outputs.iso_version }}" generic
           ISO_FILE=$(ls -t build/*.iso | head -1)
           if [ -n "$ISO_FILE" ] && [ "$(basename "$ISO_FILE")" != "vyos-clawgress-generic-amd64.iso" ]; then
             ln -sf "$(basename "$ISO_FILE")" build/vyos-clawgress-generic-amd64.iso
@@ -162,12 +210,23 @@ jobs:
         run: |
           sudo rm -f vyos-build/build/live-image-*.iso
 
+      - name: Generate checksums
+        run: |
+          cd vyos-build/build
+          sha256sum *.iso > SHA256SUMS
+
+      - name: Compute artifact metadata
+        id: artifact_meta
+        run: |
+          echo "artifact_name=clawgress-images-${{ steps.iso_version.outputs.iso_version }}-${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: clawgress-images
+          name: ${{ steps.artifact_meta.outputs.artifact_name }}
           path: |
             vyos-build/build/*.iso
+            vyos-build/build/SHA256SUMS
           retention-days: 7
 
   smoke-test:
@@ -182,7 +241,7 @@ jobs:
       - name: Download ISO artifact
         uses: actions/download-artifact@v4
         with:
-          name: clawgress-images
+          name: ${{ needs.build.outputs.artifact_name }}
           path: ./artifacts
 
       - name: Install QEMU
@@ -392,3 +451,36 @@ jobs:
           path: |
             /tmp/serial-*
             ./artifacts
+
+  release:
+    name: Publish Release
+    runs-on: ubuntu-latest
+    needs:
+      - build
+      - smoke-test
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_release
+    steps:
+      - name: Validate release tag
+        run: |
+          if [ -z "${{ inputs.release_tag }}" ]; then
+            echo "release_tag is required when publish_release=true"
+            exit 1
+          fi
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build.outputs.artifact_name }}
+          path: ./release-assets
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.release_tag }}
+          name: Clawgress ISO ${{ needs.build.outputs.iso_version }}
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: true
+          files: |
+            ./release-assets/*.iso
+            ./release-assets/SHA256SUMS
