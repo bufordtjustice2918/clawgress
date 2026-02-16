@@ -12,13 +12,14 @@ import uuid
 from pathlib import Path
 
 import pexpect
+import pexpect.fdpexpect
 
 
 DEFAULT_COMMANDS = [
-    "/opt/vyatta/bin/vyatta-op-cmd-wrapper show clawgress status",
-    "/opt/vyatta/bin/vyatta-op-cmd-wrapper show clawgress telemetry",
-    "/opt/vyatta/bin/vyatta-op-cmd-wrapper show clawgress firewall",
-    "/opt/vyatta/bin/vyatta-op-cmd-wrapper show clawgress rpz",
+    "show clawgress status",
+    "show clawgress telemetry",
+    "show clawgress firewall",
+    "show clawgress rpz",
 ]
 QEMU_LOCK_FILE = "/tmp/clawgress-qemu.lock"
 QEMU_PROCESS_PATTERN = r"qemu-system-.*clawgress-(local-test|cmd-suite|smoke-test)"
@@ -39,7 +40,9 @@ def fail(msg: str, code: int = 1) -> None:
     raise SystemExit(code)
 
 
-def qemu_cmd(iso: str, disk: str, ram_mb: int, cpus: int, use_kvm: bool) -> list[str]:
+def qemu_cmd(
+    iso: str, disk: str, ram_mb: int, cpus: int, use_kvm: bool, serial_pty: bool = False
+) -> list[str]:
     cmd = [
         "qemu-system-x86_64",
         "-name",
@@ -54,9 +57,6 @@ def qemu_cmd(iso: str, disk: str, ram_mb: int, cpus: int, use_kvm: bool) -> list
         f"file={disk},format=qcow2,if=virtio",
         "-boot",
         "d",
-        "-nographic",
-        "-serial",
-        "mon:stdio",
         "-monitor",
         "none",
         "-display",
@@ -66,6 +66,10 @@ def qemu_cmd(iso: str, disk: str, ram_mb: int, cpus: int, use_kvm: bool) -> list
         "-device",
         "virtio-net-pci,netdev=net0",
     ]
+    if serial_pty:
+        cmd.extend(["-nographic", "-serial", "pty"])
+    else:
+        cmd.extend(["-nographic", "-serial", "mon:stdio"])
     if use_kvm:
         cmd.extend(["-enable-kvm", "-cpu", "host"])
     return cmd
@@ -176,6 +180,11 @@ def run_suite(args: argparse.Namespace) -> int:
 
     child = None
     transcript = None
+    qemu_process = None
+    qemu_boot_log = None
+    serial_fd = None
+    serial_pty_path = None
+    keep_vm_alive = False
     try:
         if args.force_kvm:
             attempt_order = [True]
@@ -185,10 +194,53 @@ def run_suite(args: argparse.Namespace) -> int:
             attempt_order = [False]
 
         for attempt_kvm in attempt_order:
-            cmd = qemu_cmd(args.iso, str(disk_file), args.ram_mb, args.cpus, attempt_kvm)
+            cmd = qemu_cmd(
+                args.iso, str(disk_file), args.ram_mb, args.cpus, attempt_kvm, serial_pty=args.serial_pty
+            )
             log("Starting VM with " + ("KVM" if attempt_kvm else "software emulation"))
-            child = pexpect.spawn(cmd[0], cmd[1:], encoding="utf-8", timeout=args.boot_timeout)
             transcript = open(transcript_path, "w", encoding="utf-8")
+            if args.serial_pty:
+                qemu_boot_log_path = workdir / "qemu-boot.log"
+                qemu_boot_log = open(qemu_boot_log_path, "w", encoding="utf-8")
+                qemu_process = subprocess.Popen(
+                    cmd,
+                    stdin=subprocess.DEVNULL,
+                    stdout=qemu_boot_log,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    start_new_session=True,
+                )
+                pty_re = re.compile(r"/dev/pts/\d+")
+                serial_pty_path = None
+                for _ in range(60):
+                    if qemu_process.poll() is not None:
+                        break
+                    try:
+                        with open(qemu_boot_log_path, "r", encoding="utf-8", errors="ignore") as handle:
+                            boot_text = handle.read()
+                        match = pty_re.search(boot_text)
+                        if match:
+                            serial_pty_path = match.group(0)
+                            break
+                    except Exception:
+                        pass
+                    time.sleep(0.2)
+                if not serial_pty_path:
+                    if qemu_process.poll() is None:
+                        qemu_process.terminate()
+                    if qemu_boot_log and not qemu_boot_log.closed:
+                        qemu_boot_log.close()
+                    transcript.close()
+                    qemu_boot_log = None
+                    transcript = None
+                    qemu_process = None
+                    continue
+                serial_fd = os.open(serial_pty_path, os.O_RDWR | os.O_NOCTTY)
+                child = pexpect.fdpexpect.fdspawn(
+                    serial_fd, encoding="utf-8", timeout=args.boot_timeout
+                )
+            else:
+                child = pexpect.spawn(cmd[0], cmd[1:], encoding="utf-8", timeout=args.boot_timeout)
             child.logfile = transcript
 
             try:
@@ -196,25 +248,75 @@ def run_suite(args: argparse.Namespace) -> int:
                 summary["login"]["success"] = True
                 summary["login"]["used_kvm"] = attempt_kvm
                 summary["login"]["fallback_to_software"] = (use_kvm and not attempt_kvm)
+                summary["login"]["serial_pty"] = serial_pty_path
                 break
             except pexpect.TIMEOUT:
                 if attempt_kvm and not args.force_kvm:
                     child.close(force=True)
-                    transcript.close()
+                    if qemu_process is not None and qemu_process.poll() is None:
+                        qemu_process.terminate()
+                    if serial_fd is not None:
+                        os.close(serial_fd)
+                        serial_fd = None
+                    if transcript is not None and not transcript.closed:
+                        transcript.close()
+                    if qemu_boot_log is not None and not qemu_boot_log.closed:
+                        qemu_boot_log.close()
                     child = None
                     transcript = None
+                    qemu_process = None
+                    qemu_boot_log = None
+                    serial_pty_path = None
                     continue
                 fail(f"Timed out waiting for login prompt after {args.boot_timeout}s")
             except pexpect.EOF:
                 output = child.before or ""
+                boot_output = ""
+                if qemu_boot_log is not None:
+                    try:
+                        qemu_boot_log.flush()
+                        with open(workdir / "qemu-boot.log", "r", encoding="utf-8", errors="ignore") as handle:
+                            boot_output = handle.read()
+                    except Exception:
+                        boot_output = ""
                 if attempt_kvm and re.search(KVM_FAIL_RE, output, flags=re.IGNORECASE):
                     if args.force_kvm:
                         fail("KVM forced and QEMU failed to initialize KVM")
                     log("KVM launch failed; retrying without KVM")
                     child.close(force=True)
-                    transcript.close()
+                    if qemu_process is not None and qemu_process.poll() is None:
+                        qemu_process.terminate()
+                    if serial_fd is not None:
+                        os.close(serial_fd)
+                        serial_fd = None
+                    if transcript is not None and not transcript.closed:
+                        transcript.close()
+                    if qemu_boot_log is not None and not qemu_boot_log.closed:
+                        qemu_boot_log.close()
                     child = None
                     transcript = None
+                    qemu_process = None
+                    qemu_boot_log = None
+                    serial_pty_path = None
+                    continue
+                if attempt_kvm and re.search(KVM_FAIL_RE, boot_output, flags=re.IGNORECASE):
+                    if args.force_kvm:
+                        fail("KVM forced and QEMU failed to initialize KVM")
+                    log("KVM launch failed; retrying without KVM")
+                    if qemu_process is not None and qemu_process.poll() is None:
+                        qemu_process.terminate()
+                    if serial_fd is not None:
+                        os.close(serial_fd)
+                        serial_fd = None
+                    if transcript is not None and not transcript.closed:
+                        transcript.close()
+                    if qemu_boot_log is not None and not qemu_boot_log.closed:
+                        qemu_boot_log.close()
+                    child = None
+                    transcript = None
+                    qemu_process = None
+                    qemu_boot_log = None
+                    serial_pty_path = None
                     continue
                 fail("VM exited before login prompt appeared")
 
@@ -255,14 +357,48 @@ def run_suite(args: argparse.Namespace) -> int:
             pass
 
     finally:
+        had_failures = (not summary["login"]["success"]) or any(
+            item.get("status") != "pass" for item in summary.get("commands", [])
+        )
+        vm_running = (
+            (qemu_process is not None and qemu_process.poll() is None) or
+            (child is not None and child.isalive())
+        )
+        keep_vm_alive = bool(args.keep_vm_on_failure and had_failures and vm_running)
+
+        if args.debug_on_failure and had_failures and child is not None and child.isalive():
+            log("Failure detected; entering interactive serial console (Ctrl-] then Enter to return)")
+            try:
+                child.interact(escape_character=chr(29))
+            except Exception:
+                pass
+            vm_running = (
+                (qemu_process is not None and qemu_process.poll() is None) or
+                (child is not None and child.isalive())
+            )
+            keep_vm_alive = bool(args.keep_vm_on_failure and vm_running)
+
         try:
             lock_handle.close()
         except Exception:
             pass
-        if child is not None and child.isalive():
+        if child is not None and child.isalive() and not keep_vm_alive:
             child.close(force=True)
+        if qemu_process is not None and qemu_process.poll() is None and not keep_vm_alive:
+            qemu_process.terminate()
+            try:
+                qemu_process.wait(timeout=5)
+            except Exception:
+                qemu_process.kill()
+        if serial_fd is not None:
+            try:
+                os.close(serial_fd)
+            except Exception:
+                pass
         if transcript is not None and not transcript.closed:
             transcript.close()
+        if qemu_boot_log is not None and not qemu_boot_log.closed:
+            qemu_boot_log.close()
 
         summary["ended_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         summary_path.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
@@ -273,6 +409,16 @@ def run_suite(args: argparse.Namespace) -> int:
         else:
             if keep_workdir:
                 log(f"Keeping artifacts in {workdir}")
+        if keep_vm_alive:
+            vm_pid = None
+            if qemu_process is not None and qemu_process.poll() is None:
+                vm_pid = qemu_process.pid
+            elif child is not None and child.isalive():
+                vm_pid = child.pid
+            if vm_pid is not None:
+                log(f"Leaving VM running for debug (PID: {vm_pid})")
+            if serial_pty_path:
+                log(f"Attach to live serial console with: screen {serial_pty_path} 115200")
 
     failures = [item for item in summary["commands"] if item["status"] != "pass"]
     if not summary["login"]["success"] or failures:
@@ -300,6 +446,21 @@ def parse_args() -> argparse.Namespace:
         "--cleanup-on-success",
         action="store_true",
         help="Delete temp artifacts when all checks pass (default: keep logs)",
+    )
+    parser.add_argument(
+        "--keep-vm-on-failure",
+        action="store_true",
+        help="Do not terminate QEMU when checks fail; keep VM running for manual debugging",
+    )
+    parser.add_argument(
+        "--debug-on-failure",
+        action="store_true",
+        help="On failure, enter interactive serial console for live debugging before summary is written",
+    )
+    parser.add_argument(
+        "--serial-pty",
+        action="store_true",
+        help="Run QEMU with serial PTY backend to allow post-run reattachment for debugging",
     )
     parser.add_argument("--no-kvm", dest="use_kvm", action="store_false", help="Disable KVM")
     parser.add_argument(

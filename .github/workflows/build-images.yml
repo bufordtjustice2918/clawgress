@@ -140,22 +140,33 @@ jobs:
       - name: Verify generated Clawgress op templates and cache
         run: |
           set -euxo pipefail
+          test -d vyos-1x/templates-cfg/service/clawgress
+          test -f vyos-1x/templates-cfg/service/clawgress/node.def
           test -d vyos-1x/templates-op/show/clawgress
           test -f vyos-1x/templates-op/show/clawgress/status/node.def
+          test -f vyos-1x/data/reftree.cache
           test -f vyos-1x/data/op_cache.json
           grep -q 'clawgress' vyos-1x/data/op_cache.json
 
-      - name: Overlay generated Clawgress op templates/cache into image
+      - name: Overlay generated Clawgress templates/cache into image
         run: |
           set -euxo pipefail
+          mkdir -p vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-cfg/templates/service/
           mkdir -p vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-op/templates/show/
           mkdir -p vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-op/templates/
           mkdir -p vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/
+          cp -r vyos-1x/templates-cfg/service/clawgress vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-cfg/templates/service/
           cp -r vyos-1x/templates-op/show/clawgress vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-op/templates/show/
           if [ -d vyos-1x/templates-op/clawgress ]; then
             cp -r vyos-1x/templates-op/clawgress vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-op/templates/
           fi
+          cp vyos-1x/data/reftree.cache vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/reftree.cache
           cp vyos-1x/data/op_cache.json vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/op_cache.json
+
+          test -d vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-cfg/templates/service/clawgress
+          test -d vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-op/templates/show/clawgress
+          test -f vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/reftree.cache
+          test -f vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/op_cache.json
 
       - name: Sync local apt repo into chroot
         run: |
