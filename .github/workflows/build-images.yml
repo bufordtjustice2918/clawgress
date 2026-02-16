@@ -123,6 +123,32 @@ jobs:
           chmod +x vyos-build/data/live-build-config/includes.chroot/usr/bin/clawgress-policy-apply
           chmod +x vyos-build/data/live-build-config/includes.chroot/usr/bin/clawgress-firewall-apply
           chmod +x vyos-build/data/live-build-config/includes.chroot/usr/bin/clawgress
+
+          # Stage a late-overlay payload so Clawgress files are re-applied after
+          # package install hooks and cannot be clobbered by build ordering.
+          OVERLAY_ROOT="vyos-build/data/live-build-config/includes.chroot/opt/clawgress-overlay"
+          mkdir -p "${OVERLAY_ROOT}/usr/libexec/vyos/op_mode/"
+          mkdir -p "${OVERLAY_ROOT}/usr/libexec/vyos/conf_mode/"
+          mkdir -p "${OVERLAY_ROOT}/usr/libexec/vyos/"
+          mkdir -p "${OVERLAY_ROOT}/usr/bin/"
+          mkdir -p "${OVERLAY_ROOT}/usr/share/vyos/op-mode-definitions/"
+          mkdir -p "${OVERLAY_ROOT}/usr/share/vyos/interface-definitions/"
+          cp "${SRC_ROOT}/src/op_mode/clawgress.py" "${OVERLAY_ROOT}/usr/libexec/vyos/op_mode/"
+          cp "${SRC_ROOT}/src/conf_mode/clawgress.py" "${OVERLAY_ROOT}/usr/libexec/vyos/conf_mode/"
+          cp "${SRC_ROOT}/src/helpers/clawgress-policy-apply.py" "${OVERLAY_ROOT}/usr/libexec/vyos/"
+          cp "${SRC_ROOT}/src/helpers/clawgress-firewall-apply.py" "${OVERLAY_ROOT}/usr/libexec/vyos/"
+          cp "${SRC_ROOT}/src/utils/clawgress-policy-apply" "${OVERLAY_ROOT}/usr/bin/"
+          cp "${SRC_ROOT}/src/utils/clawgress-firewall-apply" "${OVERLAY_ROOT}/usr/bin/"
+          cp "${SRC_ROOT}/src/utils/clawgress" "${OVERLAY_ROOT}/usr/bin/"
+          cp "${SRC_ROOT}/op-mode-definitions/show-clawgress.xml.in" "${OVERLAY_ROOT}/usr/share/vyos/op-mode-definitions/show-clawgress.xml.in"
+          cp "${SRC_ROOT}/interface-definitions/service_clawgress.xml.in" "${OVERLAY_ROOT}/usr/share/vyos/interface-definitions/service_clawgress.xml.in"
+          chmod +x "${OVERLAY_ROOT}/usr/libexec/vyos/op_mode/clawgress.py"
+          chmod +x "${OVERLAY_ROOT}/usr/libexec/vyos/conf_mode/clawgress.py"
+          chmod +x "${OVERLAY_ROOT}/usr/libexec/vyos/clawgress-policy-apply.py"
+          chmod +x "${OVERLAY_ROOT}/usr/libexec/vyos/clawgress-firewall-apply.py"
+          chmod +x "${OVERLAY_ROOT}/usr/bin/clawgress-policy-apply"
+          chmod +x "${OVERLAY_ROOT}/usr/bin/clawgress-firewall-apply"
+          chmod +x "${OVERLAY_ROOT}/usr/bin/clawgress"
           
           echo "I: vyos-build modifications copied successfully"
           ls -la vyos-build/data/live-build-config/hooks/live/
@@ -155,6 +181,10 @@ jobs:
           mkdir -p vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-op/templates/show/
           mkdir -p vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-op/templates/
           mkdir -p vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/
+          mkdir -p vyos-build/data/live-build-config/includes.chroot/opt/clawgress-overlay/opt/vyatta/share/vyatta-cfg/templates/service/
+          mkdir -p vyos-build/data/live-build-config/includes.chroot/opt/clawgress-overlay/opt/vyatta/share/vyatta-op/templates/show/
+          mkdir -p vyos-build/data/live-build-config/includes.chroot/opt/clawgress-overlay/opt/vyatta/share/vyatta-op/templates/
+          mkdir -p vyos-build/data/live-build-config/includes.chroot/opt/clawgress-overlay/usr/share/vyos/
           cp -r vyos-1x/templates-cfg/service/clawgress vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-cfg/templates/service/
           cp -r vyos-1x/templates-op/show/clawgress vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-op/templates/show/
           if [ -d vyos-1x/templates-op/clawgress ]; then
@@ -163,10 +193,41 @@ jobs:
           cp vyos-1x/data/reftree.cache vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/reftree.cache
           cp vyos-1x/data/op_cache.json vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/op_cache.json
 
+          # Copy generated templates/cache into late-overlay payload as well.
+          cp -r vyos-1x/templates-cfg/service/clawgress vyos-build/data/live-build-config/includes.chroot/opt/clawgress-overlay/opt/vyatta/share/vyatta-cfg/templates/service/
+          cp -r vyos-1x/templates-op/show/clawgress vyos-build/data/live-build-config/includes.chroot/opt/clawgress-overlay/opt/vyatta/share/vyatta-op/templates/show/
+          if [ -d vyos-1x/templates-op/clawgress ]; then
+            cp -r vyos-1x/templates-op/clawgress vyos-build/data/live-build-config/includes.chroot/opt/clawgress-overlay/opt/vyatta/share/vyatta-op/templates/
+          fi
+          cp vyos-1x/data/reftree.cache vyos-build/data/live-build-config/includes.chroot/opt/clawgress-overlay/usr/share/vyos/reftree.cache
+          cp vyos-1x/data/op_cache.json vyos-build/data/live-build-config/includes.chroot/opt/clawgress-overlay/usr/share/vyos/op_cache.json
+
           test -d vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-cfg/templates/service/clawgress
           test -d vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-op/templates/show/clawgress
           test -f vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/reftree.cache
           test -f vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/op_cache.json
+
+          # Finalize hook to force-overlay Clawgress payload after package install.
+          mkdir -p vyos-build/data/live-build-config/hooks/normal
+          cat > vyos-build/data/live-build-config/hooks/normal/98-clawgress-finalize.chroot <<'EOF'
+          #!/bin/sh
+          set -eu
+          OVERLAY_ROOT=/opt/clawgress-overlay
+          if [ ! -d "${OVERLAY_ROOT}" ]; then
+            echo "ERROR: Missing ${OVERLAY_ROOT}"
+            exit 1
+          fi
+
+          cp -a "${OVERLAY_ROOT}/." /
+
+          test -f /usr/libexec/vyos/op_mode/clawgress.py
+          test -f /usr/libexec/vyos/conf_mode/clawgress.py
+          test -d /opt/vyatta/share/vyatta-op/templates/show/clawgress
+          test -d /opt/vyatta/share/vyatta-cfg/templates/service/clawgress
+          test -f /usr/share/vyos/op_cache.json
+          grep -q 'clawgress' /usr/share/vyos/op_cache.json
+          EOF
+          chmod +x vyos-build/data/live-build-config/hooks/normal/98-clawgress-finalize.chroot
 
       - name: Sync local apt repo into chroot
         run: |
@@ -202,6 +263,28 @@ jobs:
           if [ -n "$ISO_FILE" ] && [ "$(basename "$ISO_FILE")" != "vyos-clawgress-generic-amd64.iso" ]; then
             sudo ln -sf "$(basename "$ISO_FILE")" build/vyos-clawgress-generic-amd64.iso
           fi
+
+      - name: Verify Clawgress runtime files inside built ISO
+        run: |
+          set -euxo pipefail
+          cd vyos-build
+          if ! command -v unsquashfs >/dev/null 2>&1 || ! command -v bsdtar >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y squashfs-tools libarchive-tools
+          fi
+
+          ISO_FILE=$(ls -t build/*.iso | head -1)
+          WORKDIR="$(mktemp -d)"
+          trap 'rm -rf "${WORKDIR}"' EXIT
+          bsdtar -xf "${ISO_FILE}" -C "${WORKDIR}" live/filesystem.squashfs
+          SQ="${WORKDIR}/live/filesystem.squashfs"
+
+          unsquashfs -lln "${SQ}" | grep -q 'squashfs-root/usr/libexec/vyos/op_mode/clawgress.py'
+          unsquashfs -lln "${SQ}" | grep -q 'squashfs-root/usr/libexec/vyos/conf_mode/clawgress.py'
+          unsquashfs -lln "${SQ}" | grep -q 'squashfs-root/opt/vyatta/share/vyatta-op/templates/show/clawgress'
+          unsquashfs -lln "${SQ}" | grep -q 'squashfs-root/opt/vyatta/share/vyatta-cfg/templates/service/clawgress'
+          unsquashfs -lln "${SQ}" | grep -q 'squashfs-root/usr/share/vyos/op_cache.json'
+          unsquashfs -cat "${SQ}" /usr/share/vyos/op_cache.json | grep -q 'clawgress'
 
       - name: Remove live-build ISO
         run: |
