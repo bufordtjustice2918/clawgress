@@ -22,8 +22,9 @@ jobs:
             sudo ln -sf /usr/bin/python3.10 /usr/bin/python3
           fi
           python3 --version
-          for i in 1 2 3 4 5; do sudo apt-get update && break || sleep 10; done
-          for i in 1 2 3 4 5; do sudo apt-get install -y --reinstall python3-apt && break || sleep 10; done
+          retry() { for i in 1 2 3 4 5; do "$@" && return 0 || sleep 10; done; return 1; }
+          retry sudo apt-get update
+          retry sudo apt-get install -y --reinstall python3-apt || { echo "python3-apt install failed"; exit 1; }
           if ! /usr/bin/python3.10 -c "import apt_pkg; print('apt_pkg OK (early)')" ; then
             sudo apt-get install -y --reinstall --allow-downgrades -t jammy python3-apt
             /usr/bin/python3.10 -c "import apt_pkg; print('apt_pkg OK (early)')"
