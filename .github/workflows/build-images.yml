@@ -93,27 +93,27 @@ jobs:
         run: |
           cd vyos-1x
           dpkg-buildpackage -uc -us -b
-          mkdir -p /tmp/aptrepo
-          cp ../*.deb /tmp/aptrepo/
-          (cd /tmp/aptrepo && dpkg-scanpackages . /dev/null > Packages)
-          (cd /tmp/aptrepo && gzip -9c Packages > Packages.gz)
+          mkdir -p /opt/aptrepo
+          cp ../*.deb /opt/aptrepo/
+          (cd /opt/aptrepo && dpkg-scanpackages . /dev/null > Packages)
+          (cd /opt/aptrepo && gzip -9c Packages > Packages.gz)
 
       - name: Sync local apt repo into chroot
         run: |
-          mkdir -p vyos-build/data/live-build-config/includes.chroot/tmp/aptrepo
-          cp -r /tmp/aptrepo/* vyos-build/data/live-build-config/includes.chroot/tmp/aptrepo/
-          (cd vyos-build/data/live-build-config/includes.chroot/tmp/aptrepo && dpkg-scanpackages . /dev/null > Packages)
-          (cd vyos-build/data/live-build-config/includes.chroot/tmp/aptrepo && gzip -9c Packages > Packages.gz)
+          mkdir -p vyos-build/data/live-build-config/includes.chroot/opt/aptrepo
+          cp -r /opt/aptrepo/* vyos-build/data/live-build-config/includes.chroot/opt/aptrepo/
+          (cd vyos-build/data/live-build-config/includes.chroot/opt/aptrepo && dpkg-scanpackages . /dev/null > Packages)
+          (cd vyos-build/data/live-build-config/includes.chroot/opt/aptrepo && gzip -9c Packages > Packages.gz)
 
-          # Install vyos-1x from the local repo during chroot build (avoid apt bootstrap on file:/tmp/aptrepo)
+          # Install vyos-1x from the local repo during chroot build (avoid apt bootstrap on file:/opt/aptrepo)
           mkdir -p vyos-build/data/live-build-config/hooks/normal
           cat > vyos-build/data/live-build-config/hooks/normal/90-install-vyos-1x.chroot <<'EOF'
           #!/bin/sh
           set -e
-          if ls /tmp/aptrepo/*.deb >/dev/null 2>&1; then
-            dpkg -i /tmp/aptrepo/*.deb || apt-get -f install -y
+          if ls /opt/aptrepo/*.deb >/dev/null 2>&1; then
+            dpkg -i /opt/aptrepo/*.deb || apt-get -f install -y
           else
-            echo "No local vyos-1x .deb found in /tmp/aptrepo"
+            echo "No local vyos-1x .deb found in /opt/aptrepo"
             exit 1
           fi
           EOF
