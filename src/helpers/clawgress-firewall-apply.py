@@ -315,8 +315,9 @@ def render_nft(v4, v6, ports, policy_hash='', rate_limit_kbps=None, sni_domains=
         rate_kbytes = max(1, rate_limit_kbps // 8)
         limit_clause = f' limit rate {rate_kbytes} kbytes/second'
 
+    time_window = normalize_time_window(time_window or {})
     time_clause = render_time_clause(time_window)
-    domain_time_windows = domain_time_windows or {}
+    domain_time_windows = normalize_domain_time_windows(domain_time_windows or {})
 
     lines = [
         'table inet clawgress {',
@@ -355,8 +356,12 @@ def render_nft(v4, v6, ports, policy_hash='', rate_limit_kbps=None, sni_domains=
             rate_kbytes = max(1, host['rate_limit_kbps'] // 8)
             host_limit_clause = f' limit rate {rate_kbytes} kbytes/second'
 
-        host_time_clause = render_time_clause(host.get('time_window') or time_window)
-        host_domain_time_windows = host.get('domain_time_windows') or domain_time_windows
+        host_time_window = normalize_time_window(host.get('time_window') or time_window or {})
+        host_time_clause = render_time_clause(host_time_window)
+        host_domain_time_windows = dict(domain_time_windows)
+        host_domain_time_windows.update(
+            normalize_domain_time_windows(host.get('domain_time_windows') or {})
+        )
         host_exfil_limits = host.get('exfil_limits') or {}
 
         host_reason = (
