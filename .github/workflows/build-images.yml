@@ -23,6 +23,9 @@ jobs:
           exit 101
           EOF
           sudo chmod +x /usr/sbin/policy-rc.d
+          # Guard against flaky systemd unit stop failures during package installs
+          sudo systemctl mask --now chrony-wait.service chrony.service || true
+          sudo systemctl reset-failed || true
 
       - name: Configure Debian bookworm repo for newer live-build
         run: |
