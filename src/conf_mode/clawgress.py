@@ -55,6 +55,16 @@ def build_time_window(window_config):
     return payload
 
 
+def _as_values(value):
+    if value is None:
+        return []
+    if isinstance(value, dict):
+        return list(value.keys())
+    if isinstance(value, list):
+        return value
+    return [value]
+
+
 def get_config(config=None):
     if config is None:
         config = Config()
@@ -118,14 +128,15 @@ def generate(clawgress):
         policy['domain_time_windows'] = domain_time_windows
 
     # Process IPs
-    ips = policy_config.get('ip', {})
-    for ip in ips.keys():
+    ips = policy_config.get('ip')
+    for ip in _as_values(ips):
         policy['allow']['ips'].append(ip)
 
     # Process ports (default to 53, 80, 443 if not specified)
-    ports = policy_config.get('port', {})
-    if ports:
-        policy['allow']['ports'] = [int(p) for p in ports.keys()]
+    ports = policy_config.get('port')
+    port_values = _as_values(ports)
+    if port_values:
+        policy['allow']['ports'] = [int(p) for p in port_values]
     else:
         policy['allow']['ports'] = [53, 80, 443]
 
