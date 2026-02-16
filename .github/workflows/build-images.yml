@@ -30,6 +30,9 @@ jobs:
     container:
       image: vyos/vyos-build:current
       options: --privileged
+    defaults:
+      run:
+        shell: bash
     outputs:
       artifact_name: ${{ steps.artifact_meta.outputs.artifact_name }}
       iso_version: ${{ steps.iso_version.outputs.iso_version }}
