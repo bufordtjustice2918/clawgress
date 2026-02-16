@@ -3,8 +3,18 @@
 # Enable bind9 service on first boot
 
 echo "I: Installing bind9..."
+# Prevent service start/stop during package install in chroot
+cat > /usr/sbin/policy-rc.d <<'EOF'
+#!/bin/sh
+exit 101
+EOF
+chmod +x /usr/sbin/policy-rc.d
+
 apt-get update
 apt-get install -y bind9
+
+# Remove policy-rc.d so normal behavior resumes
+rm -f /usr/sbin/policy-rc.d
 
 echo "I: Enabling Clawgress bind9 service..."
 systemctl enable bind9
