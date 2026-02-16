@@ -1,0 +1,9 @@
+#!/bin/bash
+set -e
+
+# Prevent service start/stop during package install in chroot
+cat > /usr/sbin/policy-rc.d <<'EOF'
+#!/bin/sh
+exit 101
+EOF
+chmod +x /usr/sbin/policy-rc.d

@@ -1,0 +1,5 @@
+#!/bin/bash
+set -e
+
+# Remove policy-rc.d so normal behavior resumes
+rm -f /usr/sbin/policy-rc.d || true

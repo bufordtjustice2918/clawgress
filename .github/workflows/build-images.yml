@@ -111,18 +111,30 @@ jobs:
           mkdir -p vyos-build/data/live-build-config/hooks/chroot/
           mkdir -p vyos-build/data/live-build-config/hooks/normal/
           cp vyos-1x/vyos-build-modifications/50-clawgress-bind9.chroot vyos-build/data/live-build-config/hooks/live/
+          cp vyos-1x/vyos-build-modifications/01-clawgress-policy-rc.chroot vyos-build/data/live-build-config/hooks/chroot/
+          cp vyos-1x/vyos-build-modifications/01-clawgress-policy-rc.chroot vyos-build/data/live-build-config/hooks/normal/
+          cp vyos-1x/vyos-build-modifications/01-clawgress-policy-rc.chroot vyos-build/data/live-build-config/hooks/live/
           cp vyos-1x/vyos-build-modifications/60-clawgress-init.chroot vyos-build/data/live-build-config/hooks/chroot/
           cp vyos-1x/vyos-build-modifications/60-clawgress-init.chroot vyos-build/data/live-build-config/hooks/normal/
           cp vyos-1x/vyos-build-modifications/60-clawgress-init.chroot vyos-build/data/live-build-config/hooks/live/
+          cp vyos-1x/vyos-build-modifications/98-clawgress-policy-rc-remove.chroot vyos-build/data/live-build-config/hooks/chroot/
+          cp vyos-1x/vyos-build-modifications/98-clawgress-policy-rc-remove.chroot vyos-build/data/live-build-config/hooks/normal/
+          cp vyos-1x/vyos-build-modifications/98-clawgress-policy-rc-remove.chroot vyos-build/data/live-build-config/hooks/live/
           cp vyos-1x/vyos-build-modifications/00-clawgress-dash-divert.chroot vyos-build/data/live-build-config/hooks/chroot/
           cp vyos-1x/vyos-build-modifications/00-clawgress-dash-divert.chroot vyos-build/data/live-build-config/hooks/normal/
           cp vyos-1x/vyos-build-modifications/99-clawgress-force-bash.chroot vyos-build/data/live-build-config/hooks/chroot/
           cp vyos-1x/vyos-build-modifications/99-clawgress-force-bash.chroot vyos-build/data/live-build-config/hooks/normal/
           cp vyos-1x/vyos-build-modifications/99-clawgress-force-bash.chroot vyos-build/data/live-build-config/hooks/live/
           chmod +x vyos-build/data/live-build-config/hooks/live/50-clawgress-bind9.chroot
+          chmod +x vyos-build/data/live-build-config/hooks/chroot/01-clawgress-policy-rc.chroot
+          chmod +x vyos-build/data/live-build-config/hooks/normal/01-clawgress-policy-rc.chroot
+          chmod +x vyos-build/data/live-build-config/hooks/live/01-clawgress-policy-rc.chroot
           chmod +x vyos-build/data/live-build-config/hooks/chroot/60-clawgress-init.chroot
           chmod +x vyos-build/data/live-build-config/hooks/normal/60-clawgress-init.chroot
           chmod +x vyos-build/data/live-build-config/hooks/live/60-clawgress-init.chroot
+          chmod +x vyos-build/data/live-build-config/hooks/chroot/98-clawgress-policy-rc-remove.chroot
+          chmod +x vyos-build/data/live-build-config/hooks/normal/98-clawgress-policy-rc-remove.chroot
+          chmod +x vyos-build/data/live-build-config/hooks/live/98-clawgress-policy-rc-remove.chroot
           chmod +x vyos-build/data/live-build-config/hooks/chroot/00-clawgress-dash-divert.chroot
           chmod +x vyos-build/data/live-build-config/hooks/normal/00-clawgress-dash-divert.chroot
           chmod +x vyos-build/data/live-build-config/hooks/chroot/99-clawgress-force-bash.chroot
