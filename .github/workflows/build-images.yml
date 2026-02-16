@@ -23,9 +23,6 @@ jobs:
           exit 101
           EOF
           sudo chmod +x /usr/sbin/policy-rc.d
-          # Guard against flaky systemd unit stop failures during package installs
-          sudo systemctl mask --now chrony-wait.service chrony.service || true
-          sudo systemctl reset-failed || true
 
       - name: Configure Debian bookworm repo for newer live-build
         run: |
@@ -56,9 +53,7 @@ jobs:
       - name: Install build dependencies
         run: |
           for i in 1 2 3 4 5; do sudo apt-get update && break || sleep 10; done
-          sudo dpkg --configure -a || true
-          sudo apt-get -f install -y || true
-          for i in 1 2 3 4 5; do sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+          for i in 1 2 3 4 5; do sudo apt-get install -y \
             git make curl sudo \
             build-essential \
             pbuilder devscripts equivs lsb-release libtool libapt-pkg-dev pkg-config debhelper \
@@ -74,7 +69,7 @@ jobs:
             cpio \
             syslinux grub2 grub-pc grub2-common \
             parted udev && break || sleep 10; done
-          for i in 1 2 3 4 5; do sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -t bookworm debootstrap live-build && break || sleep 10; done
+          for i in 1 2 3 4 5; do sudo apt-get install -y -t bookworm debootstrap live-build && break || sleep 10; done
 
       - name: Use Python 3.11 (pip only)
         run: |
