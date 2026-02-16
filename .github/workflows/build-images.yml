@@ -203,7 +203,7 @@ jobs:
           sudo ./build-vyos-image --build-by github-actions --architecture amd64 --build-type release --version "${{ steps.iso_version.outputs.iso_version }}" generic
           ISO_FILE=$(ls -t build/*.iso | head -1)
           if [ -n "$ISO_FILE" ] && [ "$(basename "$ISO_FILE")" != "vyos-clawgress-generic-amd64.iso" ]; then
-            ln -sf "$(basename "$ISO_FILE")" build/vyos-clawgress-generic-amd64.iso
+            sudo ln -sf "$(basename "$ISO_FILE")" build/vyos-clawgress-generic-amd64.iso
           fi
 
       - name: Remove live-build ISO
