@@ -33,6 +33,9 @@ FIREWALL_APPLY_BIN = '/usr/bin/clawgress-firewall-apply'
 LABELS_FILE = '/etc/bind/rpz/labels.json'
 TELEMETRY_DIR = '/var/lib/clawgress'
 TELEMETRY_PATH = f'{TELEMETRY_DIR}/telemetry.json'
+APPLY_STATE_PATH = f'{TELEMETRY_DIR}/apply-state.json'
+RPZ_ALLOW_PATH = '/etc/bind/rpz/allow.rpz'
+RPZ_DENY_PATH = '/etc/bind/rpz/default-deny.rpz'
 
 
 def _load_policy(path: str) -> dict:
@@ -45,13 +48,124 @@ def _write_policy(policy: dict, path: str) -> None:
     write_file(path, payload + '\n', user='root', group='root', mode=0o644)
 
 
+def _write_apply_state(state: dict) -> None:
+    makedir(TELEMETRY_DIR, user='root', group='root')
+    write_file(APPLY_STATE_PATH, json.dumps(state, indent=2, sort_keys=True) + '\n',
+               user='root', group='root', mode=0o644)
+
+
+def _load_apply_state() -> dict | None:
+    try:
+        if os.path.isfile(APPLY_STATE_PATH):
+            with open(APPLY_STATE_PATH, 'r', encoding='utf-8') as handle:
+                return json.load(handle)
+    except Exception:
+        pass
+    return None
+
+
 def apply_policy(policy_path: str | None) -> None:
+    policy_hash = None
+    try:
+        effective_path = policy_path or POLICY_PATH
+        if os.path.isfile(effective_path):
+            policy_hash = _policy_hash(_load_policy(effective_path))
+    except Exception:
+        policy_hash = None
+
     if policy_path:
-        call(f'{APPLY_BIN} --policy {policy_path}')
-        call(f'{FIREWALL_APPLY_BIN} --policy {policy_path}')
+        rc = call(f'{APPLY_BIN} --policy {policy_path}')
+        if rc != 0:
+            _write_apply_state({
+                'timestamp': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+                'success': False,
+                'error': f'{APPLY_BIN} failed (rc={rc})',
+            })
+            raise RuntimeError(f'{APPLY_BIN} failed with rc={rc}')
+        rc = call(f'{FIREWALL_APPLY_BIN} --policy {policy_path}')
+        if rc != 0:
+            _write_apply_state({
+                'timestamp': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+                'success': False,
+                'error': f'{FIREWALL_APPLY_BIN} failed (rc={rc})',
+            })
+            raise RuntimeError(f'{FIREWALL_APPLY_BIN} failed with rc={rc}')
     else:
-        call(f'{APPLY_BIN}')
-        call(f'{FIREWALL_APPLY_BIN}')
+        rc = call(f'{APPLY_BIN}')
+        if rc != 0:
+            _write_apply_state({
+                'timestamp': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+                'success': False,
+                'error': f'{APPLY_BIN} failed (rc={rc})',
+            })
+            raise RuntimeError(f'{APPLY_BIN} failed with rc={rc}')
+        rc = call(f'{FIREWALL_APPLY_BIN}')
+        if rc != 0:
+            _write_apply_state({
+                'timestamp': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+                'success': False,
+                'error': f'{FIREWALL_APPLY_BIN} failed (rc={rc})',
+            })
+            raise RuntimeError(f'{FIREWALL_APPLY_BIN} failed with rc={rc}')
+
+    rc = call('systemctl enable --now bind9')
+    if rc != 0:
+        _write_apply_state({
+            'timestamp': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+            'success': False,
+            'error': f'bind9 enable/start failed (rc={rc})',
+        })
+        raise RuntimeError(f'bind9 enable/start failed with rc={rc}')
+
+    effective_state = _verify_runtime_state(policy_hash)
+    success = not effective_state['failed_checks']
+    _write_apply_state({
+        'timestamp': effective_state['checked_at'],
+        'success': success,
+        'policy_hash': policy_hash,
+        'verification': effective_state,
+    })
+    if not success:
+        failed_checks = ', '.join(effective_state['failed_checks'])
+        raise RuntimeError(f'Clawgress apply verification failed: {failed_checks}')
+
+
+def _verify_runtime_state(policy_hash: str | None) -> dict:
+    bind9_active = False
+    try:
+        output = cmd('systemctl is-active bind9')
+        bind9_active = output.strip() == 'active'
+    except Exception:
+        bind9_active = False
+
+    nft_output = ''
+    nftables_active = False
+    try:
+        nft_output = cmd('nft list table inet clawgress 2>/dev/null || echo ""')
+        nftables_active = 'table inet clawgress' in nft_output
+    except Exception:
+        nftables_active = False
+
+    rc, _ = rc_cmd('named-checkconf -z /etc/bind/named.conf >/dev/null 2>&1')
+    bind_config_valid = rc == 0
+
+    checks = {
+        'bind9_active': bind9_active,
+        'bind_config_valid': bind_config_valid,
+        'rpz_allow_present': os.path.isfile(RPZ_ALLOW_PATH),
+        'rpz_default_deny_present': os.path.isfile(RPZ_DENY_PATH),
+        'nft_table_present': nftables_active,
+        'nft_forward_policy_drop': 'chain forward' in nft_output and 'policy drop;' in nft_output,
+        'nft_dns_redirect_present': 'udp dport 53 redirect to :53' in nft_output and 'tcp dport 53 redirect to :53' in nft_output,
+        'nft_policy_hash_present': bool(policy_hash) and (f'policy={policy_hash}' in nft_output),
+    }
+    failed_checks = sorted([name for name, ok in checks.items() if not ok])
+    return {
+        'checked_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+        'policy_hash': policy_hash,
+        'checks': checks,
+        'failed_checks': failed_checks,
+    }
 
 
 def import_policy(source_path: str) -> None:
@@ -69,6 +183,8 @@ def show_policy(path: str | None) -> None:
 
 def show_status() -> None:
     policy_exists = os.path.isfile(POLICY_PATH)
+    policy = _load_policy_safe()
+    policy_hash = _policy_hash(policy)
     bind9_active = False
     try:
         output = cmd('systemctl is-active bind9')
@@ -96,11 +212,18 @@ def show_status() -> None:
     except Exception:
         pass
 
+    apply_state = _load_apply_state()
+    effective_state = _verify_runtime_state(policy_hash)
+
     status = {
         'policy_path': POLICY_PATH,
         'policy_present': policy_exists,
+        'policy_hash': policy_hash,
         'bind9_active': bind9_active,
         'nftables_active': nftables_active,
+        'apply_state_path': APPLY_STATE_PATH,
+        'last_apply': apply_state,
+        'effective_state': effective_state,
         'stats': {
             'denies_last_hour': deny_count,
             'recent_denies': recent_denies,
@@ -212,6 +335,8 @@ def collect_telemetry() -> dict:
     }
 
     policy = _load_policy_safe()
+    apply_state = _load_apply_state()
+    effective_state = _verify_runtime_state(_policy_hash(policy))
     telemetry = {
         'generated_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
         'usage': usage,
@@ -221,6 +346,11 @@ def collect_telemetry() -> dict:
             'present': bool(policy),
             'hash': _policy_hash(policy),
             'version': policy.get('version') if policy else None,
+        },
+        'apply': {
+            'state_path': APPLY_STATE_PATH,
+            'last_apply': apply_state,
+            'effective_state': effective_state,
         },
         'cache': {
             'status': 'unavailable'

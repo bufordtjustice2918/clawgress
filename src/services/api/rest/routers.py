@@ -738,8 +738,7 @@ async def clawgress_policy_op(data: ClawgressPolicyModel):
         payload = json.dumps(data.policy, indent=2, sort_keys=True) + '\n'
         write_file('/config/clawgress/policy.json', payload, user='root', group='root', mode=0o644)
         if data.apply:
-            call('/usr/bin/clawgress-policy-apply')
-            call('/usr/bin/clawgress-firewall-apply')
+            call('/usr/bin/clawgress apply --policy /config/clawgress/policy.json')
     except Exception:
         LOG.critical(traceback.format_exc())
         return error(500, 'An internal error occured. Check the logs for details.')

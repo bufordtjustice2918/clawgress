@@ -157,6 +157,35 @@
                   </valueHelp>
                 </properties>
               </leafNode>
+              <node name="proxy">
+                <properties>
+                  <help>TLS proxy/SNI policy controls</help>
+                </properties>
+                <children>
+                  <leafNode name="mode">
+                    <properties>
+                      <help>Proxy mode</help>
+                      <valueHelp>
+                        <format>disabled|sni-allowlist</format>
+                        <description>Disable proxy matching or enforce TLS SNI allowlist</description>
+                      </valueHelp>
+                      <constraint>
+                        <regex>^(disabled|sni-allowlist)$</regex>
+                      </constraint>
+                    </properties>
+                  </leafNode>
+                  <leafNode name="domain">
+                    <properties>
+                      <help>Allowed TLS SNI domain for proxy mode</help>
+                      <valueHelp>
+                        <format>fqdn</format>
+                        <description>Domain name to allow via TLS SNI match</description>
+                      </valueHelp>
+                      <multi/>
+                    </properties>
+                  </leafNode>
+                </children>
+              </node>
               <tagNode name="host">
                 <properties>
                   <help>Per-agent policy configuration</help>
@@ -176,6 +205,35 @@
                       <multi/>
                     </properties>
                   </leafNode>
+                  <node name="proxy">
+                    <properties>
+                      <help>Host-level TLS proxy/SNI controls</help>
+                    </properties>
+                    <children>
+                      <leafNode name="mode">
+                        <properties>
+                          <help>Proxy mode</help>
+                          <valueHelp>
+                            <format>disabled|sni-allowlist</format>
+                            <description>Disable proxy matching or enforce TLS SNI allowlist</description>
+                          </valueHelp>
+                          <constraint>
+                            <regex>^(disabled|sni-allowlist)$</regex>
+                          </constraint>
+                        </properties>
+                      </leafNode>
+                      <leafNode name="domain">
+                        <properties>
+                          <help>Allowed TLS SNI domain for this host</help>
+                          <valueHelp>
+                            <format>fqdn</format>
+                            <description>Domain name to allow via TLS SNI match</description>
+                          </valueHelp>
+                          <multi/>
+                        </properties>
+                      </leafNode>
+                    </children>
+                  </node>
                   <node name="exfil">
                     <properties>
                       <help>Exfiltration caps per domain</help>
