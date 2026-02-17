@@ -290,7 +290,7 @@ def render_allow_rules(lines, v4, v6, ports, sni_domains, limit_clause,
         domain_limit_clause = domain_exfil_limits.get(domain_key, '')
         effective_limit_clause = domain_limit_clause or limit_clause
         lines.append(
-            f'    tcp dport 443 tls sni "{domain}"{time_clause}{window_clause}{effective_limit_clause} counter accept'
+            f'    tcp dport 443{time_clause}{window_clause} tls sni . "{domain}"{effective_limit_clause} counter accept'
         )
 
     if v4_set and port_set:
