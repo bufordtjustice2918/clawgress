@@ -385,8 +385,16 @@ if command -v dig >/dev/null 2>&1; then
     ip netns exec "${NETNS}" dig +time=3 +tries=1 @1.1.1.1 example.com A
 
     log "Validating DNS via VyOS resolver (diagnostic)"
-    if ! ip netns exec "${NETNS}" dig +time=3 +tries=1 @"${LAN_GW_IP}" example.com A; then
-        log "WARN: DNS via VyOS resolver failed (kept as diagnostic, not hard failure)"
+    RESOLVER_OK=0
+    for _ in $(seq 1 10); do
+        if ip netns exec "${NETNS}" dig +time=3 +tries=1 @"${LAN_GW_IP}" example.com A; then
+            RESOLVER_OK=1
+            break
+        fi
+        sleep 2
+    done
+    if [[ ${RESOLVER_OK} -eq 0 ]]; then
+        log "WARN: DNS via VyOS resolver failed after retries (kept as diagnostic, not hard failure)"
     fi
 else
     log "dig not installed; skipping DNS checks"
