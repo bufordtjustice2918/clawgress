@@ -166,12 +166,30 @@ jobs:
       - name: Verify generated Clawgress op templates and cache
         run: |
           set -euxo pipefail
+          # Generate python xml_ref caches from current clawgress XML so
+          # configd/op-mode use the same reference data as templates.
+          PYTHONPATH=vyos-1x/python python3 vyos-1x/python/vyos/xml_ref/generate_cache.py \
+            --xml-dir vyos-1x/interface-definitions \
+            --internal-cache vyos-1x/data/reftree.cache \
+            --package-name vyos-1x \
+            --output-path vyos-1x/python/vyos/xml_ref/pkg_cache
+          PYTHONPATH=vyos-1x/python python3 vyos-1x/python/vyos/xml_ref/update_cache.py
+          PYTHONPATH=vyos-1x/python python3 vyos-1x/python/vyos/xml_ref/generate_op_cache.py \
+            --xml-dir vyos-1x/op-mode-definitions \
+            --export-json vyos-1x/data/op_cache.json
+
           test -d vyos-1x/templates-cfg/service/clawgress
           test -f vyos-1x/templates-cfg/service/clawgress/node.def
           test -d vyos-1x/templates-op/show/clawgress
           test -f vyos-1x/templates-op/show/clawgress/status/node.def
           test -f vyos-1x/data/reftree.cache
           test -f vyos-1x/data/op_cache.json
+          test -f vyos-1x/python/vyos/xml_ref/pkg_cache/vyos_1x_cache.py
+          test -f vyos-1x/python/vyos/xml_ref/cache.py
+          test -f vyos-1x/python/vyos/xml_ref/op_cache.py
+          grep -q 'clawgress' vyos-1x/python/vyos/xml_ref/pkg_cache/vyos_1x_cache.py
+          grep -q 'clawgress' vyos-1x/python/vyos/xml_ref/cache.py
+          grep -q 'clawgress' vyos-1x/python/vyos/xml_ref/op_cache.py
           grep -q 'clawgress' vyos-1x/data/op_cache.json
 
       - name: Overlay generated Clawgress templates/cache into image
@@ -181,10 +199,12 @@ jobs:
           mkdir -p vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-op/templates/show/
           mkdir -p vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-op/templates/
           mkdir -p vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/
+          mkdir -p vyos-build/data/live-build-config/includes.chroot/usr/lib/python3/dist-packages/vyos/xml_ref/pkg_cache/
           mkdir -p vyos-build/data/live-build-config/includes.chroot/opt/clawgress-overlay/opt/vyatta/share/vyatta-cfg/templates/service/
           mkdir -p vyos-build/data/live-build-config/includes.chroot/opt/clawgress-overlay/opt/vyatta/share/vyatta-op/templates/show/
           mkdir -p vyos-build/data/live-build-config/includes.chroot/opt/clawgress-overlay/opt/vyatta/share/vyatta-op/templates/
           mkdir -p vyos-build/data/live-build-config/includes.chroot/opt/clawgress-overlay/usr/share/vyos/
+          mkdir -p vyos-build/data/live-build-config/includes.chroot/opt/clawgress-overlay/usr/lib/python3/dist-packages/vyos/xml_ref/pkg_cache/
           cp -r vyos-1x/templates-cfg/service/clawgress vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-cfg/templates/service/
           cp -r vyos-1x/templates-op/show/clawgress vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-op/templates/show/
           if [ -d vyos-1x/templates-op/clawgress ]; then
@@ -192,6 +212,9 @@ jobs:
           fi
           cp vyos-1x/data/reftree.cache vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/reftree.cache
           cp vyos-1x/data/op_cache.json vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/op_cache.json
+          cp vyos-1x/python/vyos/xml_ref/pkg_cache/vyos_1x_cache.py vyos-build/data/live-build-config/includes.chroot/usr/lib/python3/dist-packages/vyos/xml_ref/pkg_cache/
+          cp vyos-1x/python/vyos/xml_ref/cache.py vyos-build/data/live-build-config/includes.chroot/usr/lib/python3/dist-packages/vyos/xml_ref/cache.py
+          cp vyos-1x/python/vyos/xml_ref/op_cache.py vyos-build/data/live-build-config/includes.chroot/usr/lib/python3/dist-packages/vyos/xml_ref/op_cache.py
 
           # Copy generated templates/cache into late-overlay payload as well.
           cp -r vyos-1x/templates-cfg/service/clawgress vyos-build/data/live-build-config/includes.chroot/opt/clawgress-overlay/opt/vyatta/share/vyatta-cfg/templates/service/
@@ -201,11 +224,17 @@ jobs:
           fi
           cp vyos-1x/data/reftree.cache vyos-build/data/live-build-config/includes.chroot/opt/clawgress-overlay/usr/share/vyos/reftree.cache
           cp vyos-1x/data/op_cache.json vyos-build/data/live-build-config/includes.chroot/opt/clawgress-overlay/usr/share/vyos/op_cache.json
+          cp vyos-1x/python/vyos/xml_ref/pkg_cache/vyos_1x_cache.py vyos-build/data/live-build-config/includes.chroot/opt/clawgress-overlay/usr/lib/python3/dist-packages/vyos/xml_ref/pkg_cache/
+          cp vyos-1x/python/vyos/xml_ref/cache.py vyos-build/data/live-build-config/includes.chroot/opt/clawgress-overlay/usr/lib/python3/dist-packages/vyos/xml_ref/cache.py
+          cp vyos-1x/python/vyos/xml_ref/op_cache.py vyos-build/data/live-build-config/includes.chroot/opt/clawgress-overlay/usr/lib/python3/dist-packages/vyos/xml_ref/op_cache.py
 
           test -d vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-cfg/templates/service/clawgress
           test -d vyos-build/data/live-build-config/includes.chroot/opt/vyatta/share/vyatta-op/templates/show/clawgress
           test -f vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/reftree.cache
           test -f vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/op_cache.json
+          test -f vyos-build/data/live-build-config/includes.chroot/usr/lib/python3/dist-packages/vyos/xml_ref/pkg_cache/vyos_1x_cache.py
+          test -f vyos-build/data/live-build-config/includes.chroot/usr/lib/python3/dist-packages/vyos/xml_ref/cache.py
+          test -f vyos-build/data/live-build-config/includes.chroot/usr/lib/python3/dist-packages/vyos/xml_ref/op_cache.py
 
           # Finalize hook to force-overlay Clawgress payload after package install.
           mkdir -p vyos-build/data/live-build-config/hooks/normal
@@ -219,18 +248,6 @@ jobs:
           fi
 
           cp -a "${OVERLAY_ROOT}/." /
-
-          # Rebuild XML reference caches from the final overlaid definitions.
-          # This avoids configd crashes when template/XML overlays and cache
-          # artifacts are out of sync.
-          python3 /usr/lib/python3/dist-packages/vyos/xml_ref/generate_cache.py \
-            --xml-dir /usr/share/vyos/interface-definitions \
-            --internal-cache /usr/share/vyos/reftree.cache \
-            --package-name vyos-1x
-          python3 /usr/lib/python3/dist-packages/vyos/xml_ref/update_cache.py
-          python3 /usr/lib/python3/dist-packages/vyos/xml_ref/generate_op_cache.py \
-            --xml-dir /usr/share/vyos/op-mode-definitions \
-            --export-json /usr/share/vyos/op_cache.json
 
           test -f /usr/libexec/vyos/op_mode/clawgress.py
           test -f /usr/libexec/vyos/conf_mode/clawgress.py
