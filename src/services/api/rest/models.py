@@ -26,6 +26,8 @@ from typing import Union
 from typing import Dict
 from typing import Self
 from typing import Any
+from typing import ClassVar
+from typing import Pattern
 
 from pydantic import BaseModel
 from pydantic import StrictStr
@@ -164,14 +166,14 @@ class ClawgressPolicyModel(ApiModel):
     policy: Dict
     apply: StrictBool = True
 
-    _domain_re = re.compile(
+    _domain_re: ClassVar[Pattern[str]] = re.compile(
         r'^(?:\*\.)?(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$',
         re.IGNORECASE,
     )
-    _host_name_re = re.compile(r'^[A-Za-z0-9_.-]{1,64}$')
-    _label_re = re.compile(r'^[A-Za-z0-9_-]{1,64}$')
-    _time_re = re.compile(r'^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$')
-    _time_periods = {'second', 'minute', 'hour', 'day'}
+    _host_name_re: ClassVar[Pattern[str]] = re.compile(r'^[A-Za-z0-9_.-]{1,64}$')
+    _label_re: ClassVar[Pattern[str]] = re.compile(r'^[A-Za-z0-9_-]{1,64}$')
+    _time_re: ClassVar[Pattern[str]] = re.compile(r'^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$')
+    _time_periods: ClassVar[set[str]] = {'second', 'minute', 'hour', 'day'}
 
     @classmethod
     def _validate_domain(cls, domain: str, field_name: str) -> None:
