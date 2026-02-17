@@ -82,7 +82,7 @@ class TestClawgressFirewallApply(unittest.TestCase):
                 'api.openai.com': {'days': ['fri'], 'start': '10:00', 'end': '11:00'}
             },
         )
-        self.assertIn('tls sni "api.openai.com"', output)
+        self.assertIn('tls sni . "api.openai.com"', output)
         self.assertIn('meta day { Friday }', output)
         self.assertIn('meta hour "10:00"-"11:00"', output)
 
