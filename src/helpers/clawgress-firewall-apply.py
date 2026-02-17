@@ -117,26 +117,26 @@ def normalize_sni_domains(domains):
     return sorted(set(normalized))
 
 
-DAY_ORDER = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+DAY_ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 DAY_INDEX = {day: idx for idx, day in enumerate(DAY_ORDER)}
 DAY_ALIASES = {
-    'mon': 'Mon',
-    'monday': 'Mon',
-    'tue': 'Tue',
-    'tues': 'Tue',
-    'tuesday': 'Tue',
-    'wed': 'Wed',
-    'wednesday': 'Wed',
-    'thu': 'Thu',
-    'thur': 'Thu',
-    'thurs': 'Thu',
-    'thursday': 'Thu',
-    'fri': 'Fri',
-    'friday': 'Fri',
-    'sat': 'Sat',
-    'saturday': 'Sat',
-    'sun': 'Sun',
-    'sunday': 'Sun',
+    'mon': 'Monday',
+    'monday': 'Monday',
+    'tue': 'Tuesday',
+    'tues': 'Tuesday',
+    'tuesday': 'Tuesday',
+    'wed': 'Wednesday',
+    'wednesday': 'Wednesday',
+    'thu': 'Thursday',
+    'thur': 'Thursday',
+    'thurs': 'Thursday',
+    'thursday': 'Thursday',
+    'fri': 'Friday',
+    'friday': 'Friday',
+    'sat': 'Saturday',
+    'saturday': 'Saturday',
+    'sun': 'Sunday',
+    'sunday': 'Sunday',
 }
 TIME_RE = re.compile(r'^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$')
 TIME_UNITS = {'second', 'minute', 'hour', 'day'}
@@ -241,7 +241,7 @@ def render_time_clause(window):
     clauses = []
     days = window.get('days') or []
     if days:
-        day_values = ', '.join(f'"{day}"' for day in days)
+        day_values = ', '.join(day for day in days)
         clauses.append(f'meta day {{ {day_values} }}')
     start = window.get('start')
     end = window.get('end')

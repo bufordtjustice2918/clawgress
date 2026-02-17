@@ -324,8 +324,12 @@ def apply(clawgress):
     _run_apply_step(f'{APPLY_BIN}', f'Clawgress apply failed: {APPLY_BIN}')
     _run_apply_step(f'{FIREWALL_APPLY_BIN}', f'Clawgress apply failed: {FIREWALL_APPLY_BIN}')
 
-    # Ensure bind9 is running
-    _run_apply_step('systemctl enable --now bind9', 'Clawgress apply failed: unable to enable/start bind9')
+    # Ensure resolver service is running; bind9.service can be an alias on
+    # some images and "enable" may fail for aliases.
+    _run_apply_step(
+        'systemctl enable --now named || systemctl restart bind9 || systemctl restart named',
+        'Clawgress apply failed: unable to enable/start bind9',
+    )
 
     policy_hash = _compute_policy_hash()
     verification = _verify_runtime_state(policy_hash)

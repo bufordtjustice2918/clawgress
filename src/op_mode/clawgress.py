@@ -108,7 +108,7 @@ def apply_policy(policy_path: str | None) -> None:
             })
             raise RuntimeError(f'{FIREWALL_APPLY_BIN} failed with rc={rc}')
 
-    rc = call('systemctl enable --now bind9')
+    rc = call('systemctl enable --now named || systemctl restart bind9 || systemctl restart named')
     if rc != 0:
         _write_apply_state({
             'timestamp': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),

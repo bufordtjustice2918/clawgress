@@ -68,7 +68,7 @@ class TestClawgressFirewallApply(unittest.TestCase):
             policy_hash='deadbeef',
             time_window={'days': ['mon', 'tue'], 'start': '09:00', 'end': '17:00'},
         )
-        self.assertIn('meta day { "Mon", "Tue" }', output)
+        self.assertIn('meta day { Monday, Tuesday }', output)
         self.assertIn('meta hour "09:00"-"17:00"', output)
 
     def test_render_nft_domain_time_window(self):
@@ -83,7 +83,7 @@ class TestClawgressFirewallApply(unittest.TestCase):
             },
         )
         self.assertIn('tls sni "api.openai.com"', output)
-        self.assertIn('meta day { "Fri" }', output)
+        self.assertIn('meta day { Friday }', output)
         self.assertIn('meta hour "10:00"-"11:00"', output)
 
     def test_render_nft_host_policy(self):
