@@ -11,6 +11,7 @@ USE_KVM=1
 FORCE_KVM=0
 KEEP_LAB=0
 KEEP_ARTIFACTS=0
+CLAWGRESS_E2E=0
 
 QEMU_LOCK_FILE="/run/lock/clawgress-qemu-netlab.lock"
 QEMU_PROCESS_PATTERN='qemu-system-.*clawgress-(local-test|cmd-suite|smoke-test|net-lab)'
@@ -55,6 +56,7 @@ Options:
   --force-kvm          Require KVM and fail if unavailable
   --keep-lab           Keep VM + netns/bridge alive after script finishes
   --keep-artifacts     Keep temp workdir/logs under /tmp
+  --clawgress-e2e      Enable Clawgress policy, validate allow/deny, then disable and re-validate
   -h, --help           Show help
 
 Examples:
@@ -193,6 +195,10 @@ while [[ $# -gt 0 ]]; do
             KEEP_ARTIFACTS=1
             shift
             ;;
+        --clawgress-e2e)
+            CLAWGRESS_E2E=1
+            shift
+            ;;
         -h|--help)
             usage
             exit 0
@@ -206,6 +212,93 @@ done
 [[ -n "${ISO_FILE}" ]] || fail "--iso is required"
 [[ -f "${ISO_FILE}" ]] || fail "ISO not found: ${ISO_FILE}"
 [[ ${EUID} -eq 0 ]] || fail "Run as root (sudo) so the script can create netns/bridge/tap"
+
+run_vyos_serial_commands() {
+    local label="$1"
+    local commands="$2"
+    log "${label}"
+
+    SERIAL_PTY_PATH="${SERIAL_PTY_PATH}" \
+    SERIAL_SESSION_LOG="${SERIAL_SESSION_LOG}" \
+    BOOT_TIMEOUT="${BOOT_TIMEOUT}" \
+    COMMIT_TIMEOUT="${COMMIT_TIMEOUT}" \
+    COMMANDS_PAYLOAD="${commands}" \
+    python3 - <<'PY'
+import os
+import re
+import pexpect
+import pexpect.fdpexpect
+
+serial_pty = os.environ["SERIAL_PTY_PATH"]
+serial_log_path = os.environ["SERIAL_SESSION_LOG"]
+boot_timeout = int(os.environ["BOOT_TIMEOUT"])
+commit_timeout = int(os.environ["COMMIT_TIMEOUT"])
+commands = [line.strip() for line in os.environ["COMMANDS_PAYLOAD"].splitlines() if line.strip()]
+
+PROMPT_RE = r"(?m)^[^\r\n]*@[^\r\n]*(?::[^\r\n]*)?[$#] ?$"
+LOGIN_RE = r"(?i)login:"
+PASSWORD_RE = r"(?i)password:"
+
+fd = os.open(serial_pty, os.O_RDWR | os.O_NOCTTY)
+child = pexpect.fdpexpect.fdspawn(fd, encoding="utf-8", timeout=boot_timeout)
+
+with open(serial_log_path, "a", encoding="utf-8") as serial_log:
+    child.logfile = serial_log
+    child.sendline("")
+    idx = child.expect([PROMPT_RE, LOGIN_RE], timeout=boot_timeout)
+    if idx == 1:
+        child.sendline("vyos")
+        child.expect(PASSWORD_RE, timeout=60)
+        child.sendline("vyos")
+        child.expect(PROMPT_RE, timeout=90)
+
+    for cmd in commands:
+        child.sendline(cmd)
+        timeout = commit_timeout if cmd == "commit" else 120
+        child.expect(PROMPT_RE, timeout=timeout)
+
+os.close(fd)
+PY
+}
+
+dns_status() {
+    local server="$1"
+    local domain="$2"
+    local output status
+    output="$(ip netns exec "${NETNS}" dig +time=3 +tries=1 @"${server}" "${domain}" A 2>&1 || true)"
+    status="$(printf '%s\n' "${output}" | sed -n 's/.*status: \([A-Z]*\).*/\1/p' | head -n 1)"
+    printf '%s\n' "${status}"
+}
+
+assert_dns_allowed() {
+    local server="$1"
+    local domain="$2"
+    local status=""
+    for _ in $(seq 1 12); do
+        status="$(dns_status "${server}" "${domain}")"
+        if [[ "${status}" == "NOERROR" ]]; then
+            log "PASS: ${domain} resolved via ${server}"
+            return 0
+        fi
+        sleep 2
+    done
+    fail "Expected ${domain} to resolve via ${server}, last status='${status:-none}'"
+}
+
+assert_dns_blocked() {
+    local server="$1"
+    local domain="$2"
+    local status=""
+    for _ in $(seq 1 12); do
+        status="$(dns_status "${server}" "${domain}")"
+        if [[ -n "${status}" && "${status}" != "NOERROR" ]]; then
+            log "PASS: ${domain} blocked via ${server} (status=${status})"
+            return 0
+        fi
+        sleep 2
+    done
+    fail "Expected ${domain} to be blocked via ${server}, last status='${status:-none}'"
+}
 
 need_cmd qemu-system-x86_64
 need_cmd qemu-img
@@ -407,6 +500,45 @@ if command -v curl >/dev/null 2>&1; then
     fi
 else
     log "curl not installed; skipping HTTP connectivity check"
+fi
+
+if [[ ${CLAWGRESS_E2E} -eq 1 ]]; then
+    run_vyos_serial_commands "Enabling Clawgress policy for E2E validation" "$(cat <<'CMDS'
+configure
+set service clawgress enable
+set service clawgress listen-address 127.0.0.1
+set service clawgress policy domain api.openai.com label llm_provider
+set service clawgress policy domain api.anthropic.com label llm_provider
+set service clawgress policy proxy mode sni-allowlist
+set service clawgress policy proxy domain api.openai.com
+set service clawgress policy proxy domain api.anthropic.com
+commit
+save
+exit
+CMDS
+)"
+
+    log "Clawgress ON: validating allowlist/deny behavior via LAN resolver"
+    assert_dns_allowed "${LAN_GW_IP}" "api.openai.com"
+    assert_dns_allowed "${LAN_GW_IP}" "api.anthropic.com"
+    assert_dns_blocked "${LAN_GW_IP}" "github.com"
+    assert_dns_blocked "${LAN_GW_IP}" "google.com"
+    assert_dns_blocked "${LAN_GW_IP}" "trello.com"
+
+    run_vyos_serial_commands "Disabling Clawgress policy for E2E validation" "$(cat <<'CMDS'
+configure
+delete service clawgress
+commit
+save
+exit
+CMDS
+)"
+
+    log "Clawgress OFF: validating normal DNS behavior restored"
+    assert_dns_allowed "${LAN_GW_IP}" "api.openai.com"
+    assert_dns_allowed "${LAN_GW_IP}" "github.com"
+    assert_dns_allowed "${LAN_GW_IP}" "google.com"
+    assert_dns_allowed "${LAN_GW_IP}" "trello.com"
 fi
 
 log "Lab validation complete"
