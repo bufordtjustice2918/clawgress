@@ -285,6 +285,21 @@ assert_dns_allowed() {
     fail "Expected ${domain} to resolve via ${server}, last status='${status:-none}'"
 }
 
+wait_dns_settle() {
+    local server="$1"
+    local domain="${2:-example.com}"
+    local status=""
+    for _ in $(seq 1 20); do
+        status="$(dns_status "${server}" "${domain}")"
+        if [[ "${status}" == "NOERROR" ]]; then
+            return 0
+        fi
+        sleep 2
+    done
+    log "WARN: DNS settle check for ${domain} via ${server} did not reach NOERROR (last=${status:-none})"
+    return 0
+}
+
 assert_dns_blocked() {
     local server="$1"
     local domain="$2"
@@ -298,6 +313,63 @@ assert_dns_blocked() {
         sleep 2
     done
     fail "Expected ${domain} to be blocked via ${server}, last status='${status:-none}'"
+}
+
+next_day_token() {
+    local today idx
+    today="$(date +%u)"
+    idx=$((today % 7))
+    case "${idx}" in
+        0) echo "mon" ;;
+        1) echo "tue" ;;
+        2) echo "wed" ;;
+        3) echo "thu" ;;
+        4) echo "fri" ;;
+        5) echo "sat" ;;
+        6) echo "sun" ;;
+        *) echo "sun" ;;
+    esac
+}
+
+assert_api_success() {
+    local endpoint="$1"
+    local payload="$2"
+    local response=""
+    local path
+    local last_response=""
+
+    for path in "/api/${endpoint}" "/${endpoint}"; do
+        response="$(ip netns exec "${NETNS}" curl -ksS --max-time 15 \
+            -X POST "https://${LAN_GW_IP}${path}" \
+            -H "Content-Type: application/json" \
+            -d "${payload}" || true)"
+        last_response="${response}"
+        if printf '%s\n' "${response}" | grep -Eq '"success"[[:space:]]*:[[:space:]]*true'; then
+            log "PASS: API ${endpoint} returned success=true via ${path}"
+            return 0
+        fi
+    done
+
+    fail "API endpoint ${endpoint} failed on all known paths. Last response: ${last_response}"
+}
+
+wait_api_ready() {
+    local body=""
+    for _ in $(seq 1 30); do
+        body="$(ip netns exec "${NETNS}" curl -ksS --max-time 8 "https://${LAN_GW_IP}/openapi.json" || true)"
+        if printf '%s\n' "${body}" | grep -q '"openapi"'; then
+            log "PASS: HTTPS API listener is ready at /openapi.json"
+            return 0
+        fi
+
+        body="$(ip netns exec "${NETNS}" curl -ksS --max-time 8 "https://${LAN_GW_IP}/api/openapi.json" || true)"
+        if printf '%s\n' "${body}" | grep -q '"openapi"'; then
+            log "PASS: HTTPS API listener is ready at /api/openapi.json"
+            return 0
+        fi
+        sleep 2
+    done
+    fail "HTTPS API listener did not report OpenAPI schema on known paths"
 }
 
 need_cmd qemu-system-x86_64
@@ -503,20 +575,52 @@ else
 fi
 
 if [[ ${CLAWGRESS_E2E} -eq 1 ]]; then
+    BLOCK_DAY="$(next_day_token)"
+
     run_vyos_serial_commands "Enabling Clawgress policy for E2E validation" "$(cat <<'CMDS'
 configure
 set service clawgress enable
 set service clawgress listen-address 127.0.0.1
 set service clawgress policy domain api.openai.com label llm_provider
 set service clawgress policy domain api.anthropic.com label llm_provider
+set service clawgress policy domain api.slack.com label llm_provider
 set service clawgress policy proxy mode sni-allowlist
 set service clawgress policy proxy domain api.openai.com
 set service clawgress policy proxy domain api.anthropic.com
+set service https api
+set service https api rest
+set service https listen-address 0.0.0.0
+set service https api keys id id_key key id_key
 commit
 save
 exit
 CMDS
 )"
+
+    run_vyos_serial_commands "Applying restrictive time-window test (${BLOCK_DAY})" "$(cat <<CMDS
+configure
+set service clawgress policy time-window day ${BLOCK_DAY}
+set service clawgress policy time-window start 00:00
+set service clawgress policy time-window end 00:01
+commit
+save
+exit
+CMDS
+)"
+
+    log "Clawgress ON + out-of-window: validating allow domain is blocked by time-window"
+    assert_dns_blocked "${LAN_GW_IP}" "api.slack.com"
+
+    run_vyos_serial_commands "Removing restrictive time-window test" "$(cat <<'CMDS'
+configure
+delete service clawgress policy time-window
+commit
+save
+exit
+CMDS
+)"
+
+    wait_dns_settle "${LAN_GW_IP}" "example.com"
 
     log "Clawgress ON: validating allowlist/deny behavior via LAN resolver"
     assert_dns_allowed "${LAN_GW_IP}" "api.openai.com"
@@ -524,6 +628,17 @@ CMDS
     assert_dns_blocked "${LAN_GW_IP}" "github.com"
     assert_dns_blocked "${LAN_GW_IP}" "google.com"
     assert_dns_blocked "${LAN_GW_IP}" "trello.com"
+
+    run_vyos_serial_commands "Capturing HTTPS API config state" "$(cat <<'CMDS'
+show configuration commands | match "service https"
+CMDS
+)"
+    wait_api_ready
+
+    log "Clawgress ON: validating REST API paths"
+    assert_api_success "clawgress/health" '{"key":"id_key"}'
+    assert_api_success "clawgress/telemetry" '{"key":"id_key"}'
+    assert_api_success "clawgress/policy" '{"key":"id_key","apply":false,"policy":{"version":1,"allow":{"domains":["api.openai.com","api.anthropic.com"],"ports":[443]},"labels":{"api.openai.com":"llm_provider","api.anthropic.com":"llm_provider"}}}'
 
     run_vyos_serial_commands "Disabling Clawgress policy for E2E validation" "$(cat <<'CMDS'
 configure
