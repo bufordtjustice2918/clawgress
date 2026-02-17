@@ -4,6 +4,8 @@ set -euo pipefail
 WORKFLOW="build-images.yml"
 RUN_ID=""
 BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo mvpv2)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 REPO_OVERRIDE=""
 ISO_PATH=""
 DOWNLOAD_DIR=""
@@ -179,11 +181,11 @@ fi
 set +e
 if [[ ${FORCE_KVM} -eq 1 && -e /dev/kvm && ! -w /dev/kvm && -x "$(command -v sg)" ]]; then
   log "Running command suite via 'sg kvm' for /dev/kvm access"
-  CMD_STR="$(printf '%q ' python3 "$(dirname "$0")/test-iso-commands.py" "${CMD_ARGS[@]}")"
-  sg kvm -c "cd $(printf '%q' "$(pwd)") && ${CMD_STR}" | tee "${OUT_DIR}/cmdsuite.stdout.log"
+  CMD_STR="$(printf '%q ' python3 "${SCRIPT_DIR}/test-iso-commands.py" "${CMD_ARGS[@]}")"
+  sg kvm -c "cd $(printf '%q' "${REPO_ROOT}") && ${CMD_STR}" | tee "${OUT_DIR}/cmdsuite.stdout.log"
   CMD_RC=$?
 else
-  python3 "$(dirname "$0")/test-iso-commands.py" "${CMD_ARGS[@]}" | tee "${OUT_DIR}/cmdsuite.stdout.log"
+  python3 "${SCRIPT_DIR}/test-iso-commands.py" "${CMD_ARGS[@]}" | tee "${OUT_DIR}/cmdsuite.stdout.log"
   CMD_RC=$?
 fi
 set -e
@@ -194,11 +196,11 @@ if [[ ${FORCE_KVM} -eq 1 ]]; then
 fi
 
 set +e
-sudo "$(dirname "$0")/test-iso-network-lab.sh" "${NET_ARGS[@]}" 2>&1 | tee "${NET_LOG}"
+sudo "${SCRIPT_DIR}/test-iso-network-lab.sh" "${NET_ARGS[@]}" 2>&1 | tee "${NET_LOG}"
 NET_RC=$?
 set -e
 
-python3 - <<'PY' "${CMD_LOG_DIR}/summary.json" "${NET_LOG}" "${REPORT_JSON}" "${REPORT_MD}" "${CMD_RC}" "${NET_RC}" "${ISO_PATH}" "/home/kavan/Documents/dev/clawgress/README.md"
+python3 - <<'PY' "${CMD_LOG_DIR}/summary.json" "${NET_LOG}" "${REPORT_JSON}" "${REPORT_MD}" "${CMD_RC}" "${NET_RC}" "${ISO_PATH}" "${REPO_ROOT}/README.md"
 import json
 import re
 import sys
