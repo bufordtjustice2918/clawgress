@@ -15,16 +15,58 @@ import pexpect
 import pexpect.fdpexpect
 
 
-DEFAULT_COMMANDS = [
+DEFAULT_SMOKE_COMMANDS = [
     "show clawgress status",
     "show clawgress telemetry",
     "show clawgress firewall",
     "show clawgress rpz",
 ]
+DEFAULT_MVP_FULL_COMMANDS = [
+    "RAW: configure",
+    "RAW: delete service clawgress",
+    "RAW: set service clawgress enable",
+    "RAW: set service clawgress listen-address 127.0.0.1",
+    "RAW: set service clawgress policy domain api.openai.com label llm_provider",
+    "RAW: set service clawgress policy domain api.anthropic.com label llm_provider",
+    "RAW: set service clawgress policy ip 1.1.1.1/32",
+    "RAW: set service clawgress policy port 443",
+    "RAW: set service clawgress policy time-window day mon",
+    "RAW: set service clawgress policy time-window start 09:00",
+    "RAW: set service clawgress policy time-window end 17:00",
+    "RAW: set service clawgress policy rate-limit-kbps 8000",
+    "RAW: set service clawgress policy proxy mode sni-allowlist",
+    "RAW: set service clawgress policy proxy domain api.openai.com",
+    "RAW: set service clawgress policy host agent1 source 192.168.10.10/32",
+    "RAW: set service clawgress policy host agent1 proxy mode sni-allowlist",
+    "RAW: set service clawgress policy host agent1 proxy domain api.openai.com",
+    "RAW: set service clawgress policy host agent1 exfil domain api.openai.com bytes 1048576",
+    "RAW: set service clawgress policy host agent1 exfil domain api.openai.com period hour",
+    "RAW: commit",
+    "RAW: save",
+    "RAW: exit",
+    "show configuration commands | match service clawgress | no-more",
+    "show clawgress policy show | no-more",
+    "show clawgress policy apply | no-more",
+    "show clawgress status | no-more",
+    "show clawgress status | no-more | grep -q '\"policy_present\": true'",
+    "show clawgress status | no-more | grep -q '\"rpz_allow_present\": true'",
+    "show clawgress status | no-more | grep -q '\"nft_table_present\": true'",
+    "show clawgress telemetry | no-more",
+    "show clawgress firewall | no-more",
+    "show clawgress rpz | no-more",
+]
+DEFAULT_FAIL_PATTERNS = [
+    r"(?im)^\s*Invalid command:",
+    r"(?im)\bTable not found\b",
+    r"(?im)\bRPZ not configured\b",
+    r"(?im)\bCommit failed\b",
+    r"(?im)\bSet failed\b",
+    r"(?im)\bConfiguration path: .* is not valid\b",
+]
 QEMU_LOCK_FILE = "/tmp/clawgress-qemu.lock"
 QEMU_PROCESS_PATTERN = r"qemu-system-.*clawgress-(local-test|cmd-suite|smoke-test)"
 
-PROMPT_RE = r"(?m)^[^\r\n]*@[^\r\n]*:[^\r\n]*[$#] ?$"
+PROMPT_RE = r"(?m)^[^\r\n]*@[^\r\n]*(?::[^\r\n]*)?[$#] ?$"
 LOGIN_RE = r"(?i)login:"
 PASSWORD_RE = r"(?i)password:"
 KVM_FAIL_RE = r"failed to initialize kvm|Could not access KVM kernel module"
@@ -75,9 +117,11 @@ def qemu_cmd(
     return cmd
 
 
-def load_commands(commands_file: str | None) -> list[str]:
+def load_commands(commands_file: str | None, suite: str) -> list[str]:
     if not commands_file:
-        return list(DEFAULT_COMMANDS)
+        if suite == "mvp-full":
+            return list(DEFAULT_MVP_FULL_COMMANDS)
+        return list(DEFAULT_SMOKE_COMMANDS)
     lines = []
     with open(commands_file, "r", encoding="utf-8") as handle:
         for raw in handle:
@@ -99,7 +143,11 @@ def run_suite(args: argparse.Namespace) -> int:
     if shutil.which("qemu-img") is None:
         fail("Missing required command: qemu-img")
 
-    commands = load_commands(args.commands_file)
+    commands = load_commands(args.commands_file, args.suite)
+    fail_patterns = []
+    if not args.no_default_fail_patterns:
+        fail_patterns.extend(DEFAULT_FAIL_PATTERNS)
+    fail_patterns.extend(args.fail_on_pattern or [])
 
     lock_handle = open(QEMU_LOCK_FILE, "w", encoding="utf-8")
     try:
@@ -174,6 +222,7 @@ def run_suite(args: argparse.Namespace) -> int:
         "workdir": str(workdir),
         "login": {"success": False, "used_kvm": use_kvm, "fallback_to_software": False},
         "commands": [],
+        "diagnostics": [],
         "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "ended_at": None,
     }
@@ -329,16 +378,86 @@ def run_suite(args: argparse.Namespace) -> int:
         child.sendline(args.password)
         child.expect(PROMPT_RE, timeout=args.cmd_timeout)
 
+        def collect_commit_diagnostics() -> None:
+            diag_commands = [
+                "show configuration commands | match service clawgress | no-more",
+                "show configuration commands | no-more",
+                "sudo tail -n 120 /var/log/messages",
+            ]
+            for diag_cmd in diag_commands:
+                diag_entry = {"command": diag_cmd, "status": "pass", "output_tail": ""}
+                try:
+                    child.sendline(diag_cmd)
+                    child.expect(PROMPT_RE, timeout=60)
+                    diag_output = child.before or ""
+                    diag_entry["output_tail"] = "\n".join(diag_output.strip().splitlines()[-40:])
+                except Exception as exc:
+                    diag_entry["status"] = "fail"
+                    diag_entry["output_tail"] = f"diagnostic collection failed: {exc}"
+                summary["diagnostics"].append(diag_entry)
+
+        stop_after_failure = False
         for cmd_text in commands:
+            if stop_after_failure:
+                break
+            raw_mode = False
+            effective_cmd = cmd_text
+            if cmd_text.startswith("RAW: "):
+                raw_mode = True
+                effective_cmd = cmd_text[len("RAW: "):].strip()
+            if (not raw_mode) and cmd_text.strip().startswith("show ") and "| no-more" not in cmd_text:
+                effective_cmd = f"{cmd_text} | no-more"
             marker = f"__CMD_RC__{uuid.uuid4().hex}__"
-            wrapped = f"if {cmd_text}; then echo {marker}0; else echo {marker}1; fi"
             log(f"Running: {cmd_text}")
-            child.sendline(wrapped)
-            child.expect(PROMPT_RE, timeout=args.cmd_timeout)
+            if raw_mode:
+                child.sendline(effective_cmd)
+            else:
+                wrapped = f"if {effective_cmd}; then echo {marker}0; else echo {marker}1; fi"
+                child.sendline(wrapped)
+            expect_timeout = args.cmd_timeout
+            if raw_mode and effective_cmd == "commit":
+                expect_timeout = args.commit_timeout
+            try:
+                child.expect(PROMPT_RE, timeout=expect_timeout)
+                timed_out = False
+            except pexpect.TIMEOUT:
+                timed_out = True
             output = child.before or ""
-            rc_matches = re.findall(rf"{re.escape(marker)}(\d+)", output)
-            rc = int(rc_matches[-1]) if rc_matches else 999
+            if timed_out:
+                rc = 124
+                matched_patterns = ["timeout"]
+                if raw_mode and effective_cmd == "commit":
+                    log("Commit timed out; attempting interrupt and diagnostics")
+                    try:
+                        child.sendcontrol("c")
+                        child.expect(PROMPT_RE, timeout=30)
+                    except Exception:
+                        pass
+                    collect_commit_diagnostics()
+                status = "fail"
+                summary["commands"].append(
+                    {
+                        "command": cmd_text,
+                        "rc": rc,
+                        "status": status,
+                        "matched_fail_patterns": matched_patterns,
+                        "output_tail": "\n".join(output.strip().splitlines()[-30:]),
+                    }
+                )
+                stop_after_failure = True
+                continue
+            if raw_mode:
+                rc = 0
+            else:
+                rc_matches = re.findall(rf"{re.escape(marker)}(\d+)", output)
+                rc = int(rc_matches[-1]) if rc_matches else 999
             if re.search(INVALID_CMD_RE, output):
+                rc = 1
+            matched_patterns = []
+            for pattern in fail_patterns:
+                if re.search(pattern, output):
+                    matched_patterns.append(pattern)
+            if matched_patterns:
                 rc = 1
             status = "pass" if rc == 0 else "fail"
             summary["commands"].append(
@@ -346,6 +465,7 @@ def run_suite(args: argparse.Namespace) -> int:
                     "command": cmd_text,
                     "rc": rc,
                     "status": status,
+                    "matched_fail_patterns": matched_patterns,
                     "output_tail": "\n".join(output.strip().splitlines()[-30:]),
                 }
             )
@@ -437,10 +557,32 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--password", default="vyos", help="Login password (default: vyos)")
     parser.add_argument("--boot-timeout", type=int, default=300, help="Seconds to wait for login prompt")
     parser.add_argument("--cmd-timeout", type=int, default=180, help="Seconds to wait per command")
+    parser.add_argument(
+        "--commit-timeout",
+        type=int,
+        default=420,
+        help="Seconds to wait for commit command before collecting diagnostics",
+    )
     parser.add_argument("--ram-mb", type=int, default=2048, help="VM memory in MB")
     parser.add_argument("--cpus", type=int, default=2, help="VM CPU count")
     parser.add_argument("--disk-size", default="10G", help="QCOW2 disk size")
     parser.add_argument("--commands-file", help="Optional newline-delimited shell commands")
+    parser.add_argument(
+        "--suite",
+        choices=["smoke", "mvp-full"],
+        default="smoke",
+        help="Built-in command suite when --commands-file is not provided",
+    )
+    parser.add_argument(
+        "--fail-on-pattern",
+        action="append",
+        help="Regex pattern that marks a command as failed if matched in output (repeatable)",
+    )
+    parser.add_argument(
+        "--no-default-fail-patterns",
+        action="store_true",
+        help="Disable built-in fail patterns (Invalid command/Table not found/RPZ not configured)",
+    )
     parser.add_argument("--log-dir", help="Directory to store logs/artifacts")
     parser.add_argument(
         "--cleanup-on-success",
