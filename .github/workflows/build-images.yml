@@ -278,12 +278,14 @@ jobs:
           trap 'rm -rf "${WORKDIR}"' EXIT
           bsdtar -xf "${ISO_FILE}" -C "${WORKDIR}" live/filesystem.squashfs
           SQ="${WORKDIR}/live/filesystem.squashfs"
+          SQ_LIST="${WORKDIR}/squashfs.list"
+          unsquashfs -lln "${SQ}" > "${SQ_LIST}"
 
-          unsquashfs -lln "${SQ}" | grep -q 'squashfs-root/usr/libexec/vyos/op_mode/clawgress.py'
-          unsquashfs -lln "${SQ}" | grep -q 'squashfs-root/usr/libexec/vyos/conf_mode/clawgress.py'
-          unsquashfs -lln "${SQ}" | grep -q 'squashfs-root/opt/vyatta/share/vyatta-op/templates/show/clawgress'
-          unsquashfs -lln "${SQ}" | grep -q 'squashfs-root/opt/vyatta/share/vyatta-cfg/templates/service/clawgress'
-          unsquashfs -lln "${SQ}" | grep -q 'squashfs-root/usr/share/vyos/op_cache.json'
+          grep -q 'squashfs-root/usr/libexec/vyos/op_mode/clawgress.py' "${SQ_LIST}"
+          grep -q 'squashfs-root/usr/libexec/vyos/conf_mode/clawgress.py' "${SQ_LIST}"
+          grep -q 'squashfs-root/opt/vyatta/share/vyatta-op/templates/show/clawgress' "${SQ_LIST}"
+          grep -q 'squashfs-root/opt/vyatta/share/vyatta-cfg/templates/service/clawgress' "${SQ_LIST}"
+          grep -q 'squashfs-root/usr/share/vyos/op_cache.json' "${SQ_LIST}"
           unsquashfs -cat "${SQ}" /usr/share/vyos/op_cache.json | grep -q 'clawgress'
 
       - name: Remove live-build ISO
