@@ -226,6 +226,7 @@ run_vyos_serial_commands() {
     python3 - <<'PY'
 import os
 import re
+import sys
 import pexpect
 import pexpect.fdpexpect
 
@@ -256,6 +257,13 @@ with open(serial_log_path, "a", encoding="utf-8") as serial_log:
         child.sendline(cmd)
         timeout = commit_timeout if cmd == "commit" else 120
         child.expect(PROMPT_RE, timeout=timeout)
+        if cmd.strip() == "commit":
+            output = child.before or ""
+            lowered = output.lower()
+            if "commit failed" in lowered or "clawgress apply verification failed" in lowered:
+                print("Detected commit failure while applying serial commands.", file=sys.stderr)
+                print(output, file=sys.stderr)
+                raise SystemExit(1)
 
 os.close(fd)
 PY
@@ -676,6 +684,13 @@ set service clawgress policy proxy backend haproxy
 commit
 save
 exit
+CMDS
+)"
+
+    run_vyos_serial_commands "Collecting haproxy backend diagnostics" "$(cat <<'CMDS'
+show clawgress status | no-more
+sudo systemctl status haproxy --no-pager -l
+sudo journalctl -u haproxy.service --no-pager -n 120
 CMDS
 )"
 
