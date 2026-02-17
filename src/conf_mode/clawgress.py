@@ -95,7 +95,7 @@ def _write_apply_state(state: dict) -> None:
     )
 
 
-def _verify_runtime_state(policy_hash: str | None) -> dict:
+def _verify_runtime_state(policy_hash: str | None, expected_proxy_backend: str | None = None) -> dict:
     bind9_active = False
     rc, output = rc_cmd('systemctl is-active bind9 2>/dev/null || true')
     if rc == 0:
@@ -135,6 +135,9 @@ def _verify_runtime_state(policy_hash: str | None) -> dict:
         'nft_dns_redirect_present': dns_redirect_present,
         'nft_policy_hash_present': policy_hash_present,
     }
+    if expected_proxy_backend == 'haproxy':
+        rc, output = rc_cmd('systemctl is-active haproxy 2>/dev/null || true')
+        checks['haproxy_active'] = rc == 0 and output.strip() == 'active'
     failed_checks = sorted([name for name, ok in checks.items() if not ok])
 
     return {
@@ -182,6 +185,13 @@ def verify(clawgress):
         domains = policy.get('domain', {})
         if not domains:
             raise ConfigError('At least one domain must be configured when Clawgress is enabled')
+
+        proxy_cfg = policy.get('proxy', {}) if isinstance(policy, dict) else {}
+        if isinstance(proxy_cfg, dict):
+            backend = proxy_cfg.get('backend')
+            mode = proxy_cfg.get('mode')
+            if backend in ('haproxy', 'nginx') and mode != 'sni-allowlist':
+                raise ConfigError('proxy backend requires "proxy mode sni-allowlist"')
 
 
 def generate(clawgress):
@@ -235,12 +245,15 @@ def generate(clawgress):
 
     proxy_config = policy_config.get('proxy', {}) or {}
     proxy_mode = proxy_config.get('mode')
+    proxy_backend = proxy_config.get('backend')
     proxy_domains = _as_values(proxy_config.get('domain'))
-    if proxy_mode in ('disabled', 'sni-allowlist') or proxy_domains:
+    if proxy_mode in ('disabled', 'sni-allowlist') or proxy_domains or proxy_backend in ('none', 'haproxy', 'nginx'):
         policy['proxy'] = {
             'mode': proxy_mode if proxy_mode in ('disabled', 'sni-allowlist') else 'disabled',
             'domains': proxy_domains,
         }
+        if proxy_backend in ('none', 'haproxy', 'nginx'):
+            policy['proxy']['backend'] = proxy_backend
 
     hosts_config = policy_config.get('host', {})
     if hosts_config:
@@ -283,12 +296,19 @@ def generate(clawgress):
 
             host_proxy_config = host_config.get('proxy', {}) or {}
             host_proxy_mode = host_proxy_config.get('mode')
+            host_proxy_backend = host_proxy_config.get('backend')
             host_proxy_domains = _as_values(host_proxy_config.get('domain'))
-            if host_proxy_mode in ('disabled', 'sni-allowlist') or host_proxy_domains:
+            if (
+                host_proxy_mode in ('disabled', 'sni-allowlist')
+                or host_proxy_domains
+                or host_proxy_backend in ('none', 'haproxy', 'nginx')
+            ):
                 host_entry['proxy'] = {
                     'mode': host_proxy_mode if host_proxy_mode in ('disabled', 'sni-allowlist') else 'disabled',
                     'domains': host_proxy_domains,
                 }
+                if host_proxy_backend in ('none', 'haproxy', 'nginx'):
+                    host_entry['proxy']['backend'] = host_proxy_backend
 
             policy['hosts'][host_name] = host_entry
 
@@ -331,8 +351,16 @@ def apply(clawgress):
         'Clawgress apply failed: unable to enable/start bind9',
     )
 
+    expected_proxy_backend = None
+    policy_cfg = (clawgress or {}).get('policy', {}) if isinstance(clawgress, dict) else {}
+    proxy_cfg = policy_cfg.get('proxy', {}) if isinstance(policy_cfg, dict) else {}
+    proxy_mode = proxy_cfg.get('mode')
+    proxy_backend = proxy_cfg.get('backend')
+    if proxy_mode == 'sni-allowlist' and proxy_backend in ('haproxy', 'nginx'):
+        expected_proxy_backend = proxy_backend
+
     policy_hash = _compute_policy_hash()
-    verification = _verify_runtime_state(policy_hash)
+    verification = _verify_runtime_state(policy_hash, expected_proxy_backend=expected_proxy_backend)
     success = not verification['failed_checks']
     _write_apply_state({
         'timestamp': verification['checked_at'],

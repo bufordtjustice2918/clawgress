@@ -42,6 +42,7 @@ DEFAULT_POLICY = {
     "limits": {},
     "proxy": {
         "mode": "disabled",
+        "backend": "none",
         "domains": [],
     },
     "hosts": {},

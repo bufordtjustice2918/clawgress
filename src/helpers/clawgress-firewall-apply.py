@@ -23,6 +23,7 @@ import ipaddress
 import hashlib
 import re
 import tempfile
+import shutil
 
 from vyos.utils.file import makedir, write_file
 from vyos.utils.process import call
@@ -34,6 +35,14 @@ POLICY_PATHS = [
 
 NFT_DIR = '/etc/nftables.d'
 NFT_FILE = f'{NFT_DIR}/clawgress.nft'
+HAPROXY_DIR = '/run/haproxy'
+HAPROXY_CFG = f'{HAPROXY_DIR}/haproxy.cfg'
+HAPROXY_ALLOWLIST = f'{HAPROXY_DIR}/clawgress-allowlist.lst'
+HAPROXY_BACKEND_MAP = f'{HAPROXY_DIR}/clawgress-backend.map'
+HAPROXY_MARKER = f'{HAPROXY_DIR}/clawgress.managed'
+HAPROXY_OVERRIDE_DIR = '/run/systemd/system/haproxy.service.d'
+HAPROXY_OVERRIDE = f'{HAPROXY_OVERRIDE_DIR}/10-override.conf'
+HAPROXY_LISTEN_PORT = 10443
 
 
 def sni_match_supported() -> bool:
@@ -166,6 +175,7 @@ DAY_ALIASES = {
 }
 TIME_RE = re.compile(r'^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$')
 TIME_UNITS = {'second', 'minute', 'hour', 'day'}
+PROXY_BACKENDS = {'none', 'haproxy', 'nginx'}
 
 
 def normalize_domain_key(domain):
@@ -294,11 +304,14 @@ def sanitize_chain_name(name):
 def resolve_proxy_settings(proxy, allow):
     proxy = proxy or {}
     proxy_mode = (proxy.get('mode') or '').lower()
+    proxy_backend = str(proxy.get('backend') or 'none').strip().lower()
+    if proxy_backend not in PROXY_BACKENDS:
+        proxy_backend = 'none'
     sni_domains = []
     if proxy_mode == 'sni-allowlist':
         domain_source = proxy.get('domains') or allow.get('domains', [])
         sni_domains = normalize_sni_domains(domain_source)
-    return proxy_mode, sni_domains
+    return proxy_mode, sni_domains, proxy_backend
 
 
 def render_allow_rules(lines, v4, v6, ports, sni_domains, limit_clause,
@@ -332,8 +345,137 @@ def render_allow_rules(lines, v4, v6, ports, sni_domains, limit_clause,
         lines.append(f'    ip6 daddr {{ {v6_set} }}{time_clause}{limit_clause} counter accept')
 
 
+def _normalize_backend_domains(domains):
+    normalized = []
+    for domain in domains or []:
+        key = sni_domain_key(domain)
+        if key:
+            normalized.append(key)
+    return sorted(set(normalized))
+
+
+def render_haproxy_cfg(domains, policy_hash='') -> str:
+    backend_lines = []
+    acl_lines = []
+    use_backend_lines = []
+    for idx, domain in enumerate(domains, start=1):
+        backend_name = f'clawgress_bk_{idx}'
+        acl_name = f'clawgress_sni_{idx}'
+        acl_lines.append(f'    acl {acl_name} req.ssl_sni -i {domain}')
+        use_backend_lines.append(f'    use_backend {backend_name} if {acl_name}')
+        backend_lines.extend([
+            f'backend {backend_name}',
+            '    mode tcp',
+            f'    server sni_target {domain}:443 resolvers clawgress_dns init-addr libc,none',
+            '',
+        ])
+
+    backend_text = '\n'.join(backend_lines).rstrip()
+    acl_text = '\n'.join(acl_lines).rstrip()
+    route_text = '\n'.join(use_backend_lines).rstrip()
+    if backend_text:
+        backend_text = f'\n{backend_text}'
+    if acl_text:
+        acl_text = f'\n{acl_text}'
+    if route_text:
+        route_text = f'\n{route_text}'
+
+    return f"""### Clawgress managed HAProxy config ###
+### policy_hash={policy_hash} ###
+global
+    log /dev/log local0
+    stats socket /run/haproxy/admin.sock mode 660 level admin
+    stats timeout 30s
+    user haproxy
+    group haproxy
+    daemon
+
+defaults
+    mode tcp
+    log global
+    option dontlognull
+    timeout connect 10s
+    timeout client 60s
+    timeout server 60s
+
+resolvers clawgress_dns
+    nameserver localdns 127.0.0.1:53
+    accepted_payload_size 8192
+
+frontend clawgress_tls_sni
+    bind 0.0.0.0:{HAPROXY_LISTEN_PORT}
+    bind [::]:{HAPROXY_LISTEN_PORT} v6only
+    mode tcp
+    option tcplog
+    tcp-request inspect-delay 5s
+    tcp-request content accept if {{ req.ssl_hello_type 1 }}
+    acl clawgress_sni_allowed req.ssl_sni,lower -f {HAPROXY_ALLOWLIST}
+    log-format "clawgress_sni src=%ci sni=%[req.ssl_sni,lower] policy={policy_hash}"{acl_text}{route_text}
+    tcp-request content reject if !clawgress_sni_allowed
+    default_backend clawgress_reject
+
+backend clawgress_reject
+    mode tcp
+    server reject_target 127.0.0.1:1{backend_text}
+"""
+
+
+def _write_haproxy_override() -> None:
+    override_content = """[Unit]
+StartLimitIntervalSec=0
+After=vyos-router.service
+ConditionPathExists=/run/haproxy/haproxy.cfg
+
+[Service]
+EnvironmentFile=
+Environment=
+Environment="CONFIG=/run/haproxy/haproxy.cfg" "PIDFILE=/run/haproxy.pid" "EXTRAOPTS=-S /run/haproxy-master.sock"
+ExecStart=
+ExecStart=/usr/sbin/haproxy -Ws -f /run/haproxy/haproxy.cfg -p /run/haproxy.pid -S /run/haproxy-master.sock
+Restart=always
+RestartSec=10
+"""
+    makedir(HAPROXY_OVERRIDE_DIR, user='root', group='root')
+    write_file(HAPROXY_OVERRIDE, override_content, user='root', group='root', mode=0o644)
+
+
+def disable_haproxy_backend():
+    if not os.path.isfile(HAPROXY_MARKER):
+        return
+    call('systemctl stop haproxy >/dev/null 2>&1 || true')
+    for path in [HAPROXY_CFG, HAPROXY_ALLOWLIST, HAPROXY_BACKEND_MAP, HAPROXY_MARKER, HAPROXY_OVERRIDE]:
+        if os.path.isfile(path):
+            os.unlink(path)
+    if os.path.isdir(HAPROXY_OVERRIDE_DIR):
+        try:
+            if not os.listdir(HAPROXY_OVERRIDE_DIR):
+                shutil.rmtree(HAPROXY_OVERRIDE_DIR, ignore_errors=True)
+        except Exception:
+            pass
+    call('systemctl daemon-reload >/dev/null 2>&1 || true')
+
+
+def apply_haproxy_backend(domains, policy_hash='') -> bool:
+    domains = _normalize_backend_domains(domains)
+    if not domains:
+        return False
+    makedir(HAPROXY_DIR, user='root', group='root')
+    write_file(HAPROXY_CFG, render_haproxy_cfg(domains, policy_hash), user='root', group='root', mode=0o644)
+    write_file(HAPROXY_ALLOWLIST, '\n'.join(domains) + '\n', user='root', group='root', mode=0o644)
+    map_lines = [f'{domain} clawgress_bk_{idx}' for idx, domain in enumerate(domains, start=1)]
+    write_file(HAPROXY_BACKEND_MAP, '\n'.join(map_lines) + '\n', user='root', group='root', mode=0o644)
+    write_file(HAPROXY_MARKER, f'policy_hash={policy_hash}\n', user='root', group='root', mode=0o644)
+    _write_haproxy_override()
+    call('systemctl daemon-reload')
+    rc = call('systemctl restart haproxy')
+    if rc != 0:
+        return False
+    rc = call('systemctl is-active --quiet haproxy')
+    return rc == 0
+
+
 def render_nft(v4, v6, ports, policy_hash='', rate_limit_kbps=None, sni_domains=None,
-               host_policies=None, time_window=None, domain_time_windows=None):
+               host_policies=None, time_window=None, domain_time_windows=None, proxy_redirect_port=None):
     reason = f'clawgress-deny: reason=egress-default-deny policy={policy_hash} '
 
     limit_clause = ''
@@ -358,6 +500,8 @@ def render_nft(v4, v6, ports, policy_hash='', rate_limit_kbps=None, sni_domains=
         '    udp dport 53 accept',
         '    tcp dport 53 accept',
     ]
+    if proxy_redirect_port:
+        lines.insert(5, f'    tcp dport 443 redirect to :{int(proxy_redirect_port)}')
 
     for host in host_policies or []:
         if host.get('source_v4'):
@@ -420,25 +564,41 @@ def render_nft(v4, v6, ports, policy_hash='', rate_limit_kbps=None, sni_domains=
 
 def apply_policy(policy_path=None):
     policy, policy_path = read_policy(policy_path)
+    policy_hash = hashlib.sha256(json.dumps(policy, sort_keys=True).encode('utf-8')).hexdigest()[:12]
     allow = policy.get('allow', {})
     ports = normalize_ports(allow.get('ports', [53, 80, 443]))
     v4, v6 = normalize_ips(allow.get('ips', []))
 
     proxy = policy.get('proxy', {}) or {}
-    proxy_mode, sni_domains = resolve_proxy_settings(proxy, allow)
+    proxy_mode, sni_domains, proxy_backend = resolve_proxy_settings(proxy, allow)
     sni_supported = sni_match_supported()
+    proxy_redirect_port = None
+    if proxy_backend != 'haproxy':
+        disable_haproxy_backend()
+
     if proxy_mode == 'sni-allowlist':
-        if sni_domains and sni_supported:
-            # Enforce HTTPS via SNI allowlist rules only.
-            ports = [port for port in ports if port != 443]
-        else:
-            # Platform cannot parse tls sni expressions; keep 443 in normal
-            # allowlist path so commit/apply remains functional.
-            sni_domains = []
-            print(
-                'WARNING: nftables TLS SNI matching unsupported on this platform; '
-                'falling back to DNS/IP/port policy enforcement.'
-            )
+        if proxy_backend == 'haproxy':
+            backend_domains = _normalize_backend_domains(sni_domains or allow.get('domains', []))
+            if backend_domains and apply_haproxy_backend(backend_domains, policy_hash):
+                proxy_redirect_port = HAPROXY_LISTEN_PORT
+                sni_domains = []
+            else:
+                print(
+                    'WARNING: Clawgress HAProxy backend could not be started; '
+                    'falling back to nft DNS/IP/port policy enforcement.'
+                )
+        if proxy_redirect_port is None:
+            if sni_domains and sni_supported:
+                # Enforce HTTPS via SNI allowlist rules only.
+                ports = [port for port in ports if port != 443]
+            else:
+                # Platform cannot parse tls sni expressions; keep 443 in normal
+                # allowlist path so commit/apply remains functional.
+                sni_domains = []
+                print(
+                    'WARNING: nftables TLS SNI matching unsupported on this platform; '
+                    'falling back to DNS/IP/port policy enforcement.'
+                )
 
     time_window = normalize_time_window(policy.get('time_window') or {})
     domain_time_windows = normalize_domain_time_windows(policy.get('domain_time_windows') or {})
@@ -473,7 +633,7 @@ def apply_policy(policy_path=None):
         host_v4, host_v6 = normalize_ips(merged_allow.get('ips', []))
 
         host_proxy = host_policy.get('proxy', {}) or {}
-        host_proxy_mode, host_sni_domains = resolve_proxy_settings(host_proxy, merged_allow)
+        host_proxy_mode, host_sni_domains, _host_proxy_backend = resolve_proxy_settings(host_proxy, merged_allow)
         if host_proxy_mode == 'sni-allowlist':
             if host_sni_domains and sni_supported:
                 host_ports = [port for port in host_ports if port != 443]
@@ -507,8 +667,6 @@ def apply_policy(policy_path=None):
             'exfil_limits': host_exfil_limits,
         })
 
-    policy_hash = hashlib.sha256(json.dumps(policy, sort_keys=True).encode('utf-8')).hexdigest()[:12]
-
     makedir(NFT_DIR, user='root', group='root')
     write_file(
         NFT_FILE,
@@ -522,6 +680,7 @@ def apply_policy(policy_path=None):
             host_policies,
             time_window=time_window,
             domain_time_windows=domain_time_windows,
+            proxy_redirect_port=proxy_redirect_port,
         ),
         user='root',
         group='root',

@@ -17,12 +17,15 @@
 # pylint: disable=too-few-public-methods
 
 import json
+import re
+import ipaddress
 from html import escape
 from enum import Enum
 from typing import List
 from typing import Union
 from typing import Dict
 from typing import Self
+from typing import Any
 
 from pydantic import BaseModel
 from pydantic import StrictStr
@@ -161,6 +164,245 @@ class ClawgressPolicyModel(ApiModel):
     policy: Dict
     apply: StrictBool = True
 
+    _domain_re = re.compile(
+        r'^(?:\*\.)?(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$',
+        re.IGNORECASE,
+    )
+    _host_name_re = re.compile(r'^[A-Za-z0-9_.-]{1,64}$')
+    _label_re = re.compile(r'^[A-Za-z0-9_-]{1,64}$')
+    _time_re = re.compile(r'^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$')
+    _time_periods = {'second', 'minute', 'hour', 'day'}
+
+    @classmethod
+    def _validate_domain(cls, domain: str, field_name: str) -> None:
+        if not isinstance(domain, str):
+            raise ValueError(f'{field_name} must contain string values')
+        if not cls._domain_re.match(domain.strip()):
+            raise ValueError(f'invalid domain "{domain}" in {field_name}')
+
+    @classmethod
+    def _validate_domains(cls, values: Any, field_name: str) -> None:
+        if values is None:
+            return
+        if not isinstance(values, list):
+            raise ValueError(f'{field_name} must be a list')
+        for value in values:
+            cls._validate_domain(value, field_name)
+
+    @classmethod
+    def _validate_ips(cls, values: Any, field_name: str) -> None:
+        if values is None:
+            return
+        if not isinstance(values, list):
+            raise ValueError(f'{field_name} must be a list')
+        for value in values:
+            if not isinstance(value, str):
+                raise ValueError(f'{field_name} must contain string CIDR values')
+            try:
+                ipaddress.ip_network(value, strict=False)
+            except ValueError as exc:
+                raise ValueError(f'invalid CIDR "{value}" in {field_name}') from exc
+
+    @classmethod
+    def _validate_ports(cls, values: Any, field_name: str) -> None:
+        if values is None:
+            return
+        if not isinstance(values, list):
+            raise ValueError(f'{field_name} must be a list')
+        for value in values:
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise ValueError(f'{field_name} must contain integer ports')
+            if value < 1 or value > 65535:
+                raise ValueError(f'port "{value}" out of range in {field_name}')
+
+    @classmethod
+    def _validate_time_window(cls, window: Any, field_name: str) -> None:
+        if window is None:
+            return
+        if not isinstance(window, dict):
+            raise ValueError(f'{field_name} must be an object')
+
+        days = window.get('days')
+        if days is not None:
+            if not isinstance(days, list):
+                raise ValueError(f'{field_name}.days must be a list')
+            for day in days:
+                if not isinstance(day, str):
+                    raise ValueError(f'{field_name}.days must contain strings')
+
+        for key in ('start', 'end'):
+            value = window.get(key)
+            if value is None:
+                continue
+            if not isinstance(value, str) or not cls._time_re.match(value):
+                raise ValueError(f'{field_name}.{key} must use HH:MM or HH:MM:SS format')
+
+    @classmethod
+    def _validate_domain_time_windows(cls, value: Any, field_name: str) -> None:
+        if value is None:
+            return
+        if not isinstance(value, dict):
+            raise ValueError(f'{field_name} must be an object')
+        for domain, window in value.items():
+            cls._validate_domain(domain, field_name)
+            cls._validate_time_window(window, f'{field_name}.{domain}')
+
+    @classmethod
+    def _validate_allow(cls, allow: Any, field_name: str) -> None:
+        if not isinstance(allow, dict):
+            raise ValueError(f'{field_name} must be an object')
+        cls._validate_domains(allow.get('domains'), f'{field_name}.domains')
+        cls._validate_ips(allow.get('ips'), f'{field_name}.ips')
+        cls._validate_ports(allow.get('ports'), f'{field_name}.ports')
+
+    @classmethod
+    def _validate_exfil(cls, exfil: Any, field_name: str) -> None:
+        if exfil is None:
+            return
+        if not isinstance(exfil, dict):
+            raise ValueError(f'{field_name} must be an object')
+        domains = exfil.get('domains')
+        if domains is None:
+            return
+        if not isinstance(domains, dict):
+            raise ValueError(f'{field_name}.domains must be an object')
+        for domain, cfg in domains.items():
+            cls._validate_domain(domain, f'{field_name}.domains')
+            if not isinstance(cfg, dict):
+                raise ValueError(f'{field_name}.domains.{domain} must be an object')
+            bytes_value = cfg.get('bytes')
+            period = cfg.get('period')
+            if not isinstance(bytes_value, int) or isinstance(bytes_value, bool) or bytes_value <= 0:
+                raise ValueError(f'{field_name}.domains.{domain}.bytes must be a positive integer')
+            if not isinstance(period, str) or period.lower() not in cls._time_periods:
+                raise ValueError(
+                    f'{field_name}.domains.{domain}.period must be one of '
+                    f'{sorted(cls._time_periods)}'
+                )
+
+    @classmethod
+    def _validate_hosts(cls, hosts: Any, field_name: str) -> None:
+        if hosts is None:
+            return
+        if not isinstance(hosts, dict):
+            raise ValueError(f'{field_name} must be an object')
+        for host_name, host_cfg in hosts.items():
+            if not isinstance(host_name, str) or not cls._host_name_re.match(host_name):
+                raise ValueError(f'invalid host name "{host_name}" in {field_name}')
+            if not isinstance(host_cfg, dict):
+                raise ValueError(f'{field_name}.{host_name} must be an object')
+
+            sources = host_cfg.get('sources')
+            if sources is not None:
+                cls._validate_ips(sources, f'{field_name}.{host_name}.sources')
+
+            allow = host_cfg.get('allow')
+            if allow is not None:
+                cls._validate_allow(allow, f'{field_name}.{host_name}.allow')
+
+            limits = host_cfg.get('limits')
+            if limits is not None:
+                if not isinstance(limits, dict):
+                    raise ValueError(f'{field_name}.{host_name}.limits must be an object')
+                egress_kbps = limits.get('egress_kbps')
+                if egress_kbps is not None:
+                    if (
+                        not isinstance(egress_kbps, int)
+                        or isinstance(egress_kbps, bool)
+                        or egress_kbps <= 0
+                    ):
+                        raise ValueError(
+                            f'{field_name}.{host_name}.limits.egress_kbps '
+                            f'must be a positive integer'
+                        )
+
+            proxy = host_cfg.get('proxy')
+            if proxy is not None:
+                if not isinstance(proxy, dict):
+                    raise ValueError(f'{field_name}.{host_name}.proxy must be an object')
+                mode = proxy.get('mode')
+                if mode is not None and mode not in ('disabled', 'sni-allowlist'):
+                    raise ValueError(
+                        f'{field_name}.{host_name}.proxy.mode must be '
+                        f'"disabled" or "sni-allowlist"'
+                    )
+                backend = proxy.get('backend')
+                if backend is not None and backend not in ('none', 'haproxy', 'nginx'):
+                    raise ValueError(
+                        f'{field_name}.{host_name}.proxy.backend must be '
+                        f'"none", "haproxy", or "nginx"'
+                    )
+                cls._validate_domains(proxy.get('domains'), f'{field_name}.{host_name}.proxy.domains')
+
+            cls._validate_time_window(host_cfg.get('time_window'), f'{field_name}.{host_name}.time_window')
+            cls._validate_domain_time_windows(
+                host_cfg.get('domain_time_windows'),
+                f'{field_name}.{host_name}.domain_time_windows',
+            )
+            cls._validate_exfil(host_cfg.get('exfil'), f'{field_name}.{host_name}.exfil')
+
+    @field_validator('policy')
+    @classmethod
+    def validate_policy(cls, policy: Any) -> Dict:
+        if not isinstance(policy, dict):
+            raise ValueError('policy must be an object')
+
+        allowed_top_level = {
+            'version',
+            'allow',
+            'labels',
+            'time_window',
+            'domain_time_windows',
+            'proxy',
+            'hosts',
+            'limits',
+        }
+        unknown = sorted(set(policy.keys()) - allowed_top_level)
+        if unknown:
+            raise ValueError(f'unsupported policy fields: {", ".join(unknown)}')
+
+        version = policy.get('version')
+        if not isinstance(version, int) or isinstance(version, bool) or version <= 0:
+            raise ValueError('policy.version must be a positive integer')
+
+        cls._validate_allow(policy.get('allow'), 'policy.allow')
+
+        labels = policy.get('labels')
+        if labels is not None:
+            if not isinstance(labels, dict):
+                raise ValueError('policy.labels must be an object')
+            for domain, label in labels.items():
+                cls._validate_domain(domain, 'policy.labels')
+                if not isinstance(label, str) or not cls._label_re.match(label):
+                    raise ValueError(f'invalid label "{label}" for domain "{domain}"')
+
+        cls._validate_time_window(policy.get('time_window'), 'policy.time_window')
+        cls._validate_domain_time_windows(policy.get('domain_time_windows'), 'policy.domain_time_windows')
+
+        proxy = policy.get('proxy')
+        if proxy is not None:
+            if not isinstance(proxy, dict):
+                raise ValueError('policy.proxy must be an object')
+            mode = proxy.get('mode')
+            if mode is not None and mode not in ('disabled', 'sni-allowlist'):
+                raise ValueError('policy.proxy.mode must be "disabled" or "sni-allowlist"')
+            backend = proxy.get('backend')
+            if backend is not None and backend not in ('none', 'haproxy', 'nginx'):
+                raise ValueError('policy.proxy.backend must be "none", "haproxy", or "nginx"')
+            cls._validate_domains(proxy.get('domains'), 'policy.proxy.domains')
+
+        limits = policy.get('limits')
+        if limits is not None:
+            if not isinstance(limits, dict):
+                raise ValueError('policy.limits must be an object')
+            egress_kbps = limits.get('egress_kbps')
+            if egress_kbps is not None:
+                if not isinstance(egress_kbps, int) or isinstance(egress_kbps, bool) or egress_kbps <= 0:
+                    raise ValueError('policy.limits.egress_kbps must be a positive integer')
+
+        cls._validate_hosts(policy.get('hosts'), 'policy.hosts')
+        return policy
+
     class Config:
         json_schema_extra = {
             'example': {
@@ -189,6 +431,7 @@ class ClawgressPolicyModel(ApiModel):
                     },
                     'proxy': {
                         'mode': 'sni-allowlist',
+                        'backend': 'none',
                         'domains': ['api.openai.com']
                     },
                     'hosts': {
