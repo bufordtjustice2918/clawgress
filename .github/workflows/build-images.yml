@@ -666,7 +666,8 @@ jobs:
           LAST_NETLAB_DIR="$(ls -1dt /tmp/clawgress-netlab.* 2>/dev/null | head -1 || true)"
           if [ -n "${LAST_NETLAB_DIR}" ] && [ -d "${LAST_NETLAB_DIR}" ]; then
             mkdir -p ./mvpv1v2-e2e-artifacts/netlab-latest
-            cp -a "${LAST_NETLAB_DIR}/." ./mvpv1v2-e2e-artifacts/netlab-latest/
+            sudo cp -a "${LAST_NETLAB_DIR}/." ./mvpv1v2-e2e-artifacts/netlab-latest/
+            sudo chown -R "$(id -u):$(id -g)" ./mvpv1v2-e2e-artifacts/netlab-latest
           fi
 
       - name: Upload MVPv1/MVPv2 report artifacts

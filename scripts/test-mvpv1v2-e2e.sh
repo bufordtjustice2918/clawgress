@@ -194,7 +194,7 @@ if [[ ${FORCE_KVM} -eq 1 ]]; then
 fi
 
 set +e
-sudo "$(dirname "$0")/test-iso-network-lab.sh" "${NET_ARGS[@]}" | tee "${NET_LOG}"
+sudo "$(dirname "$0")/test-iso-network-lab.sh" "${NET_ARGS[@]}" 2>&1 | tee "${NET_LOG}"
 NET_RC=$?
 set -e
 

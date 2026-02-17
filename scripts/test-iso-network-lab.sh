@@ -315,6 +315,12 @@ assert_dns_blocked() {
     fail "Expected ${domain} to be blocked via ${server}, last status='${status:-none}'"
 }
 
+wan_tcp_probe() {
+    local host="$1"
+    local port="$2"
+    ip netns exec "${NETNS}" bash -lc "exec 3<>/dev/tcp/${host}/${port}" >/dev/null 2>&1
+}
+
 next_day_token() {
     local today idx
     today="$(date +%u)"
@@ -532,18 +538,20 @@ log "Running LAN-side validation from namespace ${NETNS}"
 ping -c 1 -W 2 "${LAN_GW_IP}" >/dev/null || true
 ip netns exec "${NETNS}" ping -c 2 -W 2 "${LAN_GW_IP}"
 
-log "Waiting for WAN readiness (up to 90s)"
+log "Waiting for WAN readiness (TCP probe, up to 90s)"
 WAN_READY=0
 for _ in $(seq 1 30); do
-    if ip netns exec "${NETNS}" ping -c 1 -W 2 1.1.1.1 >/dev/null 2>&1; then
+    if wan_tcp_probe 1.1.1.1 443; then
         WAN_READY=1
         break
     fi
     sleep 3
 done
-[[ ${WAN_READY} -eq 1 ]] || fail "WAN did not become reachable from LAN namespace in time"
+[[ ${WAN_READY} -eq 1 ]] || fail "WAN did not become reachable from LAN namespace in time (TCP to 1.1.1.1:443)"
 
-ip netns exec "${NETNS}" ping -c 2 -W 3 1.1.1.1
+if ! ip netns exec "${NETNS}" ping -c 2 -W 3 1.1.1.1 >/dev/null 2>&1; then
+    log "WARN: ICMP ping to 1.1.1.1 failed; continuing because TCP WAN probe passed"
+fi
 
 if command -v dig >/dev/null 2>&1; then
     log "Validating external DNS directly (authoritative WAN check)"
