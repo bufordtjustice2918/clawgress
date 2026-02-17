@@ -262,7 +262,6 @@ jobs:
           test -f vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/reftree.cache
           test -f vyos-build/data/live-build-config/includes.chroot/usr/share/vyos/op_cache.json
           test -f vyos-build/data/live-build-config/includes.chroot/usr/lib/python3/dist-packages/vyos/xml_ref/pkg_cache/vyos_1x_cache.py
-          test -f vyos-build/data/live-build-config/includes.chroot/usr/lib/python3/dist-packages/vyos/xml_ref/cache.py
           test -f vyos-build/data/live-build-config/includes.chroot/usr/lib/python3/dist-packages/vyos/xml_ref/op_cache.py
 
           # Finalize hook to force-overlay Clawgress payload after package install.
@@ -283,7 +282,6 @@ jobs:
           test -d /opt/vyatta/share/vyatta-op/templates/show/clawgress
           test -d /opt/vyatta/share/vyatta-cfg/templates/service/clawgress
           test -f /usr/share/vyos/op_cache.json
-          test -f /usr/lib/python3/dist-packages/vyos/xml_ref/cache.py
           test -f /usr/lib/python3/dist-packages/vyos/xml_ref/op_cache.py
           # Rebuild merged config cache from pkg_cache modules after overlay.
           # This avoids stale cache.py when only vyos_1x_cache.py is overlaid.
