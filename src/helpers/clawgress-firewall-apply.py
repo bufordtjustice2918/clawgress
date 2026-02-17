@@ -426,8 +426,9 @@ def apply_policy(policy_path=None):
 
     proxy = policy.get('proxy', {}) or {}
     proxy_mode, sni_domains = resolve_proxy_settings(proxy, allow)
+    sni_supported = sni_match_supported()
     if proxy_mode == 'sni-allowlist':
-        if sni_domains and sni_match_supported():
+        if sni_domains and sni_supported:
             # Enforce HTTPS via SNI allowlist rules only.
             ports = [port for port in ports if port != 443]
         else:
@@ -474,7 +475,10 @@ def apply_policy(policy_path=None):
         host_proxy = host_policy.get('proxy', {}) or {}
         host_proxy_mode, host_sni_domains = resolve_proxy_settings(host_proxy, merged_allow)
         if host_proxy_mode == 'sni-allowlist':
-            host_ports = [port for port in host_ports if port != 443]
+            if host_sni_domains and sni_supported:
+                host_ports = [port for port in host_ports if port != 443]
+            else:
+                host_sni_domains = []
 
         host_limits = host_policy.get('limits', {}) or {}
         host_rate_limit_kbps = normalize_rate_limit_kbps(
