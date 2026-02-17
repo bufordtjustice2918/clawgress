@@ -171,7 +171,7 @@ mkdir -p "${CMD_LOG_DIR}"
 log "ISO: ${ISO_PATH}"
 log "Output dir: ${OUT_DIR}"
 
-CMD_ARGS=(--iso "${ISO_PATH}" --suite mvp-full --log-dir "${CMD_LOG_DIR}" --diag-on-failure)
+CMD_ARGS=(--iso "${ISO_PATH}" --suite mvp-full --log-dir "${CMD_LOG_DIR}" --diag-on-failure --boot-timeout 420)
 if [[ ${FORCE_KVM} -eq 1 ]]; then
   CMD_ARGS+=(--force-kvm)
 fi

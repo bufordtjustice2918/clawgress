@@ -656,6 +656,15 @@ CMDS
     assert_dns_allowed "${LAN_GW_IP}" "trello.com"
 fi
 
+run_vyos_serial_commands "Collecting final system diagnostics" "$(cat <<'CMDS'
+show clawgress status | no-more
+show clawgress telemetry | no-more
+show configuration commands | match "service clawgress"
+sudo tail -n 800 /var/log/messages
+sudo journalctl -u named.service --no-pager -n 200
+CMDS
+)"
+
 log "Lab validation complete"
 log "Artifacts: ${WORKDIR}"
 log "Serial transcript: ${SERIAL_SESSION_LOG}"

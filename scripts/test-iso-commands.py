@@ -392,6 +392,47 @@ def run_suite(args: argparse.Namespace) -> int:
 
         in_config_mode = False
 
+        messages_snapshot_count = 0
+
+        def run_diag_command(diag_cmd: str, mode: str) -> dict:
+            entry = {
+                "mode": mode,
+                "command": diag_cmd,
+                "status": "pass",
+                "output_tail": "",
+                "matched_fail_patterns": [],
+            }
+            try:
+                child.sendline(diag_cmd)
+                child.expect(PROMPT_RE, timeout=60)
+                diag_output = child.before or ""
+                entry["output_tail"] = "\n".join(diag_output.strip().splitlines()[-80:])
+                for pattern in fail_patterns:
+                    if re.search(pattern, diag_output):
+                        entry["matched_fail_patterns"].append(pattern)
+                if entry["matched_fail_patterns"]:
+                    entry["status"] = "fail"
+            except Exception as exc:
+                entry["status"] = "fail"
+                entry["output_tail"] = f"diagnostic collection failed: {exc}"
+            return entry
+
+        def capture_messages_snapshot(reason: str) -> None:
+            nonlocal messages_snapshot_count
+            if child is None or not child.isalive():
+                return
+            diag_cmd = f"sudo tail -n {args.diag_log_lines} /var/log/messages"
+            if in_config_mode:
+                diag_cmd = f"run {diag_cmd}"
+            entry = run_diag_command(diag_cmd, "config" if in_config_mode else "op")
+            entry["for_command"] = reason
+            entry["diagnostic_type"] = "messages_snapshot"
+            summary["diagnostics"].append(entry)
+
+            messages_snapshot_count += 1
+            snapshot_path = workdir / f"var-log-messages-{messages_snapshot_count:02d}.log"
+            snapshot_path.write_text(entry["output_tail"] + "\n", encoding="utf-8")
+
         def collect_diagnostics(for_command: str) -> None:
             if in_config_mode:
                 diag_commands = [
@@ -400,6 +441,7 @@ def run_suite(args: argparse.Namespace) -> int:
                     "run show clawgress telemetry | no-more",
                     "run show log | no-more | match clawgress",
                     "run show log | no-more | match rpz",
+                    f"run sudo tail -n {args.diag_log_lines} /var/log/messages",
                 ]
             else:
                 diag_commands = [
@@ -413,21 +455,8 @@ def run_suite(args: argparse.Namespace) -> int:
                 ]
 
             for diag_cmd in diag_commands:
-                diag_entry = {
-                    "for_command": for_command,
-                    "mode": "config" if in_config_mode else "op",
-                    "command": diag_cmd,
-                    "status": "pass",
-                    "output_tail": "",
-                }
-                try:
-                    child.sendline(diag_cmd)
-                    child.expect(PROMPT_RE, timeout=60)
-                    diag_output = child.before or ""
-                    diag_entry["output_tail"] = "\n".join(diag_output.strip().splitlines()[-80:])
-                except Exception as exc:
-                    diag_entry["status"] = "fail"
-                    diag_entry["output_tail"] = f"diagnostic collection failed: {exc}"
+                diag_entry = run_diag_command(diag_cmd, "config" if in_config_mode else "op")
+                diag_entry["for_command"] = for_command
                 summary["diagnostics"].append(diag_entry)
 
         stop_after_failure = False
@@ -514,6 +543,8 @@ def run_suite(args: argparse.Namespace) -> int:
             if args.diag_after_each or (args.diag_on_failure and status == "fail"):
                 collect_diagnostics(cmd_text)
 
+        capture_messages_snapshot("final")
+
         child.sendline("exit")
         try:
             child.expect(pexpect.EOF, timeout=10)
@@ -585,7 +616,8 @@ def run_suite(args: argparse.Namespace) -> int:
                 log(f"Attach to live serial console with: screen {serial_pty_path} 115200")
 
     failures = [item for item in summary["commands"] if item["status"] != "pass"]
-    if not summary["login"]["success"] or failures:
+    diag_failures = [item for item in summary["diagnostics"] if item.get("status") != "pass"]
+    if not summary["login"]["success"] or failures or diag_failures:
         print(json.dumps(summary, indent=2))
         return 1
 
