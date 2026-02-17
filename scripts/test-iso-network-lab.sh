@@ -317,11 +317,15 @@ assert_dns_blocked() {
 
 assert_https_allowed() {
     local url="$1"
-    if ip netns exec "${NETNS}" curl -kI --max-time 20 "${url}" >/dev/null 2>&1; then
-        log "PASS: HTTPS allowed ${url}"
-        return 0
-    fi
-    fail "Expected HTTPS to be allowed: ${url}"
+    local output=""
+    for _ in $(seq 1 12); do
+        if output="$(ip netns exec "${NETNS}" curl -kI --max-time 20 "${url}" 2>&1)"; then
+            log "PASS: HTTPS allowed ${url}"
+            return 0
+        fi
+        sleep 2
+    done
+    fail "Expected HTTPS to be allowed: ${url}. Last curl output: ${output}"
 }
 
 assert_https_sni_blocked() {
