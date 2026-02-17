@@ -22,6 +22,7 @@ import os
 import ipaddress
 import hashlib
 import re
+import tempfile
 
 from vyos.utils.file import makedir, write_file
 from vyos.utils.process import call
@@ -33,6 +34,31 @@ POLICY_PATHS = [
 
 NFT_DIR = '/etc/nftables.d'
 NFT_FILE = f'{NFT_DIR}/clawgress.nft'
+
+
+def sni_match_supported() -> bool:
+    """Return True if this platform's nft userspace/parser supports tls sni matches."""
+    test_ruleset = (
+        "table inet clawgress_sni_check {\n"
+        "  chain forward {\n"
+        "    type filter hook forward priority 0; policy accept;\n"
+        "    tcp dport 443 tls sni . \"example.com\" accept\n"
+        "  }\n"
+        "}\n"
+    )
+    path = None
+    try:
+        with tempfile.NamedTemporaryFile('w', prefix='clawgress-sni-check-', suffix='.nft', delete=False) as handle:
+            handle.write(test_ruleset)
+            path = handle.name
+        rc = call(f'nft --check -f {path} >/dev/null 2>&1')
+        return rc == 0
+    finally:
+        if path:
+            try:
+                os.unlink(path)
+            except FileNotFoundError:
+                pass
 
 
 def read_policy(path=None):
@@ -401,7 +427,17 @@ def apply_policy(policy_path=None):
     proxy = policy.get('proxy', {}) or {}
     proxy_mode, sni_domains = resolve_proxy_settings(proxy, allow)
     if proxy_mode == 'sni-allowlist':
-        ports = [port for port in ports if port != 443]
+        if sni_domains and sni_match_supported():
+            # Enforce HTTPS via SNI allowlist rules only.
+            ports = [port for port in ports if port != 443]
+        else:
+            # Platform cannot parse tls sni expressions; keep 443 in normal
+            # allowlist path so commit/apply remains functional.
+            sni_domains = []
+            print(
+                'WARNING: nftables TLS SNI matching unsupported on this platform; '
+                'falling back to DNS/IP/port policy enforcement.'
+            )
 
     time_window = normalize_time_window(policy.get('time_window') or {})
     domain_time_windows = normalize_domain_time_windows(policy.get('domain_time_windows') or {})
