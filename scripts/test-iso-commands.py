@@ -52,6 +52,12 @@ DEFAULT_MVP_FULL_COMMANDS = [
     # Return to op-mode for regular show commands.
     "RAW: exit discard",
     "show configuration commands | match service clawgress | no-more",
+    "show configuration commands | match \"service clawgress policy rate-limit-kbps\" | no-more | grep -q rate-limit-kbps",
+    "show configuration commands | match \"service clawgress policy proxy mode\" | no-more | grep -q sni-allowlist",
+    "show configuration commands | match \"service clawgress policy host agent1 source\" | no-more | grep -q 192.168.10.10/32",
+    "show configuration commands | match \"service clawgress policy host agent1 exfil domain api.openai.com bytes\" | no-more | grep -q api.openai.com",
+    "show configuration commands | match \"service clawgress policy host agent1 exfil domain api.openai.com period\" | no-more | grep -q hour",
+    "show configuration commands | match \"service clawgress policy time-window\" | no-more | grep -q time-window",
     "show clawgress status | no-more",
     "show clawgress status | no-more | grep -q '\"policy_present\": true'",
     "show clawgress status | no-more | grep -q '\"rpz_allow_present\": true'",
