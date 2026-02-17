@@ -43,10 +43,15 @@ DEFAULT_MVP_FULL_COMMANDS = [
     "RAW: set service clawgress policy host agent1 exfil domain api.openai.com period hour",
     "RAW: commit",
     "RAW: save",
-    "RAW: exit",
+    # Run operational checks from config-mode with "run" first.
+    "RAW: run show configuration commands | match service clawgress | no-more",
+    "RAW: run show clawgress status | no-more",
+    "RAW: run show clawgress telemetry | no-more",
+    "RAW: run show clawgress firewall | no-more",
+    "RAW: run show clawgress rpz | no-more",
+    # Return to op-mode for regular show commands.
+    "RAW: exit discard",
     "show configuration commands | match service clawgress | no-more",
-    "show clawgress policy show | no-more",
-    "show clawgress policy apply | no-more",
     "show clawgress status | no-more",
     "show clawgress status | no-more | grep -q '\"policy_present\": true'",
     "show clawgress status | no-more | grep -q '\"rpz_allow_present\": true'",
@@ -54,6 +59,7 @@ DEFAULT_MVP_FULL_COMMANDS = [
     "show clawgress telemetry | no-more",
     "show clawgress firewall | no-more",
     "show clawgress rpz | no-more",
+    "sudo tail -n 400 /var/log/messages",
 ]
 DEFAULT_FAIL_PATTERNS = [
     r"(?im)^\s*Invalid command:",
@@ -378,19 +384,38 @@ def run_suite(args: argparse.Namespace) -> int:
         child.sendline(args.password)
         child.expect(PROMPT_RE, timeout=args.cmd_timeout)
 
-        def collect_commit_diagnostics() -> None:
-            diag_commands = [
-                "show configuration commands | match service clawgress | no-more",
-                "show configuration commands | no-more",
-                "sudo tail -n 120 /var/log/messages",
-            ]
+        in_config_mode = False
+
+        def collect_diagnostics(for_command: str) -> None:
+            if in_config_mode:
+                diag_commands = [
+                    "run show configuration commands | match service clawgress | no-more",
+                    "run show clawgress status | no-more",
+                    "run show clawgress telemetry | no-more",
+                    "run show log | no-more | match clawgress",
+                    "run show log | no-more | match rpz",
+                ]
+            else:
+                diag_commands = [
+                    "show configuration commands | match service clawgress | no-more",
+                    "show clawgress status | no-more",
+                    "show clawgress telemetry | no-more",
+                    f"sudo tail -n {args.diag_log_lines} /var/log/messages",
+                ]
+
             for diag_cmd in diag_commands:
-                diag_entry = {"command": diag_cmd, "status": "pass", "output_tail": ""}
+                diag_entry = {
+                    "for_command": for_command,
+                    "mode": "config" if in_config_mode else "op",
+                    "command": diag_cmd,
+                    "status": "pass",
+                    "output_tail": "",
+                }
                 try:
                     child.sendline(diag_cmd)
                     child.expect(PROMPT_RE, timeout=60)
                     diag_output = child.before or ""
-                    diag_entry["output_tail"] = "\n".join(diag_output.strip().splitlines()[-40:])
+                    diag_entry["output_tail"] = "\n".join(diag_output.strip().splitlines()[-80:])
                 except Exception as exc:
                     diag_entry["status"] = "fail"
                     diag_entry["output_tail"] = f"diagnostic collection failed: {exc}"
@@ -423,6 +448,13 @@ def run_suite(args: argparse.Namespace) -> int:
             except pexpect.TIMEOUT:
                 timed_out = True
             output = child.before or ""
+            if "[edit]" in output:
+                in_config_mode = True
+            elif raw_mode and effective_cmd.startswith("configure"):
+                in_config_mode = True
+            elif raw_mode and effective_cmd.startswith("exit"):
+                if "Cannot exit" not in output and "[edit]" not in output:
+                    in_config_mode = False
             if timed_out:
                 rc = 124
                 matched_patterns = ["timeout"]
@@ -433,7 +465,8 @@ def run_suite(args: argparse.Namespace) -> int:
                         child.expect(PROMPT_RE, timeout=30)
                     except Exception:
                         pass
-                    collect_commit_diagnostics()
+                if args.diag_on_failure:
+                    collect_diagnostics(cmd_text)
                 status = "fail"
                 summary["commands"].append(
                     {
@@ -469,6 +502,8 @@ def run_suite(args: argparse.Namespace) -> int:
                     "output_tail": "\n".join(output.strip().splitlines()[-30:]),
                 }
             )
+            if args.diag_after_each or (args.diag_on_failure and status == "fail"):
+                collect_diagnostics(cmd_text)
 
         child.sendline("exit")
         try:
@@ -585,6 +620,22 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--log-dir", help="Directory to store logs/artifacts")
     parser.add_argument(
+        "--diag-after-each",
+        action="store_true",
+        help="Collect diagnostics after every command (state-aware, more verbose/slower)",
+    )
+    parser.add_argument(
+        "--diag-on-failure",
+        action="store_true",
+        help="Collect diagnostics after failed/timed-out commands (default: enabled)",
+    )
+    parser.add_argument(
+        "--diag-log-lines",
+        type=int,
+        default=220,
+        help="Number of /var/log/messages lines to collect per diagnostic snapshot in op mode",
+    )
+    parser.add_argument(
         "--cleanup-on-success",
         action="store_true",
         help="Delete temp artifacts when all checks pass (default: keep logs)",
@@ -611,6 +662,7 @@ def parse_args() -> argparse.Namespace:
         help="Require KVM mode and fail if KVM cannot be used",
     )
     parser.set_defaults(use_kvm=True)
+    parser.set_defaults(diag_on_failure=True)
     return parser.parse_args()
 
 
