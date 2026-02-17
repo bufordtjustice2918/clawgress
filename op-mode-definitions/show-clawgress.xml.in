@@ -36,6 +36,52 @@
               <help>Show Clawgress telemetry snapshot</help>
             </properties>
             <command>${vyos_op_scripts_dir}/clawgress.py telemetry</command>
+            <children>
+              <node name="agents">
+                <properties>
+                  <help>Show grouped telemetry by agent</help>
+                </properties>
+                <command>${vyos_op_scripts_dir}/clawgress.py telemetry agents</command>
+              </node>
+              <node name="domains">
+                <properties>
+                  <help>Show grouped telemetry by domain</help>
+                </properties>
+                <command>${vyos_op_scripts_dir}/clawgress.py telemetry domains</command>
+              </node>
+              <node name="denies">
+                <properties>
+                  <help>Show deny-oriented telemetry summary</help>
+                </properties>
+                <command>${vyos_op_scripts_dir}/clawgress.py telemetry denies</command>
+              </node>
+              <node name="agent">
+                <properties>
+                  <help>Show telemetry for a specific agent</help>
+                </properties>
+                <children>
+                  <tagNode name="name">
+                    <properties>
+                      <help>Agent name</help>
+                    </properties>
+                    <command>${vyos_op_scripts_dir}/clawgress.py telemetry agent "$4"</command>
+                  </tagNode>
+                </children>
+              </node>
+              <node name="domain">
+                <properties>
+                  <help>Show telemetry for a specific domain</help>
+                </properties>
+                <children>
+                  <tagNode name="name">
+                    <properties>
+                      <help>Domain name</help>
+                    </properties>
+                    <command>${vyos_op_scripts_dir}/clawgress.py telemetry domain "$4"</command>
+                  </tagNode>
+                </children>
+              </node>
+            </children>
           </node>
           <node name="policy">
             <properties>

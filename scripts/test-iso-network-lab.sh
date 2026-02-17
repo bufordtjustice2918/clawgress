@@ -315,6 +315,24 @@ assert_dns_blocked() {
     fail "Expected ${domain} to be blocked via ${server}, last status='${status:-none}'"
 }
 
+assert_https_allowed() {
+    local url="$1"
+    if ip netns exec "${NETNS}" curl -kI --max-time 20 "${url}" >/dev/null 2>&1; then
+        log "PASS: HTTPS allowed ${url}"
+        return 0
+    fi
+    fail "Expected HTTPS to be allowed: ${url}"
+}
+
+assert_https_sni_blocked() {
+    local host="$1"
+    local ip="$2"
+    if ip netns exec "${NETNS}" curl -kI --max-time 15 --resolve "${host}:443:${ip}" "https://${host}" >/dev/null 2>&1; then
+        fail "Expected HTTPS SNI to be blocked for ${host} via ${ip}"
+    fi
+    log "PASS: HTTPS SNI blocked for ${host} via ${ip}"
+}
+
 wan_tcp_probe() {
     local host="$1"
     local port="$2"
@@ -647,6 +665,19 @@ CMDS
     assert_api_success "clawgress/health" '{"key":"id_key"}'
     assert_api_success "clawgress/telemetry" '{"key":"id_key"}'
     assert_api_success "clawgress/policy" '{"key":"id_key","apply":false,"policy":{"version":1,"allow":{"domains":["api.openai.com","api.anthropic.com"],"ports":[443]},"labels":{"api.openai.com":"llm_provider","api.anthropic.com":"llm_provider"}}}'
+
+    run_vyos_serial_commands "Switching to proxy backend haproxy for SNI E2E" "$(cat <<'CMDS'
+configure
+set service clawgress policy proxy backend haproxy
+commit
+save
+exit
+CMDS
+)"
+
+    log "Clawgress backend haproxy: validating HTTPS allow and SNI deny"
+    assert_https_allowed "https://api.openai.com"
+    assert_https_sni_blocked "github.com" "140.82.112.3"
 
     run_vyos_serial_commands "Disabling Clawgress policy for E2E validation" "$(cat <<'CMDS'
 configure

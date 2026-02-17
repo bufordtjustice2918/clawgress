@@ -22,6 +22,7 @@ import os
 import re
 import time
 import hashlib
+import ipaddress
 
 from vyos.utils.file import makedir, write_file
 from vyos.utils.process import call, cmd, rc_cmd
@@ -117,7 +118,17 @@ def apply_policy(policy_path: str | None) -> None:
         })
         raise RuntimeError(f'bind9 enable/start failed with rc={rc}')
 
-    effective_state = _verify_runtime_state(policy_hash)
+    expected_backend = None
+    policy = _load_policy_safe()
+    if isinstance(policy, dict):
+        proxy_cfg = policy.get('proxy') or {}
+        if isinstance(proxy_cfg, dict):
+            mode = proxy_cfg.get('mode')
+            backend = proxy_cfg.get('backend')
+            if mode == 'sni-allowlist' and backend in ('haproxy', 'nginx'):
+                expected_backend = backend
+
+    effective_state = _verify_runtime_state(policy_hash, expected_proxy_backend=expected_backend)
     success = not effective_state['failed_checks']
     _write_apply_state({
         'timestamp': effective_state['checked_at'],
@@ -130,7 +141,7 @@ def apply_policy(policy_path: str | None) -> None:
         raise RuntimeError(f'Clawgress apply verification failed: {failed_checks}')
 
 
-def _verify_runtime_state(policy_hash: str | None) -> dict:
+def _verify_runtime_state(policy_hash: str | None, expected_proxy_backend: str | None = None) -> dict:
     bind9_active = False
     try:
         output = cmd('systemctl is-active bind9')
@@ -159,6 +170,9 @@ def _verify_runtime_state(policy_hash: str | None) -> dict:
         'nft_dns_redirect_present': 'udp dport 53 redirect to :53' in nft_output and 'tcp dport 53 redirect to :53' in nft_output,
         'nft_policy_hash_present': bool(policy_hash) and (f'policy={policy_hash}' in nft_output),
     }
+    if expected_proxy_backend == 'haproxy':
+        rc, output = rc_cmd('systemctl is-active haproxy 2>/dev/null || true')
+        checks['haproxy_active'] = rc == 0 and output.strip() == 'active'
     failed_checks = sorted([name for name, ok in checks.items() if not ok])
     return {
         'checked_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
@@ -213,12 +227,23 @@ def show_status() -> None:
         pass
 
     apply_state = _load_apply_state()
-    effective_state = _verify_runtime_state(policy_hash)
+    expected_backend = None
+    if isinstance(policy, dict):
+        proxy_cfg = policy.get('proxy') or {}
+        if isinstance(proxy_cfg, dict):
+            mode = proxy_cfg.get('mode')
+            backend = proxy_cfg.get('backend')
+            if mode == 'sni-allowlist' and backend in ('haproxy', 'nginx'):
+                expected_backend = backend
+    effective_state = _verify_runtime_state(policy_hash, expected_proxy_backend=expected_backend)
+    proxy_summary = _policy_proxy_summary(policy)
 
     status = {
         'policy_path': POLICY_PATH,
         'policy_present': policy_exists,
         'policy_hash': policy_hash,
+        'policy_proxy': proxy_summary,
+        'exfil_enforcement': 'rate_limit',
         'bind9_active': bind9_active,
         'nftables_active': nftables_active,
         'apply_state_path': APPLY_STATE_PATH,
@@ -301,6 +326,24 @@ def _sum_nft_counters() -> dict:
     return {'packets': packets, 'bytes': bytes_total}
 
 
+def _sum_nft_host_counters() -> dict:
+    rc, output = rc_cmd('nft list table inet clawgress 2>/dev/null || echo ""')
+    if rc != 0 or not output:
+        return {}
+
+    host_usage = {}
+    chain_pattern = re.compile(r'chain (clawgress_host_[A-Za-z0-9_]+)\s*\{(.*?)\n\s*\}', re.S)
+    for chain_name, body in chain_pattern.findall(output):
+        host_name = chain_name.replace('clawgress_host_', '')
+        packets = 0
+        bytes_total = 0
+        for pkt, num in re.findall(r'counter packets (\d+) bytes (\d+)', body):
+            packets += int(pkt)
+            bytes_total += int(num)
+        host_usage[host_name] = {'packets': packets, 'bytes': bytes_total}
+    return host_usage
+
+
 def _load_policy_safe() -> dict | None:
     try:
         if os.path.isfile(POLICY_PATH):
@@ -313,11 +356,152 @@ def _load_policy_safe() -> dict | None:
 def _policy_hash(policy: dict | None) -> str | None:
     if not policy:
         return None
+
+
+def _build_agent_source_map(policy: dict | None) -> list:
+    mapping = []
+    if not isinstance(policy, dict):
+        return mapping
+    hosts = policy.get('hosts') or {}
+    if not isinstance(hosts, dict):
+        return mapping
+    for agent, cfg in hosts.items():
+        if not isinstance(cfg, dict):
+            continue
+        for source in cfg.get('sources') or []:
+            try:
+                mapping.append((agent, ipaddress.ip_network(source, strict=False)))
+            except Exception:
+                continue
+    return mapping
+
+
+def _resolve_agent_for_source(source_ip: str, source_map: list) -> str:
+    if not source_ip:
+        return 'unmapped'
+    try:
+        ip_obj = ipaddress.ip_address(source_ip)
+    except Exception:
+        return 'unmapped'
+    for agent, network in source_map:
+        if ip_obj in network:
+            return agent
+    return 'unmapped'
+
+
+def _parse_rpz_domain_counts(since: str = '1 hour ago') -> dict:
+    rc, output = rc_cmd(
+        f'journalctl -u bind9 --since "{since}" -o cat 2>/dev/null | grep "rpz" || true'
+    )
+    if rc != 0 or not output:
+        return {}
+    counts = {}
+    for line in output.splitlines():
+        match = re.search(r'query:\s*([A-Za-z0-9_.-]+)', line)
+        if not match:
+            continue
+        domain = match.group(1).strip().strip('.').lower()
+        if not domain:
+            continue
+        counts[domain] = counts.get(domain, 0) + 1
+    return counts
+
+
+def _parse_haproxy_sni_events(since: str = '1 hour ago') -> list:
+    rc, output = rc_cmd(
+        f'journalctl -u haproxy --since "{since}" -o cat 2>/dev/null | grep "clawgress_sni" || true'
+    )
+    if rc != 0 or not output:
+        return []
+    events = []
+    for line in output.splitlines():
+        src_match = re.search(r'src=([0-9a-fA-F:.]+)', line)
+        sni_match = re.search(r'sni=([A-Za-z0-9_.-]+)', line)
+        if not src_match and not sni_match:
+            continue
+        events.append({
+            'source_ip': src_match.group(1) if src_match else 'unknown',
+            'domain': sni_match.group(1).strip('.').lower() if sni_match else 'unknown',
+        })
+    return events
+
+
+def _collect_grouped_telemetry(policy: dict | None) -> dict:
+    source_map = _build_agent_source_map(policy)
+    host_usage = _sum_nft_host_counters()
+    rpz_counts = _parse_rpz_domain_counts('1 hour ago')
+    haproxy_events = _parse_haproxy_sni_events('1 hour ago')
+
+    agents = {}
+    domains = {}
+    denies = {
+        'rpz_by_domain_1h': rpz_counts,
+        'haproxy_sni_events_1h': len(haproxy_events),
+    }
+
+    for host_name, usage in host_usage.items():
+        entry = agents.setdefault(host_name, {'bytes': 0, 'packets': 0, 'domains': {}, 'denies': 0})
+        entry['bytes'] += usage.get('bytes', 0)
+        entry['packets'] += usage.get('packets', 0)
+
+    for event in haproxy_events:
+        agent = _resolve_agent_for_source(event.get('source_ip', ''), source_map)
+        domain = event.get('domain', 'unknown')
+        agent_entry = agents.setdefault(agent, {'bytes': 0, 'packets': 0, 'domains': {}, 'denies': 0})
+        agent_entry['domains'][domain] = agent_entry['domains'].get(domain, 0) + 1
+        domain_entry = domains.setdefault(domain, {'requests': 0, 'agents': {}})
+        domain_entry['requests'] += 1
+        domain_entry['agents'][agent] = domain_entry['agents'].get(agent, 0) + 1
+
+    for domain, count in rpz_counts.items():
+        domain_entry = domains.setdefault(domain, {'requests': 0, 'agents': {}})
+        domain_entry['denies_rpz_1h'] = count
+
+    return {
+        'window': '1h',
+        'agents': agents,
+        'domains': domains,
+        'denies': denies,
+    }
     try:
         payload = json.dumps(policy, sort_keys=True).encode('utf-8')
         return hashlib.sha256(payload).hexdigest()[:12]
     except Exception:
         return None
+
+
+def _policy_proxy_summary(policy: dict | None) -> dict:
+    summary = {
+        'mode': 'disabled',
+        'backend': 'none',
+        'domains': [],
+        'host_overrides': 0,
+    }
+    if not isinstance(policy, dict):
+        return summary
+
+    proxy = policy.get('proxy') or {}
+    if isinstance(proxy, dict):
+        mode = proxy.get('mode')
+        backend = proxy.get('backend')
+        domains = proxy.get('domains') or []
+        if mode in ('disabled', 'sni-allowlist'):
+            summary['mode'] = mode
+        if backend in ('none', 'haproxy', 'nginx'):
+            summary['backend'] = backend
+        if isinstance(domains, list):
+            summary['domains'] = domains
+
+    hosts = policy.get('hosts') or {}
+    if isinstance(hosts, dict):
+        for host_cfg in hosts.values():
+            if not isinstance(host_cfg, dict):
+                continue
+            host_proxy = host_cfg.get('proxy')
+            if isinstance(host_proxy, dict) and host_proxy:
+                summary['host_overrides'] += 1
+
+    return summary
 
 
 def collect_telemetry() -> dict:
@@ -336,7 +520,16 @@ def collect_telemetry() -> dict:
 
     policy = _load_policy_safe()
     apply_state = _load_apply_state()
-    effective_state = _verify_runtime_state(_policy_hash(policy))
+    expected_backend = None
+    if isinstance(policy, dict):
+        proxy_cfg = policy.get('proxy') or {}
+        if isinstance(proxy_cfg, dict):
+            mode = proxy_cfg.get('mode')
+            backend = proxy_cfg.get('backend')
+            if mode == 'sni-allowlist' and backend in ('haproxy', 'nginx'):
+                expected_backend = backend
+    effective_state = _verify_runtime_state(_policy_hash(policy), expected_proxy_backend=expected_backend)
+    proxy_summary = _policy_proxy_summary(policy)
     telemetry = {
         'generated_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
         'usage': usage,
@@ -346,6 +539,8 @@ def collect_telemetry() -> dict:
             'present': bool(policy),
             'hash': _policy_hash(policy),
             'version': policy.get('version') if policy else None,
+            'proxy': proxy_summary,
+            'exfil_enforcement': 'rate_limit',
         },
         'apply': {
             'state_path': APPLY_STATE_PATH,
@@ -359,10 +554,29 @@ def collect_telemetry() -> dict:
     return telemetry
 
 
-def show_telemetry() -> None:
+def show_telemetry(view: str | None = None, target: str | None = None) -> None:
     telemetry = collect_telemetry()
+    grouped = _collect_grouped_telemetry(_load_policy_safe())
+    telemetry['grouped'] = grouped
     makedir(TELEMETRY_DIR, user='root', group='root')
     write_file(TELEMETRY_PATH, json.dumps(telemetry, indent=2) + '\n', user='root', group='root', mode=0o644)
+    if view == 'agents':
+        print(json.dumps({'window': grouped['window'], 'agents': grouped['agents']}, indent=2))
+        return
+    if view == 'domains':
+        print(json.dumps({'window': grouped['window'], 'domains': grouped['domains']}, indent=2))
+        return
+    if view == 'agent':
+        agent = target or ''
+        print(json.dumps({'window': grouped['window'], 'agent': agent, 'data': grouped['agents'].get(agent, {})}, indent=2))
+        return
+    if view == 'domain':
+        domain = (target or '').strip().strip('.').lower()
+        print(json.dumps({'window': grouped['window'], 'domain': domain, 'data': grouped['domains'].get(domain, {})}, indent=2))
+        return
+    if view == 'denies':
+        print(json.dumps({'window': grouped['window'], 'denies': grouped['denies']}, indent=2))
+        return
     print(json.dumps(telemetry, indent=2))
 
 
@@ -397,7 +611,18 @@ def main() -> None:
 
     subparsers.add_parser('stats', help='Show deny statistics')
 
-    subparsers.add_parser('telemetry', help='Show telemetry snapshot')
+    telemetry_parser = subparsers.add_parser('telemetry', help='Show telemetry snapshot')
+    telemetry_parser.add_argument(
+        'view',
+        nargs='?',
+        choices=['agents', 'domains', 'agent', 'domain', 'denies'],
+        help='Optional grouped telemetry view',
+    )
+    telemetry_parser.add_argument(
+        'target',
+        nargs='?',
+        help='Target for "agent" or "domain" views',
+    )
 
     args = parser.parse_args()
 
@@ -430,7 +655,7 @@ def main() -> None:
         return
 
     if args.command == 'telemetry':
-        show_telemetry()
+        show_telemetry(getattr(args, 'view', None), getattr(args, 'target', None))
         return
 
 

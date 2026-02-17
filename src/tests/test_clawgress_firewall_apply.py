@@ -115,11 +115,23 @@ class TestClawgressFirewallApply(unittest.TestCase):
         allow = {
             'domains': ['example.com']
         }
-        mode, domains = self.module.resolve_proxy_settings(proxy, allow)
+        mode, domains, backend = self.module.resolve_proxy_settings(proxy, allow)
         self.assertEqual(mode, 'sni-allowlist')
+        self.assertEqual(backend, 'none')
         self.assertIn('api.openai.com', domains)
         self.assertIn('*.api.openai.com', domains)
         self.assertNotIn('example.com', domains)
+
+    def test_resolve_proxy_settings_accepts_backend(self):
+        proxy = {
+            'mode': 'sni-allowlist',
+            'backend': 'haproxy',
+            'domains': ['api.openai.com']
+        }
+        mode, domains, backend = self.module.resolve_proxy_settings(proxy, {'domains': []})
+        self.assertEqual(mode, 'sni-allowlist')
+        self.assertEqual(backend, 'haproxy')
+        self.assertIn('api.openai.com', domains)
 
     def test_render_nft_host_policy_rate_limit(self):
         output = self.module.render_nft(
@@ -164,3 +176,19 @@ class TestClawgressFirewallApply(unittest.TestCase):
             }],
         )
         self.assertIn('limit rate 1048576 bytes/hour', output)
+
+    def test_render_nft_proxy_redirect(self):
+        output = self.module.render_nft(
+            v4=['1.2.3.0/24'],
+            v6=[],
+            ports=[443],
+            policy_hash='deadbeef',
+            proxy_redirect_port=10443,
+        )
+        self.assertIn('tcp dport 443 redirect to :10443', output)
+
+    def test_render_haproxy_cfg_contains_domains(self):
+        output = self.module.render_haproxy_cfg(['api.openai.com', 'api.anthropic.com'], 'deadbeef')
+        self.assertIn('clawgress_tls_sni', output)
+        self.assertIn('api.openai.com:443', output)
+        self.assertIn('api.anthropic.com:443', output)
