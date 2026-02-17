@@ -356,6 +356,11 @@ def _load_policy_safe() -> dict | None:
 def _policy_hash(policy: dict | None) -> str | None:
     if not policy:
         return None
+    try:
+        payload = json.dumps(policy, sort_keys=True).encode('utf-8')
+        return hashlib.sha256(payload).hexdigest()[:12]
+    except Exception:
+        return None
 
 
 def _build_agent_source_map(policy: dict | None) -> list:
@@ -463,11 +468,6 @@ def _collect_grouped_telemetry(policy: dict | None) -> dict:
         'domains': domains,
         'denies': denies,
     }
-    try:
-        payload = json.dumps(policy, sort_keys=True).encode('utf-8')
-        return hashlib.sha256(payload).hexdigest()[:12]
-    except Exception:
-        return None
 
 
 def _policy_proxy_summary(policy: dict | None) -> dict:
