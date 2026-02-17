@@ -153,7 +153,6 @@ options {{
     response-policy {{
         zone \"{ALLOW_ZONE}\" policy passthru;
         zone \"{DENY_ZONE}\" policy nxdomain;
-        log yes;
     }};
 }};
 

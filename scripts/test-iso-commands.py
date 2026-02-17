@@ -400,6 +400,9 @@ def run_suite(args: argparse.Namespace) -> int:
                     "show configuration commands | match service clawgress | no-more",
                     "show clawgress status | no-more",
                     "show clawgress telemetry | no-more",
+                    "sudo named-checkconf -z",
+                    "sudo journalctl -xeu named.service --no-pager -n 200",
+                    "sudo sh -c \"grep -R -n 'clawgress\\|rpz' /run/named /etc/bind 2>/dev/null | tail -n 200\"",
                     f"sudo tail -n {args.diag_log_lines} /var/log/messages",
                 ]
 
