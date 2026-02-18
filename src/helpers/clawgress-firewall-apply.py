@@ -467,8 +467,7 @@ def apply_haproxy_backend(domains, policy_hash='') -> bool:
     write_file(HAPROXY_MARKER, f'policy_hash={policy_hash}\n', user='root', group='root', mode=0o644)
     _write_haproxy_override()
     call('systemctl daemon-reload')
-    rc = call('systemctl restart haproxy')
-    if rc != 0:
+    def _dump_haproxy_diagnostics():
         print('ERROR: Failed to restart haproxy for Clawgress backend.')
         for name, command in (
             ('haproxy-config-check', f'haproxy -c -f {HAPROXY_CFG} 2>&1 || true'),
@@ -481,8 +480,15 @@ def apply_haproxy_backend(domains, policy_hash='') -> bool:
                 print(output if output else '(no output)')
             except Exception as exc:
                 print(f'(failed to capture {name}: {exc})')
+
+    rc = call('systemctl restart haproxy')
+    if rc != 0:
+        _dump_haproxy_diagnostics()
         return False
     rc = call('systemctl is-active --quiet haproxy')
+    if rc != 0:
+        _dump_haproxy_diagnostics()
+        return False
     return rc == 0
 
 
