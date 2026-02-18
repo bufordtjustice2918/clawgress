@@ -26,7 +26,7 @@ import tempfile
 import shutil
 
 from vyos.utils.file import makedir, write_file
-from vyos.utils.process import call
+from vyos.utils.process import call, cmd
 
 POLICY_PATHS = [
     '/config/clawgress/policy.json',
@@ -469,6 +469,18 @@ def apply_haproxy_backend(domains, policy_hash='') -> bool:
     call('systemctl daemon-reload')
     rc = call('systemctl restart haproxy')
     if rc != 0:
+        print('ERROR: Failed to restart haproxy for Clawgress backend.')
+        for name, command in (
+            ('haproxy-config-check', f'haproxy -c -f {HAPROXY_CFG} 2>&1 || true'),
+            ('haproxy-systemctl-status', 'systemctl status haproxy --no-pager -l 2>&1 || true'),
+            ('haproxy-journal', 'journalctl -u haproxy.service --no-pager -n 120 2>&1 || true'),
+        ):
+            print(f'--- {name} ---')
+            try:
+                output = cmd(command).strip()
+                print(output if output else '(no output)')
+            except Exception as exc:
+                print(f'(failed to capture {name}: {exc})')
         return False
     rc = call('systemctl is-active --quiet haproxy')
     return rc == 0
