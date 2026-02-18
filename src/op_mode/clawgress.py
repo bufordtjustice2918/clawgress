@@ -37,6 +37,13 @@ TELEMETRY_PATH = f'{TELEMETRY_DIR}/telemetry.json'
 APPLY_STATE_PATH = f'{TELEMETRY_DIR}/apply-state.json'
 RPZ_ALLOW_PATH = '/etc/bind/rpz/allow.rpz'
 RPZ_DENY_PATH = '/etc/bind/rpz/default-deny.rpz'
+TELEMETRY_SCHEMA_VERSION = 2
+TELEMETRY_WINDOWS = {
+    '1m': '1 minute ago',
+    '5m': '5 minutes ago',
+    '1h': '1 hour ago',
+    '24h': '24 hours ago',
+}
 
 
 def _load_policy(path: str) -> dict:
@@ -431,42 +438,136 @@ def _parse_haproxy_sni_events(since: str = '1 hour ago') -> list:
     return events
 
 
-def _collect_grouped_telemetry(policy: dict | None) -> dict:
+def _parse_egress_deny_reasons(since: str = '1 hour ago') -> dict:
+    rc, output = rc_cmd(
+        f'journalctl --since "{since}" -o cat 2>/dev/null | grep "clawgress-deny" || true'
+    )
+    if rc != 0 or not output:
+        return {}
+    counts = {}
+    for line in output.splitlines():
+        match = re.search(r'reason=([A-Za-z0-9_.:-]+)', line)
+        reason = match.group(1) if match else 'unknown'
+        counts[reason] = counts.get(reason, 0) + 1
+    return counts
+
+
+def _top_n_counts(counts: dict, key_name: str, n: int = 10) -> list:
+    ordered = sorted(counts.items(), key=lambda item: item[1], reverse=True)
+    return [{key_name: key, 'count': count} for key, count in ordered[:n]]
+
+
+def _extract_proxy_allow_domains(policy: dict | None) -> set[str]:
+    if not isinstance(policy, dict):
+        return set()
+    proxy = policy.get('proxy') or {}
+    if not isinstance(proxy, dict):
+        return set()
+    domains = proxy.get('domains') or []
+    if not isinstance(domains, list):
+        return set()
+    return {str(item).strip().strip('.').lower() for item in domains if str(item).strip()}
+
+
+def _collect_grouped_window(policy: dict | None, window_key: str, since: str) -> dict:
     source_map = _build_agent_source_map(policy)
-    host_usage = _sum_nft_host_counters()
-    rpz_counts = _parse_rpz_domain_counts('1 hour ago')
-    haproxy_events = _parse_haproxy_sni_events('1 hour ago')
+    host_usage = _sum_nft_host_counters() if window_key == '1h' else {}
+    rpz_counts = _parse_rpz_domain_counts(since)
+    haproxy_events = _parse_haproxy_sni_events(since)
+    deny_reasons = _parse_egress_deny_reasons(since)
+    allow_domains = _extract_proxy_allow_domains(policy)
 
     agents = {}
     domains = {}
-    denies = {
-        'rpz_by_domain_1h': rpz_counts,
-        'haproxy_sni_events_1h': len(haproxy_events),
-    }
+    proxy_denied_domain_counts = {}
 
     for host_name, usage in host_usage.items():
-        entry = agents.setdefault(host_name, {'bytes': 0, 'packets': 0, 'domains': {}, 'denies': 0})
+        entry = agents.setdefault(host_name, {
+            'bytes': 0,
+            'packets': 0,
+            'domains': {},
+            'requests': 0,
+            'allows': 0,
+            'denies': 0,
+            'source_ips': {},
+        })
         entry['bytes'] += usage.get('bytes', 0)
         entry['packets'] += usage.get('packets', 0)
 
     for event in haproxy_events:
         agent = _resolve_agent_for_source(event.get('source_ip', ''), source_map)
-        domain = event.get('domain', 'unknown')
-        agent_entry = agents.setdefault(agent, {'bytes': 0, 'packets': 0, 'domains': {}, 'denies': 0})
+        source_ip = event.get('source_ip', 'unknown')
+        domain = event.get('domain', 'unknown') or 'unknown'
+        is_allowed = domain in allow_domains if allow_domains else False
+        action = 'allow' if is_allowed else 'deny'
+        if action == 'deny':
+            proxy_denied_domain_counts[domain] = proxy_denied_domain_counts.get(domain, 0) + 1
+
+        agent_entry = agents.setdefault(agent, {
+            'bytes': 0,
+            'packets': 0,
+            'domains': {},
+            'requests': 0,
+            'allows': 0,
+            'denies': 0,
+            'source_ips': {},
+        })
+        agent_entry['requests'] += 1
+        if action == 'allow':
+            agent_entry['allows'] += 1
+        else:
+            agent_entry['denies'] += 1
         agent_entry['domains'][domain] = agent_entry['domains'].get(domain, 0) + 1
-        domain_entry = domains.setdefault(domain, {'requests': 0, 'agents': {}})
+        agent_entry['source_ips'][source_ip] = agent_entry['source_ips'].get(source_ip, 0) + 1
+
+        domain_entry = domains.setdefault(domain, {'requests': 0, 'agents': {}, 'allows': 0, 'denies': 0})
         domain_entry['requests'] += 1
         domain_entry['agents'][agent] = domain_entry['agents'].get(agent, 0) + 1
+        if action == 'allow':
+            domain_entry['allows'] += 1
+        else:
+            domain_entry['denies'] += 1
 
     for domain, count in rpz_counts.items():
-        domain_entry = domains.setdefault(domain, {'requests': 0, 'agents': {}})
-        domain_entry['denies_rpz_1h'] = count
+        domain_entry = domains.setdefault(domain, {'requests': 0, 'agents': {}, 'allows': 0, 'denies': 0})
+        domain_entry['denies_rpz'] = count
+
+    denies = {
+        'rpz_by_domain': rpz_counts,
+        'proxy_sni_denied_by_domain': proxy_denied_domain_counts,
+        'egress_by_reason': deny_reasons,
+        'rpz_total': sum(rpz_counts.values()),
+        'proxy_sni_denied_total': sum(proxy_denied_domain_counts.values()),
+        'egress_total': sum(deny_reasons.values()),
+    }
 
     return {
-        'window': '1h',
+        'window': window_key,
         'agents': agents,
         'domains': domains,
         'denies': denies,
+        'top_n': {
+            'domains_by_requests': _top_n_counts({d: info.get('requests', 0) for d, info in domains.items()}, 'domain'),
+            'agents_by_requests': _top_n_counts({a: info.get('requests', 0) for a, info in agents.items()}, 'agent'),
+            'denied_domains': _top_n_counts(proxy_denied_domain_counts, 'domain'),
+        },
+    }
+
+
+def _collect_grouped_telemetry(policy: dict | None) -> dict:
+    windows = {
+        key: _collect_grouped_window(policy, key, since)
+        for key, since in TELEMETRY_WINDOWS.items()
+    }
+    one_hour = windows.get('1h', {})
+    return {
+        'telemetry_schema_version': TELEMETRY_SCHEMA_VERSION,
+        'window': '1h',
+        'windows': windows,
+        'agents': one_hour.get('agents', {}),
+        'domains': one_hour.get('domains', {}),
+        'denies': one_hour.get('denies', {}),
+        'top_n': one_hour.get('top_n', {}),
     }
 
 
@@ -531,6 +632,7 @@ def collect_telemetry() -> dict:
     effective_state = _verify_runtime_state(_policy_hash(policy), expected_proxy_backend=expected_backend)
     proxy_summary = _policy_proxy_summary(policy)
     telemetry = {
+        'telemetry_schema_version': TELEMETRY_SCHEMA_VERSION,
         'generated_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
         'usage': usage,
         'denies': denies,
@@ -554,28 +656,29 @@ def collect_telemetry() -> dict:
     return telemetry
 
 
-def show_telemetry(view: str | None = None, target: str | None = None) -> None:
+def show_telemetry(view: str | None = None, target: str | None = None, window: str = '1h') -> None:
     telemetry = collect_telemetry()
     grouped = _collect_grouped_telemetry(_load_policy_safe())
     telemetry['grouped'] = grouped
+    selected = grouped.get('windows', {}).get(window, grouped.get('windows', {}).get('1h', {}))
     makedir(TELEMETRY_DIR, user='root', group='root')
     write_file(TELEMETRY_PATH, json.dumps(telemetry, indent=2) + '\n', user='root', group='root', mode=0o644)
     if view == 'agents':
-        print(json.dumps({'window': grouped['window'], 'agents': grouped['agents']}, indent=2))
+        print(json.dumps({'telemetry_schema_version': TELEMETRY_SCHEMA_VERSION, 'window': window, 'agents': selected.get('agents', {})}, indent=2))
         return
     if view == 'domains':
-        print(json.dumps({'window': grouped['window'], 'domains': grouped['domains']}, indent=2))
+        print(json.dumps({'telemetry_schema_version': TELEMETRY_SCHEMA_VERSION, 'window': window, 'domains': selected.get('domains', {})}, indent=2))
         return
     if view == 'agent':
         agent = target or ''
-        print(json.dumps({'window': grouped['window'], 'agent': agent, 'data': grouped['agents'].get(agent, {})}, indent=2))
+        print(json.dumps({'telemetry_schema_version': TELEMETRY_SCHEMA_VERSION, 'window': window, 'agent': agent, 'data': selected.get('agents', {}).get(agent, {})}, indent=2))
         return
     if view == 'domain':
         domain = (target or '').strip().strip('.').lower()
-        print(json.dumps({'window': grouped['window'], 'domain': domain, 'data': grouped['domains'].get(domain, {})}, indent=2))
+        print(json.dumps({'telemetry_schema_version': TELEMETRY_SCHEMA_VERSION, 'window': window, 'domain': domain, 'data': selected.get('domains', {}).get(domain, {})}, indent=2))
         return
     if view == 'denies':
-        print(json.dumps({'window': grouped['window'], 'denies': grouped['denies']}, indent=2))
+        print(json.dumps({'telemetry_schema_version': TELEMETRY_SCHEMA_VERSION, 'window': window, 'denies': selected.get('denies', {}), 'top_n': selected.get('top_n', {})}, indent=2))
         return
     print(json.dumps(telemetry, indent=2))
 
@@ -623,6 +726,12 @@ def main() -> None:
         nargs='?',
         help='Target for "agent" or "domain" views',
     )
+    telemetry_parser.add_argument(
+        '--window',
+        choices=list(TELEMETRY_WINDOWS.keys()),
+        default='1h',
+        help='Telemetry time window for grouped views',
+    )
 
     args = parser.parse_args()
 
@@ -655,7 +764,7 @@ def main() -> None:
         return
 
     if args.command == 'telemetry':
-        show_telemetry(getattr(args, 'view', None), getattr(args, 'target', None))
+        show_telemetry(getattr(args, 'view', None), getattr(args, 'target', None), getattr(args, 'window', '1h'))
         return
 
 

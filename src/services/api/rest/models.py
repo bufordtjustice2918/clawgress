@@ -459,6 +459,36 @@ class ClawgressPolicyModel(ApiModel):
         }
 
 
+class ClawgressTelemetryModel(ApiModel):
+    view: StrictStr = None
+    target: StrictStr = None
+    window: StrictStr = '1h'
+
+    _valid_views: ClassVar[set[str]] = {'agents', 'domains', 'agent', 'domain', 'denies'}
+    _valid_windows: ClassVar[set[str]] = {'1m', '5m', '1h', '24h'}
+
+    @model_validator(mode='after')
+    def validate_view(self) -> Self:
+        if self.view is not None and self.view not in self._valid_views:
+            raise ValueError(f'view must be one of {sorted(self._valid_views)}')
+        if self.window not in self._valid_windows:
+            raise ValueError(f'window must be one of {sorted(self._valid_windows)}')
+        if self.view in {'agent', 'domain'} and not self.target:
+            raise ValueError('target is required when view is "agent" or "domain"')
+        if self.view not in {'agent', 'domain'} and self.target:
+            raise ValueError('target is only valid for view "agent" or "domain"')
+        return self
+
+    class Config:
+        json_schema_extra = {
+            'example': {
+                'key': 'id_key',
+                'view': 'agents',
+                'window': '1h'
+            }
+        }
+
+
 class ImageOp(str, Enum):
     add = 'add'
     delete = 'delete'

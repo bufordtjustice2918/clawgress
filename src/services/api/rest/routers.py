@@ -21,6 +21,7 @@
 import asyncio
 import json
 import copy
+import shlex
 import logging
 import os
 import traceback
@@ -70,6 +71,7 @@ from .models import BaseConfigSectionModel
 from .models import RetrieveModel
 from .models import ConfigFileModel
 from .models import ClawgressPolicyModel
+from .models import ClawgressTelemetryModel
 from .models import ImageModel
 from .models import ContainerImageModel
 from .models import GenerateModel
@@ -776,9 +778,16 @@ async def clawgress_health_op(data: ApiModel):
 
 
 @router.post('/clawgress/telemetry')
-async def clawgress_telemetry_op(data: ApiModel):
+async def clawgress_telemetry_op(data: ClawgressTelemetryModel):
     try:
-        output = cmd('/usr/bin/clawgress telemetry')
+        cmd_parts = ['/usr/bin/clawgress', 'telemetry']
+        if data.view:
+            cmd_parts.append(shlex.quote(data.view))
+            if data.target:
+                cmd_parts.append(shlex.quote(data.target))
+        if data.window:
+            cmd_parts.append(f'--window {shlex.quote(data.window)}')
+        output = cmd(' '.join(cmd_parts))
         return success(json.loads(output))
     except Exception:
         LOG.critical(traceback.format_exc())
