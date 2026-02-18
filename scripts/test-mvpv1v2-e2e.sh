@@ -244,6 +244,10 @@ checks = [
     ("MVPv2-4", "Rate limiting / shaping", cmd_pass("policy rate-limit-kbps 8000") and cmd_pass("match \"service clawgress policy rate-limit-kbps\"")),
     ("MVPv2-5", "Time-based policy windows", log_has("Applying restrictive time-window test") and log_has("PASS: api.slack.com blocked via 192.168.50.1")),
     ("MVPv2-6", "Data exfiltration caps", cmd_pass("exfil domain api.openai.com bytes 1048576") and cmd_pass("exfil domain api.openai.com period hour") and cmd_pass("match \"service clawgress policy host agent1 exfil domain api.openai.com bytes\"")),
+    ("MVPv2.1-1", "Proxy backend enforcement (haproxy only)", cmd_pass("backend\":\"nginx\"") and cmd_pass("\"success\": false") and cmd_pass("policy.proxy.backend must be \\\"none\\\" or \\\"haproxy\\\"") and cmd_pass("set service clawgress policy proxy backend haproxy")),
+    ("MVPv2.1-2", "Telemetry export redaction/no-redaction (CLI+API)", cmd_pass("telemetry export --window 1h | no-more | grep -q '<redacted>'") and cmd_pass("telemetry export --window 1h --no-redact | no-more | grep -q '\"source_ips\": {'") and cmd_pass("redact\":true") and cmd_pass("redact\":false")),
+    ("MVPv2.1-3", "Effective-state backend activity", cmd_pass("show clawgress status | no-more | grep -q '\"haproxy_active\": true'")),
+    ("MVPv2.1-4", "Commit diagnostics in /var/log/messages", cmd_pass("sudo grep -q 'Successful change to active configuration' /var/log/messages")),
 ]
 
 result = {

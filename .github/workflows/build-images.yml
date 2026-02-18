@@ -620,12 +620,12 @@ jobs:
             ./artifacts
 
   mvpv1v2-e2e:
-    name: MVPv1/MVPv2 E2E Report
+    name: MVPv1/MVPv2/MVPv2.1 E2E Report
     runs-on: ubuntu-latest
     needs:
       - build
       - smoke-test
-    timeout-minutes: 40
+    timeout-minutes: 55
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -641,7 +641,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y qemu-system-x86 qemu-utils iproute2 dnsutils curl python3-pexpect
 
-      - name: Run enhanced MVPv1/MVPv2 validator
+      - name: Run enhanced MVPv1/MVPv2/MVPv2.1 validator
         run: |
           set -euo pipefail
           ISO_PATH=$(find ./artifacts -name "*.iso" -type f | head -1)
@@ -652,7 +652,7 @@ jobs:
 
           ./scripts/test-mvpv1v2-e2e.sh --iso "${ISO_PATH}" --no-force-kvm
 
-      - name: Stage MVPv1/MVPv2 report artifacts
+      - name: Stage MVPv1/MVPv2/MVPv2.1 report artifacts
         if: always()
         run: |
           set -euo pipefail
@@ -670,7 +670,18 @@ jobs:
             sudo chown -R "$(id -u):$(id -g)" ./mvpv1v2-e2e-artifacts/netlab-latest
           fi
 
-      - name: Upload MVPv1/MVPv2 report artifacts
+      - name: Publish report markdown in job summary
+        if: always()
+        run: |
+          set -euo pipefail
+          REPORT_MD="$(find ./mvpv1v2-e2e-artifacts -name mvpv1v2-report.md -type f | head -1 || true)"
+          if [ -n "${REPORT_MD}" ] && [ -f "${REPORT_MD}" ]; then
+            cat "${REPORT_MD}" >> "${GITHUB_STEP_SUMMARY}"
+          else
+            echo "MVPv1/MVPv2/MVPv2.1 report markdown not found." >> "${GITHUB_STEP_SUMMARY}"
+          fi
+
+      - name: Upload MVPv1/MVPv2/MVPv2.1 report artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
