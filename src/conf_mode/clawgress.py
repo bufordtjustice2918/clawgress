@@ -190,7 +190,9 @@ def verify(clawgress):
         if isinstance(proxy_cfg, dict):
             backend = proxy_cfg.get('backend')
             mode = proxy_cfg.get('mode')
-            if backend in ('haproxy', 'nginx') and mode != 'sni-allowlist':
+            if backend == 'nginx':
+                raise ConfigError('proxy backend "nginx" is not supported in MVPv2.1')
+            if backend == 'haproxy' and mode != 'sni-allowlist':
                 raise ConfigError('proxy backend requires "proxy mode sni-allowlist"')
 
 
@@ -247,12 +249,12 @@ def generate(clawgress):
     proxy_mode = proxy_config.get('mode')
     proxy_backend = proxy_config.get('backend')
     proxy_domains = _as_values(proxy_config.get('domain'))
-    if proxy_mode in ('disabled', 'sni-allowlist') or proxy_domains or proxy_backend in ('none', 'haproxy', 'nginx'):
+    if proxy_mode in ('disabled', 'sni-allowlist') or proxy_domains or proxy_backend in ('none', 'haproxy'):
         policy['proxy'] = {
             'mode': proxy_mode if proxy_mode in ('disabled', 'sni-allowlist') else 'disabled',
             'domains': proxy_domains,
         }
-        if proxy_backend in ('none', 'haproxy', 'nginx'):
+        if proxy_backend in ('none', 'haproxy'):
             policy['proxy']['backend'] = proxy_backend
 
     hosts_config = policy_config.get('host', {})
@@ -301,13 +303,13 @@ def generate(clawgress):
             if (
                 host_proxy_mode in ('disabled', 'sni-allowlist')
                 or host_proxy_domains
-                or host_proxy_backend in ('none', 'haproxy', 'nginx')
+                or host_proxy_backend in ('none', 'haproxy')
             ):
                 host_entry['proxy'] = {
                     'mode': host_proxy_mode if host_proxy_mode in ('disabled', 'sni-allowlist') else 'disabled',
                     'domains': host_proxy_domains,
                 }
-                if host_proxy_backend in ('none', 'haproxy', 'nginx'):
+                if host_proxy_backend in ('none', 'haproxy'):
                     host_entry['proxy']['backend'] = host_proxy_backend
 
             policy['hosts'][host_name] = host_entry
@@ -356,7 +358,9 @@ def apply(clawgress):
     proxy_cfg = policy_cfg.get('proxy', {}) if isinstance(policy_cfg, dict) else {}
     proxy_mode = proxy_cfg.get('mode')
     proxy_backend = proxy_cfg.get('backend')
-    if proxy_mode == 'sni-allowlist' and proxy_backend in ('haproxy', 'nginx'):
+    if proxy_mode == 'sni-allowlist' and proxy_backend == 'nginx':
+        raise ConfigError('proxy backend "nginx" is not supported in MVPv2.1')
+    if proxy_mode == 'sni-allowlist' and proxy_backend == 'haproxy':
         expected_proxy_backend = proxy_backend
 
     policy_hash = _compute_policy_hash()

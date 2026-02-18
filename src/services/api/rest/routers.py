@@ -787,6 +787,8 @@ async def clawgress_telemetry_op(data: ClawgressTelemetryModel):
                 cmd_parts.append(shlex.quote(data.target))
         if data.window:
             cmd_parts.append(f'--window {shlex.quote(data.window)}')
+        if data.view == 'export' and not data.redact:
+            cmd_parts.append('--no-redact')
         output = cmd(' '.join(cmd_parts))
         return success(json.loads(output))
     except Exception:

@@ -17,6 +17,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
+import calendar
 import json
 import os
 import re
@@ -34,10 +35,14 @@ FIREWALL_APPLY_BIN = '/usr/bin/clawgress-firewall-apply'
 LABELS_FILE = '/etc/bind/rpz/labels.json'
 TELEMETRY_DIR = '/var/lib/clawgress'
 TELEMETRY_PATH = f'{TELEMETRY_DIR}/telemetry.json'
+TELEMETRY_EXPORT_PATH = f'{TELEMETRY_DIR}/telemetry-export.json'
+TELEMETRY_HISTORY_PATH = f'{TELEMETRY_DIR}/telemetry-history.ndjson'
 APPLY_STATE_PATH = f'{TELEMETRY_DIR}/apply-state.json'
 RPZ_ALLOW_PATH = '/etc/bind/rpz/allow.rpz'
 RPZ_DENY_PATH = '/etc/bind/rpz/default-deny.rpz'
 TELEMETRY_SCHEMA_VERSION = 2
+TELEMETRY_HISTORY_MAX_ENTRIES = 200
+TELEMETRY_HISTORY_TTL_SECONDS = 7 * 24 * 3600
 TELEMETRY_WINDOWS = {
     '1m': '1 minute ago',
     '5m': '5 minutes ago',
@@ -132,7 +137,7 @@ def apply_policy(policy_path: str | None) -> None:
         if isinstance(proxy_cfg, dict):
             mode = proxy_cfg.get('mode')
             backend = proxy_cfg.get('backend')
-            if mode == 'sni-allowlist' and backend in ('haproxy', 'nginx'):
+            if mode == 'sni-allowlist' and backend == 'haproxy':
                 expected_backend = backend
 
     effective_state = _verify_runtime_state(policy_hash, expected_proxy_backend=expected_backend)
@@ -240,7 +245,7 @@ def show_status() -> None:
         if isinstance(proxy_cfg, dict):
             mode = proxy_cfg.get('mode')
             backend = proxy_cfg.get('backend')
-            if mode == 'sni-allowlist' and backend in ('haproxy', 'nginx'):
+            if mode == 'sni-allowlist' and backend == 'haproxy':
                 expected_backend = backend
     effective_state = _verify_runtime_state(policy_hash, expected_proxy_backend=expected_backend)
     proxy_summary = _policy_proxy_summary(policy)
@@ -588,7 +593,7 @@ def _policy_proxy_summary(policy: dict | None) -> dict:
         domains = proxy.get('domains') or []
         if mode in ('disabled', 'sni-allowlist'):
             summary['mode'] = mode
-        if backend in ('none', 'haproxy', 'nginx'):
+        if backend in ('none', 'haproxy'):
             summary['backend'] = backend
         if isinstance(domains, list):
             summary['domains'] = domains
@@ -627,7 +632,7 @@ def collect_telemetry() -> dict:
         if isinstance(proxy_cfg, dict):
             mode = proxy_cfg.get('mode')
             backend = proxy_cfg.get('backend')
-            if mode == 'sni-allowlist' and backend in ('haproxy', 'nginx'):
+            if mode == 'sni-allowlist' and backend == 'haproxy':
                 expected_backend = backend
     effective_state = _verify_runtime_state(_policy_hash(policy), expected_proxy_backend=expected_backend)
     proxy_summary = _policy_proxy_summary(policy)
@@ -656,13 +661,101 @@ def collect_telemetry() -> dict:
     return telemetry
 
 
-def show_telemetry(view: str | None = None, target: str | None = None, window: str = '1h') -> None:
+def _safe_write_telemetry_outputs(telemetry: dict) -> None:
+    makedir(TELEMETRY_DIR, user='root', group='root')
+    write_file(TELEMETRY_PATH, json.dumps(telemetry, indent=2) + '\n', user='root', group='root', mode=0o664)
+    write_file(
+        TELEMETRY_HISTORY_PATH,
+        json.dumps({'generated_at': telemetry.get('generated_at'), 'grouped': telemetry.get('grouped', {})}) + '\n',
+        user='root',
+        group='root',
+        mode=0o664,
+        append=True,
+    )
+
+    now_ts = int(time.time())
+    cutoff = now_ts - TELEMETRY_HISTORY_TTL_SECONDS
+    pruned = []
+    try:
+        with open(TELEMETRY_HISTORY_PATH, 'r', encoding='utf-8') as handle:
+            for line in handle:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    item = json.loads(line)
+                except Exception:
+                    continue
+                generated_at = item.get('generated_at')
+                if not generated_at:
+                    continue
+                try:
+                    item_ts = int(calendar.timegm(time.strptime(generated_at, '%Y-%m-%dT%H:%M:%SZ')))
+                except Exception:
+                    continue
+                if item_ts >= cutoff:
+                    pruned.append(item)
+    except FileNotFoundError:
+        pruned = []
+
+    if len(pruned) > TELEMETRY_HISTORY_MAX_ENTRIES:
+        pruned = pruned[-TELEMETRY_HISTORY_MAX_ENTRIES:]
+
+    if pruned:
+        payload = ''.join(json.dumps(item) + '\n' for item in pruned)
+        write_file(TELEMETRY_HISTORY_PATH, payload, user='root', group='root', mode=0o664)
+
+
+def _redact_payload(value):
+    if isinstance(value, dict):
+        redacted = {}
+        for key, item in value.items():
+            if key in {'source_ip', 'source_ips', 'dest_ip', 'agent_id'}:
+                redacted[key] = '<redacted>'
+            else:
+                redacted[key] = _redact_payload(item)
+        return redacted
+    if isinstance(value, list):
+        return [_redact_payload(item) for item in value]
+    return value
+
+
+def _export_payload(telemetry: dict, window: str, redact: bool = True) -> dict:
+    grouped = telemetry.get('grouped', {})
+    selected = grouped.get('windows', {}).get(window, grouped.get('windows', {}).get('1h', {}))
+    payload = {
+        'telemetry_schema_version': TELEMETRY_SCHEMA_VERSION,
+        'exported_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+        'window': window,
+        'policy_hash': telemetry.get('policy', {}).get('hash'),
+        'backend_mode': telemetry.get('policy', {}).get('proxy', {}).get('backend', 'none'),
+        'exfil_enforcement': telemetry.get('policy', {}).get('exfil_enforcement', 'rate_limit'),
+        'agents': selected.get('agents', {}),
+        'domains': selected.get('domains', {}),
+        'denies': selected.get('denies', {}),
+        'top_n': selected.get('top_n', {}),
+    }
+    if redact:
+        payload = _redact_payload(payload)
+    write_file(TELEMETRY_EXPORT_PATH, json.dumps(payload, indent=2) + '\n', user='root', group='root', mode=0o664)
+    return payload
+
+
+def show_telemetry(view: str | None = None, target: str | None = None, window: str = '1h', redact: bool = True) -> None:
     telemetry = collect_telemetry()
     grouped = _collect_grouped_telemetry(_load_policy_safe())
     telemetry['grouped'] = grouped
     selected = grouped.get('windows', {}).get(window, grouped.get('windows', {}).get('1h', {}))
-    makedir(TELEMETRY_DIR, user='root', group='root')
-    write_file(TELEMETRY_PATH, json.dumps(telemetry, indent=2) + '\n', user='root', group='root', mode=0o644)
+    telemetry_storage = {'status': 'ok'}
+    try:
+        _safe_write_telemetry_outputs(telemetry)
+    except Exception as exc:
+        telemetry_storage = {'status': 'degraded', 'reason': str(exc)}
+    telemetry['storage'] = telemetry_storage
+
+    if view == 'export':
+        print(json.dumps(_export_payload(telemetry, window=window, redact=redact), indent=2))
+        return
     if view == 'agents':
         print(json.dumps({'telemetry_schema_version': TELEMETRY_SCHEMA_VERSION, 'window': window, 'agents': selected.get('agents', {})}, indent=2))
         return
@@ -718,7 +811,7 @@ def main() -> None:
     telemetry_parser.add_argument(
         'view',
         nargs='?',
-        choices=['agents', 'domains', 'agent', 'domain', 'denies'],
+        choices=['agents', 'domains', 'agent', 'domain', 'denies', 'export'],
         help='Optional grouped telemetry view',
     )
     telemetry_parser.add_argument(
@@ -731,6 +824,11 @@ def main() -> None:
         choices=list(TELEMETRY_WINDOWS.keys()),
         default='1h',
         help='Telemetry time window for grouped views',
+    )
+    telemetry_parser.add_argument(
+        '--no-redact',
+        action='store_true',
+        help='Disable redaction in telemetry export view',
     )
 
     args = parser.parse_args()
@@ -764,7 +862,12 @@ def main() -> None:
         return
 
     if args.command == 'telemetry':
-        show_telemetry(getattr(args, 'view', None), getattr(args, 'target', None), getattr(args, 'window', '1h'))
+        show_telemetry(
+            getattr(args, 'view', None),
+            getattr(args, 'target', None),
+            getattr(args, 'window', '1h'),
+            not getattr(args, 'no_redact', False),
+        )
         return
 
 

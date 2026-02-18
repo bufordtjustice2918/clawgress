@@ -175,7 +175,7 @@ DAY_ALIASES = {
 }
 TIME_RE = re.compile(r'^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$')
 TIME_UNITS = {'second', 'minute', 'hour', 'day'}
-PROXY_BACKENDS = {'none', 'haproxy', 'nginx'}
+PROXY_BACKENDS = {'none', 'haproxy'}
 
 
 def normalize_domain_key(domain):

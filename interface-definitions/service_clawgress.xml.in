@@ -178,11 +178,11 @@
                     <properties>
                       <help>Proxy backend implementation</help>
                       <valueHelp>
-                        <format>none|haproxy|nginx</format>
+                        <format>none|haproxy</format>
                         <description>Backend used for proxy/SNI enforcement</description>
                       </valueHelp>
                       <constraint>
-                        <regex>^(none|haproxy|nginx)$</regex>
+                        <regex>^(none|haproxy)$</regex>
                       </constraint>
                     </properties>
                   </leafNode>
@@ -238,11 +238,11 @@
                         <properties>
                           <help>Proxy backend implementation</help>
                           <valueHelp>
-                            <format>none|haproxy|nginx</format>
+                            <format>none|haproxy</format>
                             <description>Backend used for this host proxy/SNI enforcement</description>
                           </valueHelp>
                           <constraint>
-                            <regex>^(none|haproxy|nginx)$</regex>
+                            <regex>^(none|haproxy)$</regex>
                           </constraint>
                         </properties>
                       </leafNode>

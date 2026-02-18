@@ -39,9 +39,10 @@ Clawgress is a VyOS-based egress policy appliance for agent and LLM workloads. I
 ### MVPv2.1 (stabilization + enforcement)
 
 - Proxy backend selector:
-  - `service clawgress policy proxy backend {none|haproxy|nginx}`
+  - `service clawgress policy proxy backend {none|haproxy}`
   - host override: `service clawgress policy host <name> proxy backend ...`
 - HAProxy backend mode for deterministic TLS SNI allowlist enforcement.
+- `nginx` backend is intentionally de-scoped in MVPv2.1.
 - Effective-state verification includes backend activity checks.
 - Windowed/grouped telemetry views:
   - CLI op-mode: `show clawgress telemetry [agents|domains|agent <name>|domain <fqdn>|denies]`
@@ -125,6 +126,7 @@ Direct utility command path is also available:
 /usr/bin/clawgress telemetry agents --window 1h
 /usr/bin/clawgress telemetry domain api.openai.com --window 5m
 /usr/bin/clawgress telemetry denies --window 24h
+/usr/bin/clawgress telemetry export --window 1h
 /usr/bin/clawgress show --policy /config/clawgress/policy.json
 /usr/bin/clawgress import --policy /tmp/policy.json
 ```

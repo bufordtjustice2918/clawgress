@@ -101,3 +101,31 @@ class TestClawgressPolicyModel(unittest.TestCase):
         payload['policy']['proxy']['backend'] = 'envoy'
         with self.assertRaises(Exception):
             self.model(**payload)
+
+    def test_rejects_nginx_backend_mvpv21(self):
+        payload = self._valid_payload()
+        payload['policy']['proxy']['backend'] = 'nginx'
+        with self.assertRaises(Exception):
+            self.model(**payload)
+
+
+class TestClawgressTelemetryModel(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        try:
+            from src.services.api.rest.models import ClawgressTelemetryModel
+        except ImportError as exc:
+            raise unittest.SkipTest(f'model import unavailable in this env: {exc}') from exc
+        cls.model = ClawgressTelemetryModel
+
+    def test_accepts_windowed_view(self):
+        obj = self.model(key='id_key', view='agents', window='5m')
+        self.assertEqual(obj.window, '5m')
+
+    def test_rejects_missing_target_for_domain(self):
+        with self.assertRaises(Exception):
+            self.model(key='id_key', view='domain', window='1h')
+
+    def test_accepts_export_redact_flag(self):
+        obj = self.model(key='id_key', view='export', window='24h', redact=False)
+        self.assertFalse(obj.redact)

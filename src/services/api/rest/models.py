@@ -329,10 +329,10 @@ class ClawgressPolicyModel(ApiModel):
                         f'"disabled" or "sni-allowlist"'
                     )
                 backend = proxy.get('backend')
-                if backend is not None and backend not in ('none', 'haproxy', 'nginx'):
+                if backend is not None and backend not in ('none', 'haproxy'):
                     raise ValueError(
                         f'{field_name}.{host_name}.proxy.backend must be '
-                        f'"none", "haproxy", or "nginx"'
+                        f'"none" or "haproxy"'
                     )
                 cls._validate_domains(proxy.get('domains'), f'{field_name}.{host_name}.proxy.domains')
 
@@ -389,8 +389,8 @@ class ClawgressPolicyModel(ApiModel):
             if mode is not None and mode not in ('disabled', 'sni-allowlist'):
                 raise ValueError('policy.proxy.mode must be "disabled" or "sni-allowlist"')
             backend = proxy.get('backend')
-            if backend is not None and backend not in ('none', 'haproxy', 'nginx'):
-                raise ValueError('policy.proxy.backend must be "none", "haproxy", or "nginx"')
+            if backend is not None and backend not in ('none', 'haproxy'):
+                raise ValueError('policy.proxy.backend must be "none" or "haproxy"')
             cls._validate_domains(proxy.get('domains'), 'policy.proxy.domains')
 
         limits = policy.get('limits')
@@ -463,8 +463,9 @@ class ClawgressTelemetryModel(ApiModel):
     view: StrictStr = None
     target: StrictStr = None
     window: StrictStr = '1h'
+    redact: StrictBool = True
 
-    _valid_views: ClassVar[set[str]] = {'agents', 'domains', 'agent', 'domain', 'denies'}
+    _valid_views: ClassVar[set[str]] = {'agents', 'domains', 'agent', 'domain', 'denies', 'export'}
     _valid_windows: ClassVar[set[str]] = {'1m', '5m', '1h', '24h'}
 
     @model_validator(mode='after')
@@ -484,7 +485,8 @@ class ClawgressTelemetryModel(ApiModel):
             'example': {
                 'key': 'id_key',
                 'view': 'agents',
-                'window': '1h'
+                'window': '1h',
+                'redact': True
             }
         }
 
