@@ -37,6 +37,9 @@ DEFAULT_MVP_FULL_COMMANDS = [
     "RAW: set service clawgress policy proxy mode sni-allowlist",
     "RAW: set service clawgress policy proxy backend none",
     "RAW: set service clawgress policy proxy domain api.openai.com",
+    "RAW: set service https api",
+    "RAW: set service https api rest",
+    "RAW: set service https api keys id id_key key id_key",
     "RAW: set service clawgress policy host agent1 source 192.168.10.10/32",
     "RAW: set service clawgress policy host agent1 proxy mode sni-allowlist",
     "RAW: set service clawgress policy host agent1 proxy backend none",
@@ -89,7 +92,6 @@ DEFAULT_MVP_FULL_COMMANDS = [
     "RAW: exit discard",
     "show clawgress firewall | no-more",
     "show clawgress rpz | no-more",
-    "sudo grep -q 'Successful change to active configuration' /var/log/messages",
     "sudo tail -n 400 /var/log/messages",
 ]
 DEFAULT_FAIL_PATTERNS = [

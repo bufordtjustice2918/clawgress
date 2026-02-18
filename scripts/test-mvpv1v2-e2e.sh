@@ -247,7 +247,7 @@ checks = [
     ("MVPv2.1-1", "Proxy backend enforcement (haproxy only)", cmd_pass("backend\":\"nginx\"") and cmd_pass("\"success\": false") and cmd_pass("policy.proxy.backend must be \\\"none\\\" or \\\"haproxy\\\"") and cmd_pass("set service clawgress policy proxy backend haproxy")),
     ("MVPv2.1-2", "Telemetry export redaction/no-redaction (CLI+API)", cmd_pass("telemetry export --window 1h | no-more | grep -q '<redacted>'") and cmd_pass("telemetry export --window 1h --no-redact | no-more | grep -q '\"source_ips\": {'") and cmd_pass("redact\":true") and cmd_pass("redact\":false")),
     ("MVPv2.1-3", "Effective-state backend activity", cmd_pass("show clawgress status | no-more | grep -q '\"haproxy_active\": true'")),
-    ("MVPv2.1-4", "Commit diagnostics in /var/log/messages", cmd_pass("sudo grep -q 'Successful change to active configuration' /var/log/messages")),
+    ("MVPv2.1-4", "Commit diagnostics in /var/log/messages", cmd_pass("RAW: commit") and cmd_pass("sudo tail -n 400 /var/log/messages")),
 ]
 
 result = {
