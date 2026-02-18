@@ -16,6 +16,7 @@ CLAWGRESS_E2E=0
 QEMU_LOCK_FILE="/run/lock/clawgress-qemu-netlab.lock"
 QEMU_PROCESS_PATTERN='qemu-system-.*clawgress-(local-test|cmd-suite|smoke-test|net-lab)'
 QEMU_NAME="clawgress-net-lab"
+RUN_LOCK_FD=""
 
 NETNS="clawlan"
 BRIDGE_IF="clawbr0"
@@ -81,10 +82,18 @@ need_cmd() {
 acquire_run_lock() {
     if command -v flock >/dev/null 2>&1; then
         mkdir -p "$(dirname "${QEMU_LOCK_FILE}")"
-        exec 9>"${QEMU_LOCK_FILE}"
-        flock -x 9
+        exec {RUN_LOCK_FD}>"${QEMU_LOCK_FILE}"
+        flock -x "${RUN_LOCK_FD}"
     else
         log "flock not found; continuing without lock file protection"
+    fi
+}
+
+release_run_lock() {
+    if [[ -n "${RUN_LOCK_FD}" ]]; then
+        flock -u "${RUN_LOCK_FD}" 2>/dev/null || true
+        eval "exec ${RUN_LOCK_FD}>&-"
+        RUN_LOCK_FD=""
     fi
 }
 
@@ -125,6 +134,7 @@ cleanup_network() {
 }
 
 cleanup() {
+    release_run_lock
     if [[ ${KEEP_LAB} -eq 0 ]]; then
         if [[ -n "${QEMU_PID}" ]] && kill -0 "${QEMU_PID}" 2>/dev/null; then
             log "Stopping VM"
@@ -417,6 +427,7 @@ need_cmd timeout
 acquire_run_lock
 kill_stale_qemu
 cleanup_network
+release_run_lock
 
 WORKDIR="$(mktemp -d /tmp/clawgress-netlab.XXXXXX)"
 DISK_FILE="${WORKDIR}/test-disk.qcow2"
@@ -696,6 +707,7 @@ CMDS
 
     log "Clawgress backend haproxy: validating HTTPS allow and SNI deny"
     assert_https_allowed "https://api.openai.com"
+    assert_https_allowed "https://api.anthropic.com"
     assert_https_sni_blocked "github.com" "140.82.112.3"
 
     run_vyos_serial_commands "Disabling Clawgress policy for E2E validation" "$(cat <<'CMDS'

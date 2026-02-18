@@ -356,29 +356,18 @@ def _normalize_backend_domains(domains):
 
 def render_haproxy_cfg(domains, policy_hash='') -> str:
     backend_lines = []
-    acl_lines = []
-    use_backend_lines = []
     for idx, domain in enumerate(domains, start=1):
         backend_name = f'clawgress_bk_{idx}'
-        acl_name = f'clawgress_sni_{idx}'
-        acl_lines.append(f'    acl {acl_name} req.ssl_sni -i {domain}')
-        use_backend_lines.append(f'    use_backend {backend_name} if {acl_name}')
         backend_lines.extend([
             f'backend {backend_name}',
             '    mode tcp',
-            f'    server sni_target {domain}:443 resolvers clawgress_dns init-addr libc,none',
+            f'    server sni_target {domain}:443 resolvers clawgress_dns init-addr libc,none resolve-prefer ipv4',
             '',
         ])
 
     backend_text = '\n'.join(backend_lines).rstrip()
-    acl_text = '\n'.join(acl_lines).rstrip()
-    route_text = '\n'.join(use_backend_lines).rstrip()
     if backend_text:
         backend_text = f'\n{backend_text}'
-    if acl_text:
-        acl_text = f'\n{acl_text}'
-    if route_text:
-        route_text = f'\n{route_text}'
 
     return f"""### Clawgress managed HAProxy config ###
 ### policy_hash={policy_hash} ###
@@ -408,12 +397,13 @@ frontend clawgress_tls_sni
     mode tcp
     option tcplog
     tcp-request inspect-delay 5s
-    tcp-request content accept if {{ req.ssl_hello_type 1 }}
     tcp-request content set-var(txn.clawgress_sni) req.ssl_sni,lower
-    acl clawgress_sni_allowed req.ssl_sni,lower -f {HAPROXY_ALLOWLIST}
-    log-format "clawgress_sni src=%ci sni=%[var(txn.clawgress_sni)] policy={policy_hash}"{acl_text}
-    tcp-request content reject if !clawgress_sni_allowed
-{route_text}
+    tcp-request content accept if {{ req.ssl_hello_type 1 }}
+    acl clawgress_sni_found var(txn.clawgress_sni) -m found
+    acl clawgress_sni_allowed var(txn.clawgress_sni) -m str -f {HAPROXY_ALLOWLIST}
+    log-format "clawgress_sni src=%ci sni=%[var(txn.clawgress_sni)] policy={policy_hash}"
+    tcp-request content reject if clawgress_sni_found !clawgress_sni_allowed
+    use_backend %[var(txn.clawgress_sni),map({HAPROXY_BACKEND_MAP},clawgress_reject)]
     default_backend clawgress_reject
 
 backend clawgress_reject
