@@ -1,4 +1,4 @@
-# Clawgress (mvpv2)
+# Clawgress (mvpv2.1)
 
 Clawgress is a VyOS-based egress policy appliance for agent and LLM workloads. It enforces allowlists with DNS RPZ + nftables, keeps policy in JSON, and exposes both CLI and REST management paths.
 
@@ -35,6 +35,19 @@ Clawgress is a VyOS-based egress policy appliance for agent and LLM workloads. I
 - REST endpoints for write + health:
   - `POST /clawgress/policy`
   - `POST /clawgress/health`
+
+### MVPv2.1 (stabilization + enforcement)
+
+- Proxy backend selector:
+  - `service clawgress policy proxy backend {none|haproxy|nginx}`
+  - host override: `service clawgress policy host <name> proxy backend ...`
+- HAProxy backend mode for deterministic TLS SNI allowlist enforcement.
+- Effective-state verification includes backend activity checks.
+- Windowed/grouped telemetry views:
+  - CLI op-mode: `show clawgress telemetry [agents|domains|agent <name>|domain <fqdn>|denies]`
+  - Direct utility for window selection: `/usr/bin/clawgress telemetry ... --window 1m|5m|1h|24h`
+  - API: `POST /clawgress/telemetry` with optional `view`, `target`, `window`
+- Exfil status explicitly reports current enforcement mode as `rate_limit`.
 
 ## CLI Configuration Examples
 
@@ -77,6 +90,9 @@ exit
 configure
 set service clawgress enable
 set service clawgress policy host agent-1 source 192.168.10.10/32
+set service clawgress policy host agent-1 proxy mode sni-allowlist
+set service clawgress policy host agent-1 proxy backend haproxy
+set service clawgress policy host agent-1 proxy domain api.openai.com
 set service clawgress policy host agent-1 exfil domain api.openai.com bytes 1048576
 set service clawgress policy host agent-1 exfil domain api.openai.com period hour
 commit
@@ -92,6 +108,8 @@ Run through VyOS op-mode:
 show clawgress status
 show clawgress stats
 show clawgress telemetry
+show clawgress telemetry agents
+show clawgress telemetry domain api.openai.com
 show clawgress firewall
 show clawgress rpz
 show clawgress policy show
@@ -104,6 +122,9 @@ Direct utility command path is also available:
 ```bash
 /usr/bin/clawgress status
 /usr/bin/clawgress telemetry
+/usr/bin/clawgress telemetry agents --window 1h
+/usr/bin/clawgress telemetry domain api.openai.com --window 5m
+/usr/bin/clawgress telemetry denies --window 24h
 /usr/bin/clawgress show --policy /config/clawgress/policy.json
 /usr/bin/clawgress import --policy /tmp/policy.json
 ```
@@ -147,7 +168,6 @@ Direct utility command path is also available:
       "start": "10:00",
       "end": "11:00"
     }
-  },
   "limits": {
     "egress_kbps": 8000
   },
@@ -237,11 +257,18 @@ curl -sS -X POST http://<vyos-host>/api/clawgress/telemetry \
   -d '{"key":"id_key"}'
 ```
 
+```bash
+curl -sS -X POST http://<vyos-host>/api/clawgress/telemetry \
+  -H "Content-Type: application/json" \
+  -d '{"key":"id_key","view":"domains","window":"5m"}'
+```
+
 ## Notes
 
 - Primary persisted policy path: `/config/clawgress/policy.json`
 - bind9 RPZ + nftables are both part of enforcement; health/status should be checked after each policy update.
 - In live ISO sessions, config warnings about non-persistence are expected until installed.
+- `exfil_enforcement` currently means nftables rule-based `rate_limit`; it is not a persisted strict quota ledger.
 
 ## License
 
