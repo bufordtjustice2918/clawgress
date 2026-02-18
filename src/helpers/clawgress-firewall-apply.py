@@ -409,9 +409,11 @@ frontend clawgress_tls_sni
     option tcplog
     tcp-request inspect-delay 5s
     tcp-request content accept if {{ req.ssl_hello_type 1 }}
+    tcp-request content set-var(txn.clawgress_sni) req.ssl_sni,lower
     acl clawgress_sni_allowed req.ssl_sni,lower -f {HAPROXY_ALLOWLIST}
-    log-format "clawgress_sni src=%ci sni=%[req.ssl_sni,lower] policy={policy_hash}"{acl_text}{route_text}
+    log-format "clawgress_sni src=%ci sni=%[var(txn.clawgress_sni)] policy={policy_hash}"{acl_text}
     tcp-request content reject if !clawgress_sni_allowed
+{route_text}
     default_backend clawgress_reject
 
 backend clawgress_reject
