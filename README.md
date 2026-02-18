@@ -1,4 +1,4 @@
-# Clawgress (mvpv2.1)
+# Clawgress (mvpv2.2)
 
 Clawgress is a VyOS-based egress policy appliance for agent and LLM workloads. It enforces allowlists with DNS RPZ + nftables, keeps policy in JSON, and exposes both CLI and REST management paths.
 
@@ -50,6 +50,18 @@ Clawgress is a VyOS-based egress policy appliance for agent and LLM workloads. I
   - API: `POST /clawgress/telemetry` with optional `view`, `target`, `window`
 - Exfil status explicitly reports current enforcement mode as `rate_limit`.
 
+### MVPv2.2 (mTLS gateway identity)
+
+- HAProxy proxy backend now supports optional mTLS on the Clawgress TLS gateway listener.
+- New CLI policy keys:
+  - `service clawgress policy proxy mtls enable`
+  - `service clawgress policy proxy mtls ca-certificate <absolute-path>`
+  - `service clawgress policy proxy mtls server-certificate <absolute-path>`
+- mTLS enablement requires:
+  - `service clawgress policy proxy mode sni-allowlist`
+  - `service clawgress policy proxy backend haproxy`
+- HAProxy logs include client certificate subject DN (`ssl_c_s_dn`) for per-agent identity attribution.
+
 ## CLI Configuration Examples
 
 ### 1) MVPv1 baseline policy
@@ -96,6 +108,22 @@ set service clawgress policy host agent-1 proxy backend haproxy
 set service clawgress policy host agent-1 proxy domain api.openai.com
 set service clawgress policy host agent-1 exfil domain api.openai.com bytes 1048576
 set service clawgress policy host agent-1 exfil domain api.openai.com period hour
+commit
+save
+exit
+```
+
+### 4) MVPv2.2 mTLS-enabled proxy gateway
+
+```bash
+configure
+set service clawgress enable
+set service clawgress policy proxy mode sni-allowlist
+set service clawgress policy proxy backend haproxy
+set service clawgress policy proxy domain api.openai.com
+set service clawgress policy proxy mtls enable
+set service clawgress policy proxy mtls ca-certificate /config/auth/agents-ca.pem
+set service clawgress policy proxy mtls server-certificate /config/auth/proxy.pem
 commit
 save
 exit

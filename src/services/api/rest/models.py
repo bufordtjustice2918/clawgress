@@ -283,6 +283,40 @@ class ClawgressPolicyModel(ApiModel):
                 )
 
     @classmethod
+    def _validate_proxy(cls, proxy: Any, field_name: str) -> None:
+        if proxy is None:
+            return
+        if not isinstance(proxy, dict):
+            raise ValueError(f'{field_name} must be an object')
+        mode = proxy.get('mode')
+        if mode is not None and mode not in ('disabled', 'sni-allowlist'):
+            raise ValueError(f'{field_name}.mode must be "disabled" or "sni-allowlist"')
+        backend = proxy.get('backend')
+        if backend is not None and backend not in ('none', 'haproxy'):
+            raise ValueError(f'{field_name}.backend must be "none" or "haproxy"')
+        cls._validate_domains(proxy.get('domains'), f'{field_name}.domains')
+
+        mtls = proxy.get('mtls')
+        if mtls is None:
+            return
+        if not isinstance(mtls, dict):
+            raise ValueError(f'{field_name}.mtls must be an object')
+        enabled = mtls.get('enabled', False)
+        if not isinstance(enabled, bool):
+            raise ValueError(f'{field_name}.mtls.enabled must be a boolean')
+        ca_certificate = mtls.get('ca_certificate')
+        server_certificate = mtls.get('server_certificate')
+        if ca_certificate is not None and (not isinstance(ca_certificate, str) or not ca_certificate.startswith('/')):
+            raise ValueError(f'{field_name}.mtls.ca_certificate must be an absolute path')
+        if server_certificate is not None and (not isinstance(server_certificate, str) or not server_certificate.startswith('/')):
+            raise ValueError(f'{field_name}.mtls.server_certificate must be an absolute path')
+        if enabled:
+            if backend != 'haproxy' or mode != 'sni-allowlist':
+                raise ValueError(f'{field_name}.mtls requires proxy mode "sni-allowlist" and backend "haproxy"')
+            if not ca_certificate or not server_certificate:
+                raise ValueError(f'{field_name}.mtls requires ca_certificate and server_certificate when enabled')
+
+    @classmethod
     def _validate_hosts(cls, hosts: Any, field_name: str) -> None:
         if hosts is None:
             return
@@ -320,21 +354,7 @@ class ClawgressPolicyModel(ApiModel):
 
             proxy = host_cfg.get('proxy')
             if proxy is not None:
-                if not isinstance(proxy, dict):
-                    raise ValueError(f'{field_name}.{host_name}.proxy must be an object')
-                mode = proxy.get('mode')
-                if mode is not None and mode not in ('disabled', 'sni-allowlist'):
-                    raise ValueError(
-                        f'{field_name}.{host_name}.proxy.mode must be '
-                        f'"disabled" or "sni-allowlist"'
-                    )
-                backend = proxy.get('backend')
-                if backend is not None and backend not in ('none', 'haproxy'):
-                    raise ValueError(
-                        f'{field_name}.{host_name}.proxy.backend must be '
-                        f'"none" or "haproxy"'
-                    )
-                cls._validate_domains(proxy.get('domains'), f'{field_name}.{host_name}.proxy.domains')
+                cls._validate_proxy(proxy, f'{field_name}.{host_name}.proxy')
 
             cls._validate_time_window(host_cfg.get('time_window'), f'{field_name}.{host_name}.time_window')
             cls._validate_domain_time_windows(
@@ -383,15 +403,7 @@ class ClawgressPolicyModel(ApiModel):
 
         proxy = policy.get('proxy')
         if proxy is not None:
-            if not isinstance(proxy, dict):
-                raise ValueError('policy.proxy must be an object')
-            mode = proxy.get('mode')
-            if mode is not None and mode not in ('disabled', 'sni-allowlist'):
-                raise ValueError('policy.proxy.mode must be "disabled" or "sni-allowlist"')
-            backend = proxy.get('backend')
-            if backend is not None and backend not in ('none', 'haproxy'):
-                raise ValueError('policy.proxy.backend must be "none" or "haproxy"')
-            cls._validate_domains(proxy.get('domains'), 'policy.proxy.domains')
+            cls._validate_proxy(proxy, 'policy.proxy')
 
         limits = policy.get('limits')
         if limits is not None:
@@ -434,7 +446,12 @@ class ClawgressPolicyModel(ApiModel):
                     'proxy': {
                         'mode': 'sni-allowlist',
                         'backend': 'none',
-                        'domains': ['api.openai.com']
+                        'domains': ['api.openai.com'],
+                        'mtls': {
+                            'enabled': False,
+                            'ca_certificate': '/config/auth/agents-ca.pem',
+                            'server_certificate': '/config/auth/proxy.pem',
+                        },
                     },
                     'hosts': {
                         'agent-1': {

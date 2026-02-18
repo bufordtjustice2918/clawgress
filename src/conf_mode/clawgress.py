@@ -190,10 +190,23 @@ def verify(clawgress):
         if isinstance(proxy_cfg, dict):
             backend = proxy_cfg.get('backend')
             mode = proxy_cfg.get('mode')
+            mtls_cfg = proxy_cfg.get('mtls', {}) if isinstance(proxy_cfg.get('mtls'), dict) else {}
+            mtls_enabled = bool(mtls_cfg.get('enable') or mtls_cfg.get('enabled'))
             if backend == 'nginx':
                 raise ConfigError('proxy backend "nginx" is not supported in MVPv2.1')
             if backend == 'haproxy' and mode != 'sni-allowlist':
                 raise ConfigError('proxy backend requires "proxy mode sni-allowlist"')
+            if mtls_enabled:
+                if backend != 'haproxy' or mode != 'sni-allowlist':
+                    raise ConfigError('proxy mtls requires "proxy backend haproxy" and "proxy mode sni-allowlist"')
+                ca_certificate = mtls_cfg.get('ca_certificate')
+                server_certificate = mtls_cfg.get('server_certificate')
+                if not ca_certificate or not server_certificate:
+                    raise ConfigError('proxy mtls requires both ca-certificate and server-certificate')
+                if not os.path.isfile(str(ca_certificate)):
+                    raise ConfigError(f'proxy mtls ca-certificate not found: {ca_certificate}')
+                if not os.path.isfile(str(server_certificate)):
+                    raise ConfigError(f'proxy mtls server-certificate not found: {server_certificate}')
 
 
 def generate(clawgress):
@@ -256,6 +269,14 @@ def generate(clawgress):
         }
         if proxy_backend in ('none', 'haproxy'):
             policy['proxy']['backend'] = proxy_backend
+        proxy_mtls = proxy_config.get('mtls', {}) if isinstance(proxy_config.get('mtls'), dict) else {}
+        mtls_enabled = bool(proxy_mtls.get('enable') or proxy_mtls.get('enabled'))
+        if mtls_enabled or proxy_mtls.get('ca_certificate') or proxy_mtls.get('server_certificate'):
+            policy['proxy']['mtls'] = {
+                'enabled': mtls_enabled,
+                'ca_certificate': proxy_mtls.get('ca_certificate'),
+                'server_certificate': proxy_mtls.get('server_certificate'),
+            }
 
     hosts_config = policy_config.get('host', {})
     if hosts_config:

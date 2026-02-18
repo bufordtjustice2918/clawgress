@@ -196,6 +196,35 @@
                       <multi/>
                     </properties>
                   </leafNode>
+                  <node name="mtls">
+                    <properties>
+                      <help>Mutual TLS controls for HAProxy proxy backend</help>
+                    </properties>
+                    <children>
+                      <leafNode name="enable">
+                        <properties>
+                          <help>Require client certificate authentication on proxy listener</help>
+                          <valueless/>
+                        </properties>
+                      </leafNode>
+                      <leafNode name="ca-certificate">
+                        <properties>
+                          <help>CA certificate path used to validate client certificates</help>
+                          <constraint>
+                            <regex>^/.*$</regex>
+                          </constraint>
+                        </properties>
+                      </leafNode>
+                      <leafNode name="server-certificate">
+                        <properties>
+                          <help>Server certificate path presented by proxy listener</help>
+                          <constraint>
+                            <regex>^/.*$</regex>
+                          </constraint>
+                        </properties>
+                      </leafNode>
+                    </children>
+                  </node>
                 </children>
               </node>
               <tagNode name="host">

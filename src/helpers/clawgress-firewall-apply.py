@@ -307,11 +307,26 @@ def resolve_proxy_settings(proxy, allow):
     proxy_backend = str(proxy.get('backend') or 'none').strip().lower()
     if proxy_backend not in PROXY_BACKENDS:
         proxy_backend = 'none'
+    proxy_mtls = {
+        'enabled': False,
+        'ca_certificate': None,
+        'server_certificate': None,
+    }
+    mtls = proxy.get('mtls')
+    if isinstance(mtls, dict):
+        enabled = bool(mtls.get('enabled') or mtls.get('enable'))
+        ca_certificate = mtls.get('ca_certificate')
+        server_certificate = mtls.get('server_certificate')
+        proxy_mtls = {
+            'enabled': enabled,
+            'ca_certificate': str(ca_certificate).strip() if ca_certificate else None,
+            'server_certificate': str(server_certificate).strip() if server_certificate else None,
+        }
     sni_domains = []
     if proxy_mode == 'sni-allowlist':
         domain_source = proxy.get('domains') or allow.get('domains', [])
         sni_domains = normalize_sni_domains(domain_source)
-    return proxy_mode, sni_domains, proxy_backend
+    return proxy_mode, sni_domains, proxy_backend, proxy_mtls
 
 
 def render_allow_rules(lines, v4, v6, ports, sni_domains, limit_clause,
@@ -354,14 +369,39 @@ def _normalize_backend_domains(domains):
     return sorted(set(normalized))
 
 
-def render_haproxy_cfg(domains, policy_hash='') -> str:
+def render_haproxy_cfg(domains, policy_hash='', mtls=None) -> str:
+    mtls = mtls or {}
+    mtls_enabled = bool(mtls.get('enabled'))
+    ca_certificate = mtls.get('ca_certificate')
+    server_certificate = mtls.get('server_certificate')
+    if mtls_enabled and (not ca_certificate or not server_certificate):
+        raise ValueError('mtls requires both ca_certificate and server_certificate paths')
+
+    frontend_bind_v4 = f'bind 0.0.0.0:{HAPROXY_LISTEN_PORT}'
+    frontend_bind_v6 = f'bind [::]:{HAPROXY_LISTEN_PORT} v6only'
+    backend_server_suffix = ''
+    if mtls_enabled:
+        frontend_bind_v4 += f' ssl crt {server_certificate} ca-file {ca_certificate} verify required'
+        frontend_bind_v6 += f' ssl crt {server_certificate} ca-file {ca_certificate} verify required'
+        # Re-encrypt upstream after terminating client TLS for mTLS authentication.
+        backend_server_suffix = f' ssl verify none sni str({{domain}})'
+    log_format = f'clawgress_sni src=%ci sni=%[var(txn.clawgress_sni)] policy={policy_hash}'
+    if mtls_enabled:
+        log_format += ' client_dn=%[ssl_c_s_dn]'
+
     backend_lines = []
     for idx, domain in enumerate(domains, start=1):
         backend_name = f'clawgress_bk_{idx}'
+        server_line = (
+            f'    server sni_target {domain}:443 resolvers clawgress_dns '
+            'init-addr libc,none resolve-prefer ipv4'
+        )
+        if mtls_enabled:
+            server_line += backend_server_suffix.format(domain=domain)
         backend_lines.extend([
             f'backend {backend_name}',
             '    mode tcp',
-            f'    server sni_target {domain}:443 resolvers clawgress_dns init-addr libc,none resolve-prefer ipv4',
+            server_line,
             '',
         ])
 
@@ -392,8 +432,8 @@ resolvers clawgress_dns
     accepted_payload_size 8192
 
 frontend clawgress_tls_sni
-    bind 0.0.0.0:{HAPROXY_LISTEN_PORT}
-    bind [::]:{HAPROXY_LISTEN_PORT} v6only
+    {frontend_bind_v4}
+    {frontend_bind_v6}
     mode tcp
     option tcplog
     tcp-request inspect-delay 5s
@@ -401,7 +441,7 @@ frontend clawgress_tls_sni
     tcp-request content accept if {{ req.ssl_hello_type 1 }}
     acl clawgress_sni_found var(txn.clawgress_sni) -m found
     acl clawgress_sni_allowed var(txn.clawgress_sni) -m str -f {HAPROXY_ALLOWLIST}
-    log-format "clawgress_sni src=%ci sni=%[var(txn.clawgress_sni)] policy={policy_hash}"
+    log-format "{log_format}"
     tcp-request content reject if clawgress_sni_found !clawgress_sni_allowed
     use_backend %[var(txn.clawgress_sni),map({HAPROXY_BACKEND_MAP},clawgress_reject)]
     default_backend clawgress_reject
@@ -447,12 +487,25 @@ def disable_haproxy_backend():
     call('systemctl daemon-reload >/dev/null 2>&1 || true')
 
 
-def apply_haproxy_backend(domains, policy_hash='') -> bool:
+def apply_haproxy_backend(domains, policy_hash='', mtls=None) -> bool:
     domains = _normalize_backend_domains(domains)
     if not domains:
         return False
+    mtls = mtls or {}
+    if mtls.get('enabled'):
+        ca_certificate = mtls.get('ca_certificate')
+        server_certificate = mtls.get('server_certificate')
+        if not ca_certificate or not server_certificate:
+            print('ERROR: Clawgress mTLS requires ca_certificate and server_certificate paths.')
+            return False
+        if not os.path.isfile(ca_certificate):
+            print(f'ERROR: Clawgress mTLS CA certificate not found: {ca_certificate}')
+            return False
+        if not os.path.isfile(server_certificate):
+            print(f'ERROR: Clawgress mTLS server certificate not found: {server_certificate}')
+            return False
     makedir(HAPROXY_DIR, user='root', group='root')
-    write_file(HAPROXY_CFG, render_haproxy_cfg(domains, policy_hash), user='root', group='root', mode=0o644)
+    write_file(HAPROXY_CFG, render_haproxy_cfg(domains, policy_hash, mtls), user='root', group='root', mode=0o644)
     write_file(HAPROXY_ALLOWLIST, '\n'.join(domains) + '\n', user='root', group='root', mode=0o644)
     map_lines = [f'{domain} clawgress_bk_{idx}' for idx, domain in enumerate(domains, start=1)]
     write_file(HAPROXY_BACKEND_MAP, '\n'.join(map_lines) + '\n', user='root', group='root', mode=0o644)
@@ -580,7 +633,7 @@ def apply_policy(policy_path=None):
     v4, v6 = normalize_ips(allow.get('ips', []))
 
     proxy = policy.get('proxy', {}) or {}
-    proxy_mode, sni_domains, proxy_backend = resolve_proxy_settings(proxy, allow)
+    proxy_mode, sni_domains, proxy_backend, proxy_mtls = resolve_proxy_settings(proxy, allow)
     sni_supported = sni_match_supported()
     proxy_redirect_port = None
     if proxy_backend != 'haproxy':
@@ -589,7 +642,7 @@ def apply_policy(policy_path=None):
     if proxy_mode == 'sni-allowlist':
         if proxy_backend == 'haproxy':
             backend_domains = _normalize_backend_domains(sni_domains or allow.get('domains', []))
-            if backend_domains and apply_haproxy_backend(backend_domains, policy_hash):
+            if backend_domains and apply_haproxy_backend(backend_domains, policy_hash, proxy_mtls):
                 proxy_redirect_port = HAPROXY_LISTEN_PORT
                 sni_domains = []
             else:
@@ -643,7 +696,10 @@ def apply_policy(policy_path=None):
         host_v4, host_v6 = normalize_ips(merged_allow.get('ips', []))
 
         host_proxy = host_policy.get('proxy', {}) or {}
-        host_proxy_mode, host_sni_domains, _host_proxy_backend = resolve_proxy_settings(host_proxy, merged_allow)
+        host_proxy_mode, host_sni_domains, _host_proxy_backend, _host_proxy_mtls = resolve_proxy_settings(
+            host_proxy,
+            merged_allow,
+        )
         if host_proxy_mode == 'sni-allowlist':
             if host_sni_domains and sni_supported:
                 host_ports = [port for port in host_ports if port != 443]

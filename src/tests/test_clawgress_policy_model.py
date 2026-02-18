@@ -108,6 +108,26 @@ class TestClawgressPolicyModel(unittest.TestCase):
         with self.assertRaises(Exception):
             self.model(**payload)
 
+    def test_accepts_proxy_mtls_with_haproxy(self):
+        payload = self._valid_payload()
+        payload['policy']['proxy']['backend'] = 'haproxy'
+        payload['policy']['proxy']['mtls'] = {
+            'enabled': True,
+            'ca_certificate': '/config/auth/agents-ca.pem',
+            'server_certificate': '/config/auth/proxy.pem',
+        }
+        obj = self.model(**payload)
+        self.assertTrue(obj.policy['proxy']['mtls']['enabled'])
+
+    def test_rejects_proxy_mtls_without_cert_paths(self):
+        payload = self._valid_payload()
+        payload['policy']['proxy']['backend'] = 'haproxy'
+        payload['policy']['proxy']['mtls'] = {
+            'enabled': True
+        }
+        with self.assertRaises(Exception):
+            self.model(**payload)
+
 
 class TestClawgressTelemetryModel(unittest.TestCase):
     @classmethod

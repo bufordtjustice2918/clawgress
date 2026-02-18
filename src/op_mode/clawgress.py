@@ -582,6 +582,9 @@ def _policy_proxy_summary(policy: dict | None) -> dict:
         'backend': 'none',
         'domains': [],
         'host_overrides': 0,
+        'mtls': {
+            'enabled': False,
+        },
     }
     if not isinstance(policy, dict):
         return summary
@@ -597,6 +600,16 @@ def _policy_proxy_summary(policy: dict | None) -> dict:
             summary['backend'] = backend
         if isinstance(domains, list):
             summary['domains'] = domains
+        mtls = proxy.get('mtls')
+        if isinstance(mtls, dict):
+            enabled = bool(mtls.get('enabled') or mtls.get('enable'))
+            summary['mtls'] = {
+                'enabled': enabled,
+            }
+            if mtls.get('ca_certificate'):
+                summary['mtls']['ca_certificate'] = mtls.get('ca_certificate')
+            if mtls.get('server_certificate'):
+                summary['mtls']['server_certificate'] = mtls.get('server_certificate')
 
     hosts = policy.get('hosts') or {}
     if isinstance(hosts, dict):

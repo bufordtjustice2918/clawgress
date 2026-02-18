@@ -115,9 +115,10 @@ class TestClawgressFirewallApply(unittest.TestCase):
         allow = {
             'domains': ['example.com']
         }
-        mode, domains, backend = self.module.resolve_proxy_settings(proxy, allow)
+        mode, domains, backend, mtls = self.module.resolve_proxy_settings(proxy, allow)
         self.assertEqual(mode, 'sni-allowlist')
         self.assertEqual(backend, 'none')
+        self.assertFalse(mtls['enabled'])
         self.assertIn('api.openai.com', domains)
         self.assertIn('*.api.openai.com', domains)
         self.assertNotIn('example.com', domains)
@@ -128,9 +129,29 @@ class TestClawgressFirewallApply(unittest.TestCase):
             'backend': 'haproxy',
             'domains': ['api.openai.com']
         }
-        mode, domains, backend = self.module.resolve_proxy_settings(proxy, {'domains': []})
+        mode, domains, backend, mtls = self.module.resolve_proxy_settings(proxy, {'domains': []})
         self.assertEqual(mode, 'sni-allowlist')
         self.assertEqual(backend, 'haproxy')
+        self.assertFalse(mtls['enabled'])
+        self.assertIn('api.openai.com', domains)
+
+    def test_resolve_proxy_settings_accepts_mtls(self):
+        proxy = {
+            'mode': 'sni-allowlist',
+            'backend': 'haproxy',
+            'domains': ['api.openai.com'],
+            'mtls': {
+                'enabled': True,
+                'ca_certificate': '/config/auth/agents-ca.pem',
+                'server_certificate': '/config/auth/proxy.pem',
+            },
+        }
+        mode, domains, backend, mtls = self.module.resolve_proxy_settings(proxy, {'domains': []})
+        self.assertEqual(mode, 'sni-allowlist')
+        self.assertEqual(backend, 'haproxy')
+        self.assertTrue(mtls['enabled'])
+        self.assertEqual(mtls['ca_certificate'], '/config/auth/agents-ca.pem')
+        self.assertEqual(mtls['server_certificate'], '/config/auth/proxy.pem')
         self.assertIn('api.openai.com', domains)
 
     def test_render_nft_host_policy_rate_limit(self):
@@ -192,3 +213,19 @@ class TestClawgressFirewallApply(unittest.TestCase):
         self.assertIn('clawgress_tls_sni', output)
         self.assertIn('api.openai.com:443', output)
         self.assertIn('api.anthropic.com:443', output)
+
+    def test_render_haproxy_cfg_mtls_enabled(self):
+        output = self.module.render_haproxy_cfg(
+            ['api.openai.com'],
+            'deadbeef',
+            {
+                'enabled': True,
+                'ca_certificate': '/config/auth/agents-ca.pem',
+                'server_certificate': '/config/auth/proxy.pem',
+            },
+        )
+        self.assertIn('verify required', output)
+        self.assertIn('ca-file /config/auth/agents-ca.pem', output)
+        self.assertIn('crt /config/auth/proxy.pem', output)
+        self.assertIn('ssl verify none sni str(api.openai.com)', output)
+        self.assertIn('client_dn=%[ssl_c_s_dn]', output)
