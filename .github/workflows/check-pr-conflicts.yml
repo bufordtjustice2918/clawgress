@@ -1,9 +1,6 @@
 
 name: "PRs Conflict checker"
 on:
-  schedule:
-    # Run every hour to check for PR conflicts
-    - cron: '0 * * * *'
   pull_request_target:
     types: [synchronize, closed]
   workflow_dispatch:  # Allow manual triggering
