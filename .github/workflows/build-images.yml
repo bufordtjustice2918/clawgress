@@ -19,7 +19,11 @@ on:
   schedule:
     # Nightly build at 2 AM UTC to track VyOS upstream
     - cron: '0 2 * * *'
-  # push trigger disabled; use workflow_dispatch only
+  push:
+    branches:
+      - main
+      - mvpv2.1
+      - mvpv2.2
 
 permissions:
   contents: write

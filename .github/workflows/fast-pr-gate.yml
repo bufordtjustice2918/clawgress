@@ -1,0 +1,82 @@
+name: Fast PR Gate
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - main
+      - current
+      - mvpv2.1
+      - mvpv2.2
+
+permissions:
+  contents: read
+
+jobs:
+  workflow-lint:
+    name: Workflow Lint (actionlint)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - name: Install actionlint
+        run: |
+          go install github.com/rhysd/actionlint/cmd/actionlint@latest
+
+      - name: Run actionlint
+        run: |
+          "${HOME}/go/bin/actionlint" -color
+
+  python-sanity:
+    name: Python Sanity (ruff + py_compile)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff
+
+      - name: Ruff check
+        run: |
+          ruff check src scripts
+
+      - name: Python compile check
+        run: |
+          python -m compileall -q src scripts
+
+  shell-sanity:
+    name: Shell Sanity (shellcheck + shfmt)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install shell tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck shfmt
+
+      - name: Lint shell scripts
+        run: |
+          mapfile -t shell_files < <(git ls-files '*.sh')
+          if [ "${#shell_files[@]}" -eq 0 ]; then
+            echo "No shell files found."
+            exit 0
+          fi
+          shellcheck "${shell_files[@]}"
+          shfmt -d "${shell_files[@]}"
