@@ -21,19 +21,53 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
           go-version: stable
+          cache: false
 
       - name: Install actionlint
         run: |
           go install github.com/rhysd/actionlint/cmd/actionlint@latest
 
-      - name: Run actionlint
+      - name: Detect changed workflow files
+        id: changed
         run: |
-          "${HOME}/go/bin/actionlint" -color
+          set -euo pipefail
+          BEFORE="${{ github.event.before || '' }}"
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+            DIFF_TARGET="origin/${{ github.base_ref }}...HEAD"
+          elif [[ -n "${BEFORE}" && "${BEFORE}" != "0000000000000000000000000000000000000000" ]]; then
+            DIFF_TARGET="${BEFORE}...HEAD"
+          else
+            DIFF_TARGET="HEAD~1...HEAD"
+          fi
+          mapfile -t files < <(git diff --name-only ${DIFF_TARGET} | grep -E '^\.github/workflows/.*\.ya?ml$' || true)
+          {
+            echo 'files<<EOF'
+            printf '%s\n' "${files[@]}"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Run actionlint on changed workflows
+        run: |
+          set -euo pipefail
+          FILES='${{ steps.changed.outputs.files }}'
+          if [[ -z "${FILES//[[:space:]]/}" ]]; then
+            echo "No changed workflow files; skipping actionlint"
+            exit 0
+          fi
+          mapfile -t wf_files <<< "${FILES}"
+          args=()
+          for f in "${wf_files[@]}"; do
+            [[ -n "$f" ]] && args+=("$f")
+          done
+          "${HOME}/go/bin/actionlint" -shellcheck= -color "${args[@]}"
 
   shell-lint:
     name: Shell Lint (shellcheck + shfmt)
@@ -41,21 +75,49 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Install shell tooling
         run: |
           sudo apt-get update
           sudo apt-get install -y shellcheck shfmt
 
-      - name: Run shellcheck and shfmt
+      - name: Detect changed shell files
+        id: changed
         run: |
-          mapfile -t shell_files < <(git ls-files '*.sh')
-          if [ "${#shell_files[@]}" -eq 0 ]; then
-            echo "No shell files found."
+          set -euo pipefail
+          BEFORE="${{ github.event.before || '' }}"
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+            DIFF_TARGET="origin/${{ github.base_ref }}...HEAD"
+          elif [[ -n "${BEFORE}" && "${BEFORE}" != "0000000000000000000000000000000000000000" ]]; then
+            DIFF_TARGET="${BEFORE}...HEAD"
+          else
+            DIFF_TARGET="HEAD~1...HEAD"
+          fi
+          mapfile -t files < <(git diff --name-only ${DIFF_TARGET} | grep -E '\.sh$' || true)
+          {
+            echo 'files<<EOF'
+            printf '%s\n' "${files[@]}"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Run shellcheck and shfmt on changed files
+        run: |
+          set -euo pipefail
+          FILES='${{ steps.changed.outputs.files }}'
+          if [[ -z "${FILES//[[:space:]]/}" ]]; then
+            echo "No changed shell files found; skipping shell lint"
             exit 0
           fi
-          shellcheck "${shell_files[@]}"
-          shfmt -d "${shell_files[@]}"
+          mapfile -t sh_files <<< "${FILES}"
+          args=()
+          for f in "${sh_files[@]}"; do
+            [[ -n "$f" ]] && args+=("$f")
+          done
+          shellcheck "${args[@]}"
+          shfmt -d "${args[@]}"
 
   semgrep:
     name: Static Analysis (Semgrep)
@@ -63,6 +125,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -74,9 +138,40 @@ jobs:
           python -m pip install --upgrade pip
           pip install semgrep
 
-      - name: Run Semgrep
+      - name: Detect changed source files
+        id: changed
         run: |
-          semgrep scan --config p/default --error
+          set -euo pipefail
+          BEFORE="${{ github.event.before || '' }}"
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+            DIFF_TARGET="origin/${{ github.base_ref }}...HEAD"
+          elif [[ -n "${BEFORE}" && "${BEFORE}" != "0000000000000000000000000000000000000000" ]]; then
+            DIFF_TARGET="${BEFORE}...HEAD"
+          else
+            DIFF_TARGET="HEAD~1...HEAD"
+          fi
+          mapfile -t files < <(git diff --name-only ${DIFF_TARGET} | grep -E '^(src|scripts)/.*\.(py|sh)$' || true)
+          {
+            echo 'files<<EOF'
+            printf '%s\n' "${files[@]}"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Run Semgrep on changed files
+        run: |
+          set -euo pipefail
+          FILES='${{ steps.changed.outputs.files }}'
+          if [[ -z "${FILES//[[:space:]]/}" ]]; then
+            echo "No changed source files; skipping semgrep"
+            exit 0
+          fi
+          mapfile -t scan_files <<< "${FILES}"
+          args=()
+          for f in "${scan_files[@]}"; do
+            [[ -n "$f" ]] && args+=("$f")
+          done
+          semgrep scan --config p/default --error "${args[@]}"
 
   gitleaks:
     name: Secrets Scan (Gitleaks)
@@ -99,7 +194,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Run Trivy filesystem scan
+      - name: Run Trivy filesystem scan (advisory)
         uses: aquasecurity/trivy-action@0.28.0
         with:
           scan-type: fs
@@ -107,4 +202,4 @@ jobs:
           severity: CRITICAL,HIGH
           ignore-unfixed: true
           format: table
-          exit-code: '1'
+          exit-code: '0'

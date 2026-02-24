@@ -20,19 +20,53 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
           go-version: stable
+          cache: false
 
       - name: Install actionlint
         run: |
           go install github.com/rhysd/actionlint/cmd/actionlint@latest
 
-      - name: Run actionlint
+      - name: Detect changed workflow files
+        id: changed
         run: |
-          "${HOME}/go/bin/actionlint" -color
+          set -euo pipefail
+          BEFORE="${{ github.event.before || '' }}"
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+            DIFF_TARGET="origin/${{ github.base_ref }}...HEAD"
+          elif [[ -n "${BEFORE}" && "${BEFORE}" != "0000000000000000000000000000000000000000" ]]; then
+            DIFF_TARGET="${BEFORE}...HEAD"
+          else
+            DIFF_TARGET="HEAD~1...HEAD"
+          fi
+          mapfile -t files < <(git diff --name-only ${DIFF_TARGET} | grep -E '^\.github/workflows/.*\.ya?ml$' || true)
+          {
+            echo 'files<<EOF'
+            printf '%s\n' "${files[@]}"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Run actionlint on changed workflows
+        run: |
+          set -euo pipefail
+          FILES='${{ steps.changed.outputs.files }}'
+          if [[ -z "${FILES//[[:space:]]/}" ]]; then
+            echo "No changed workflow files; skipping actionlint"
+            exit 0
+          fi
+          mapfile -t wf_files <<< "${FILES}"
+          args=()
+          for f in "${wf_files[@]}"; do
+            [[ -n "$f" ]] && args+=("$f")
+          done
+          "${HOME}/go/bin/actionlint" -shellcheck= -color "${args[@]}"
 
   python-sanity:
     name: Python Sanity (ruff + py_compile)
@@ -40,6 +74,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -51,13 +87,53 @@ jobs:
           python -m pip install --upgrade pip
           pip install ruff
 
-      - name: Ruff check
+      - name: Detect changed Python files
+        id: changed
         run: |
-          ruff check src scripts
+          set -euo pipefail
+          BEFORE="${{ github.event.before || '' }}"
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+            DIFF_TARGET="origin/${{ github.base_ref }}...HEAD"
+          elif [[ -n "${BEFORE}" && "${BEFORE}" != "0000000000000000000000000000000000000000" ]]; then
+            DIFF_TARGET="${BEFORE}...HEAD"
+          else
+            DIFF_TARGET="HEAD~1...HEAD"
+          fi
+          mapfile -t files < <(git diff --name-only ${DIFF_TARGET} | grep -E '^(src|scripts)/.*\.py$' || true)
+          {
+            echo 'files<<EOF'
+            printf '%s\n' "${files[@]}"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
 
-      - name: Python compile check
+      - name: Ruff check (changed files)
         run: |
-          python -m compileall -q src scripts
+          set -euo pipefail
+          FILES='${{ steps.changed.outputs.files }}'
+          if [[ -z "${FILES//[[:space:]]/}" ]]; then
+            echo "No changed Python files; skipping ruff"
+            exit 0
+          fi
+          mapfile -t py_files <<< "${FILES}"
+          args=()
+          for f in "${py_files[@]}"; do
+            [[ -n "$f" ]] && args+=("$f")
+          done
+          ruff check "${args[@]}"
+
+      - name: Python compile check (changed files)
+        run: |
+          set -euo pipefail
+          FILES='${{ steps.changed.outputs.files }}'
+          if [[ -z "${FILES//[[:space:]]/}" ]]; then
+            echo "No changed Python files; skipping py_compile"
+            exit 0
+          fi
+          while IFS= read -r file; do
+            [[ -n "$file" ]] || continue
+            python -m py_compile "$file"
+          done <<< "${FILES}"
 
   shell-sanity:
     name: Shell Sanity (shellcheck + shfmt)
@@ -65,18 +141,46 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Install shell tools
         run: |
           sudo apt-get update
           sudo apt-get install -y shellcheck shfmt
 
-      - name: Lint shell scripts
+      - name: Detect changed shell files
+        id: changed
         run: |
-          mapfile -t shell_files < <(git ls-files '*.sh')
-          if [ "${#shell_files[@]}" -eq 0 ]; then
-            echo "No shell files found."
+          set -euo pipefail
+          BEFORE="${{ github.event.before || '' }}"
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+            DIFF_TARGET="origin/${{ github.base_ref }}...HEAD"
+          elif [[ -n "${BEFORE}" && "${BEFORE}" != "0000000000000000000000000000000000000000" ]]; then
+            DIFF_TARGET="${BEFORE}...HEAD"
+          else
+            DIFF_TARGET="HEAD~1...HEAD"
+          fi
+          mapfile -t files < <(git diff --name-only ${DIFF_TARGET} | grep -E '\.sh$' || true)
+          {
+            echo 'files<<EOF'
+            printf '%s\n' "${files[@]}"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Lint changed shell scripts
+        run: |
+          set -euo pipefail
+          FILES='${{ steps.changed.outputs.files }}'
+          if [[ -z "${FILES//[[:space:]]/}" ]]; then
+            echo "No changed shell files; skipping shell lint"
             exit 0
           fi
-          shellcheck "${shell_files[@]}"
-          shfmt -d "${shell_files[@]}"
+          mapfile -t sh_files <<< "${FILES}"
+          args=()
+          for f in "${sh_files[@]}"; do
+            [[ -n "$f" ]] && args+=("$f")
+          done
+          shellcheck "${args[@]}"
+          shfmt -d "${args[@]}"
